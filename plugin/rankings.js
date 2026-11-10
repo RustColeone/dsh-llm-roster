@@ -76,6 +76,51 @@ export function loadReleased (folder) {
   return best
 }
 
+/** A slug without a date or `-latest` at its end (`claude-3-5-haiku-20241022` is `claude-3-5-haiku`). */
+export const undated = slug => slug.replace(/-(\d{8}|\d{4}-\d{2}-\d{2}|latest)$/, '')
+
+/** The date a model id carries in itself (`claude-3-5-haiku-20241022`, `qwen3.5-plus-2026-04-20`), or null. */
+export function dateInId (id) {
+  const found = /(?:^|[-_/])(20\d{2})-?(0[1-9]|1[0-2])-?(0[1-9]|[12]\d|3[01])(?=$|[-_:])/.exec(String(id))
+  return found ? `${found[1]}-${found[2]}-${found[3]}` : null
+}
+
+/** The day each model with no published date was first seen here (kept in DSH's home, llm-roster/seen.json): a model
+ * newer than every list we have can only have come out since, so the day it showed up stands for its release date
+ * until Artificial Analysis or OpenRouter give one. */
+export class Seen {
+  constructor (folder) {
+    this.file = folder ? path.join(folder, 'seen.json') : null
+    this.dates = {}
+    try {
+      const read = JSON.parse(fs.readFileSync(this.file, 'utf8'))
+      for (const [slug, date] of Object.entries(read?.dates ?? {})) if (/^\d{4}-\d{2}-\d{2}$/.test(date)) this.dates[slug] = date
+    } catch { /* none yet */ }
+  }
+
+  save () {
+    if (!this.file) return
+    fs.mkdirSync(path.dirname(this.file), { recursive: true })
+    const temporary = `${this.file}.${process.pid}.tmp`
+    fs.writeFileSync(temporary, JSON.stringify({ version: 1, dates: this.dates }, null, 1))
+    fs.renameSync(temporary, this.file)
+  }
+
+  /** Note `slugs` as first seen on `day`; the ones seen before keep their day. */
+  stamp (slugs, day) {
+    let changed = false
+    for (const slug of slugs) if (slug && !this.dates[slug]) { this.dates[slug] = day; changed = true }
+    if (changed) this.save()
+  }
+
+  /** Let go of the slugs that now have a published date. */
+  settle (dated) {
+    const before = Object.keys(this.dates).length
+    for (const slug of Object.keys(this.dates)) if (dated(slug)) delete this.dates[slug]
+    if (Object.keys(this.dates).length !== before) this.save()
+  }
+}
+
 /** OpenRouter's release dates as of today (its model list is public: no key). */
 export async function fetchReleased ({ fetch = globalThis.fetch, today = new Date() } = {}) {
   const response = await fetch(OPENROUTER, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(30000) })

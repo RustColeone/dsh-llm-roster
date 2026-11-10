@@ -7,7 +7,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, test } from 'node:test'
 import { dshHome } from '../plugin/index.js'
 import { balance, check, keyFor, liveModels } from '../plugin/providers.js'
-import { compact, load, loadReleased, releasedDates, slugOf, split } from '../plugin/rankings.js'
+import { compact, dateInId, load, loadReleased, releasedDates, slugOf, split } from '../plugin/rankings.js'
 import { bundledArt, CHARACTERS, characterOf, lineup, Roster, tierOf, validArt, validFace } from '../plugin/roster.js'
 import { createRoster, ROUTES, serve, spelled } from '../plugin/server.js'
 
@@ -179,7 +179,7 @@ describe('rankings', () => {
       { provider: 'my-gateway', id: 'nothing-known' }])
     assert.equal(sol.released, '2026-09-29') // Artificial Analysis's
     assert.equal(kimi.released, '2026-04-20') // OpenRouter's (shipped snapshot)
-    assert.equal(mine.released, null)
+    assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(mine.released) && mine.releasedSeen) // no published date: first seen today
     assert.equal(work.state().rankings.released_as_of, loadReleased(folder).as_of)
     const newest = work.top(5, 'released').rows
     assert.ok(newest.every((row, index) => index === 0 || row.released <= newest[index - 1].released))
@@ -195,6 +195,30 @@ describe('rankings', () => {
     const again = createRoster(folder, { fetch, resolve: async () => undefined, now: () => 0 })
     await assert.rejects(again.refreshRankings(), /no Artificial Analysis key/)
     assert.equal(again.resolve([{ provider: 'openrouter', id: 'moonshotai/kimi-k2.6' }])[0].released, '2026-04-01')
+  })
+  test('a model newer than every list: the day it was first seen, kept, until a published date comes', async () => {
+    let clock = Date.parse('2026-11-11T09:00:00')
+    const work = createRoster(folder, { now: () => clock, resolve: async () => undefined })
+    const first = work.datesFor(['anthropic/claude-fable-5.5', 'claude-3-5-haiku-20241022', 'gpt-6.1-sol', 'x-ai/grok-9:free']).dates
+    assert.deepEqual(first['anthropic/claude-fable-5.5'], { date: '2026-11-11', seen: true })
+    assert.deepEqual(first['claude-3-5-haiku-20241022'], { date: '2024-10-22', seen: false }) // the date in its id
+    assert.deepEqual(first['gpt-6.1-sol'], { date: '2026-09-29', seen: false }) // Artificial Analysis's
+    assert.deepEqual(first['x-ai/grok-9:free'], { date: '2026-11-11', seen: true })
+    // a week later, and after a restart: the same day it was first seen
+    clock = Date.parse('2026-11-18T09:00:00')
+    const later = createRoster(folder, { now: () => clock, resolve: async () => undefined })
+    assert.deepEqual(later.datesFor(['anthropic/claude-fable-5.5']).dates['anthropic/claude-fable-5.5'], { date: '2026-11-11', seen: true })
+    const card = later.resolve([{ provider: 'openrouter', id: 'anthropic/claude-fable-5.5' }])[0]
+    assert.equal(card.released, '2026-11-11'); assert.equal(card.releasedSeen, true)
+    assert.ok(later.releasedDates().seen['claude-fable-5-5'])
+    // OpenRouter lists it: its date wins, and the first-seen day is let go
+    const { fetch } = fakeFetch({ 'https://openrouter.ai/api/v1/models': { data: [{ id: 'anthropic/claude-fable-5.5', created: Date.parse('2026-11-12T12:00:00Z') / 1000 }] } })
+    const settled = createRoster(folder, { fetch, now: () => clock, resolve: async () => undefined })
+    await assert.rejects(settled.refreshRankings(), /no Artificial Analysis key/)
+    assert.deepEqual(settled.datesFor(['anthropic/claude-fable-5.5']).dates['anthropic/claude-fable-5.5'], { date: '2026-11-12', seen: false })
+    assert.equal(JSON.parse(fs.readFileSync(path.join(folder, 'seen.json'), 'utf8')).dates['claude-fable-5-5'], undefined)
+    assert.equal(dateInId('qwen3.8-max-0902'), null) // four digits are no date
+    assert.throws(() => work.datesFor('not a list'), RangeError)
   })
   test('your key: the variable named on the page, then the plugin\'s, then the usual names', async () => {
     const asked = []
@@ -304,6 +328,9 @@ describe('the routes', () => {
     const newest = (await json(await call('GET', `${ROUTES.rankings}?top=3&sort=released`))).body.rows
     assert.ok(newest[0].released >= newest[1].released && newest[1].released >= newest[2].released)
     assert.equal((await json(await call('GET', ROUTES.released))).body.dates['gpt-6-1-sol'], '2026-09-29')
+    assert.deepEqual((await json(await call('POST', ROUTES.released, { body: { ids: ['openai/gpt-6.1-sol'] } }))).body.dates['openai/gpt-6.1-sol'],
+      { date: '2026-09-29', seen: false })
+    assert.equal((await call('POST', ROUTES.released, { body: { ids: 'nope' } })).status, 400)
     assert.equal((await call('POST', ROUTES.forget, { body: { upload: uploaded.body.id } })).status, 200)
     assert.equal((await json(await call('POST', ROUTES.settings, { body: { aaKeyEnv: 'MY_AA' } }))).body.keys[0], 'MY_AA')
     const state = (await json(await call('GET', ROUTES.state))).body

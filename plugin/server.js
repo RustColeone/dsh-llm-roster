@@ -20,14 +20,16 @@
 //     GET  /api/llm-roster.rankings   ?top=20&sort=released: the best models, each once (or the newest)
 //     POST /api/llm-roster.rankings   fetch the release dates again (OpenRouter, public) and the rankings (needs a free
 //                                     Artificial Analysis key)
-//     GET  /api/llm-roster.released   every release date known, by model slug (for the page's lists of models)
+//     GET  /api/llm-roster.released   every release date known, by model slug, and the days models were first seen
+//     POST /api/llm-roster.released   { ids } → { dates: { id: { date, seen } } }: the release dates of a list of models
+//                                     (a model of no published date: the day it was first seen here, kept)
 //     GET  /api/llm-roster.check      ?provider=<route>&ref=<credential reference>&fresh=1: does the key work
 //     GET  /api/llm-roster.balance    ?provider=<route>&ref=<credential reference>
 //     GET  /api/llm-roster.live       ?provider=<route>&ref=<credential reference>: the models the provider lists
 import fs from 'node:fs'
 import path from 'node:path'
 import { balance, check, keyFor, liveModels, offered } from './providers.js'
-import { ALIASES, fetchRankings, fetchReleased, load, loadReleased, slugOf } from './rankings.js'
+import { ALIASES, dateInId, fetchRankings, fetchReleased, load, loadReleased, Seen, slugOf, undated } from './rankings.js'
 import { CHARACTERS, lineup, Roster, TABLE, TIERS } from './roster.js'
 
 export const ROUTES = {
@@ -65,6 +67,25 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
    * spelled as a name (`moonshotai/kimi-k2.6` → `Kimi K2.6`). */
   const nameOf = (model, aa) => aa?.name ? aa.name.replace(/\s*\([^)]*\)\s*$/, '') : spelled(model)
 
+  // A model's release date: Artificial Analysis's; else the day OpenRouter listed it (the id as it is, or without a
+  // date at its end); else the date the id carries; else the day it was first seen here (`seen`), which stands until
+  // one of them gives a date.
+  const seen = new Seen(folder)
+  const today = () => {
+    const day = new Date(now())
+    return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`
+  }
+  const published = (id, aa) => {
+    const slug = slugOf(String(id).split(':')[0])
+    return aa?.released || released.dates[slug] || released.dates[undated(slug)] || dateInId(id) || null
+  }
+  /** The release dates of `ids` (with their Artificial Analysis rows, when known), stamping the ones of no date. */
+  function datesOf (models) {
+    const found = models.map(({ id, aa }) => ({ id, slug: slugOf(String(id).split(':')[0]), date: published(id, aa) }))
+    seen.stamp(found.filter(item => !item.date).map(item => item.slug), today())
+    return found.map(item => item.date ? { date: item.date, seen: false } : { date: seen.dates[item.slug] ?? null, seen: true })
+  }
+
   return {
     roster,
     state: () => ({
@@ -78,14 +99,23 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
     }),
     resolve (models) {
       if (!Array.isArray(models)) throw new RangeError('models is a list of { provider, id }')
-      return models.slice(0, 500).map(({ provider, id }) => {
+      const found = models.slice(0, 500).map(({ provider, id }) => {
         provider = String(provider ?? ''); id = String(id ?? '')
         const { art, own } = roster.artOf(provider, id)
         const [character, tier] = art && !art.startsWith('custom:') ? art.split('/') : [null, null]
         const aa = rankings.of(provider, id, aliases)
-        return { provider, id, art, own, face: roster.faceOf(provider, id, art), character, tier, name: nameOf(id, aa), aa,
-          released: aa?.released || released.dates[slugOf(id.split(':')[0])] || null }
+        return { provider, id, art, own, face: roster.faceOf(provider, id, art), character, tier, name: nameOf(id, aa), aa }
       })
+      const dates = datesOf(found)
+      return found.map((model, index) => ({ ...model, released: dates[index].date, releasedSeen: dates[index].seen }))
+    },
+    /** The release dates of model ids from lists the page sorts (a provider's catalog or live list): `{ id: { date,
+     * seen } }`, stamping the ones of no date as first seen today. */
+    datesFor (ids) {
+      if (!Array.isArray(ids)) throw new RangeError('ids is a list of model ids')
+      const wanted = [...new Set(ids.slice(0, 1000).map(String).filter(id => id && id.length <= 200))]
+      const dates = datesOf(wanted.map(id => ({ id, aa: rankings.of('', id, aliases) })))
+      return { dates: Object.fromEntries(wanted.map((id, index) => [id, dates[index]])) }
     },
     pick: (model, picks) => roster.pick(model, picks),
     upload: (bytes, type, fileName) => roster.upload(bytes, type, fileName),
@@ -105,7 +135,7 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
         const row = rankings.models.get(slugOf(slug))
         if (row?.released) dates[slugOf(model)] = row.released
       }
-      return { as_of: released.as_of, dates }
+      return { as_of: released.as_of, dates, seen: { ...seen.dates } }
     },
     async refreshRankings () {
       // the release dates first: OpenRouter's list is public, so they come again even without an Artificial Analysis key
@@ -115,6 +145,7 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
         fs.writeFileSync(path.join(folder, 'openrouter.json'), JSON.stringify(dates))
         released = loadReleased(folder)
       } catch { /* the dates we have stand */ }
+      seen.settle(slug => Boolean(released.dates[slug] || released.dates[undated(slug)] || rankings.models.has(slug)))
       let key
       for (const reference of aaKeys()) if ((key = await resolve(reference))) break
       if (!key) throw new RangeError(`no Artificial Analysis key: set ${aaKeys()[0]} (a free key from artificialanalysis.ai)`)
@@ -122,6 +153,7 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
       fs.mkdirSync(folder, { recursive: true })
       fs.writeFileSync(path.join(folder, 'aa.json'), JSON.stringify(fetched))
       rankings = load(folder)
+      seen.settle(slug => rankings.models.has(slug))
       return rankings.about
     },
     /** Does the provider's key work: `missing` (none set), or what asking the provider for its usage said. */
@@ -197,7 +229,9 @@ export function serve (connection, work) {
   route(ROUTES.rankings, ['GET', 'POST'], async (request, query) => request.method === 'POST'
     ? answer(await work.refreshRankings())
     : answer(work.top(Math.min(100, Math.max(1, Number(query.get('top')) || 20)), query.get('sort') === 'released' ? 'released' : 'intelligence')))
-  route(ROUTES.released, ['GET'], () => answer(work.releasedDates()))
+  route(ROUTES.released, ['GET', 'POST'], async request => request.method === 'POST'
+    ? answer(work.datesFor((await json(request)).ids))
+    : answer(work.releasedDates()))
   route(ROUTES.check, ['GET'], async (request, query) =>
     answer(await work.check(provider(query), query.get('ref') ?? undefined, query.get('fresh') === '1')))
   route(ROUTES.balance, ['GET'], async (request, query) =>

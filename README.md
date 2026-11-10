@@ -41,10 +41,19 @@ you're signed in to a DeepSeek account in DSH. They then come through the accoun
 you choose the account or the API key instead. You can filter by provider or to available models only.
 
 You can sort by provider, by rank, or by release date. In the release-date sort, newest comes first and each card
-shows its date. A model's release date is Artificial Analysis's where they measure it. Otherwise it is the day
-OpenRouter listed the model, whichever provider you use it through. The plugin ships a snapshot of OpenRouter's dates,
-and **Fetch again** on the Rankings tab updates it (OpenRouter's list is public, so this part needs no key). A
-character's page shows her release date under her name.
+shows its date. A model's release date is, in this order:
+
+1. Artificial Analysis's, where they measure it.
+2. The day OpenRouter listed the model, whichever provider you use it through.
+3. The date written in its id, if there is one (`claude-3-5-haiku-20241022`).
+4. Otherwise, **the day the roster first saw it**, shown with a `~` (`~2026-11-12`). A model in none of the lists we
+   have can only be newer than them, so a "Claude Fable 5.5" turning up tomorrow counts as released tomorrow. That
+   day is kept in your DSH home, so it doesn't move, until Artificial Analysis or OpenRouter publish a date for the
+   model. Their date then replaces it.
+
+The plugin ships snapshots of both lists, and **Fetch again** on the Rankings tab updates them. OpenRouter's list is
+public, so its part needs no key. A character's page shows her release date under her name. One limit: a model that
+OpenRouter has stopped listing, and that carries no date in its id, also gets the day it was first seen.
 
 **A character's page** (the **…** button) has:
 
@@ -165,6 +174,7 @@ The roster keeps its own files in `$DSH_HOME/llm-roster/` (`~/.dsh/llm-roster/`)
 | `art/<id>.<ext>` | the pictures you uploaded |
 | `aa.json` | the rankings, once fetched again |
 | `openrouter.json` | the release dates from OpenRouter, once fetched again |
+| `seen.json` | the day each model with no published release date was first seen (let go once one is published) |
 
 ## How it works
 
@@ -197,7 +207,8 @@ The routes are on DSH's API, behind its sign-in and for its owner only:
 | `POST /api/llm-roster.park` / `unpark` | `{provider, ns, path, profile}` / `{provider}`: a provider set aside by Ignore all, and put back |
 | `POST /api/llm-roster.route` | `{character, provider \| null}`: the provider a character's lineup goes through |
 | `GET /api/llm-roster.image` | `?art=<character>/<tier, face or face-tier>` or `?upload=<id>` |
-| `GET /api/llm-roster.released` | every release date known, by model slug: Artificial Analysis's over OpenRouter's |
+| `GET /api/llm-roster.released` | every release date known, by model slug (Artificial Analysis's over OpenRouter's), and the days models were first seen |
+| `POST /api/llm-roster.released` | `{ids}` → `{dates: {id: {date, seen}}}`: the release dates of a list of models, a model of no published date stamped as first seen today |
 | `GET/POST /api/llm-roster.rankings` | the top models (`?top=`, `&sort=released` for the newest), or fetch the release dates and the rankings again |
 | `GET /api/llm-roster.check` | `?provider=<route>&ref=<credential reference>&fresh=1`: does the key work (`ok`, `missing`, `rejected`, `error`, `untested`) |
 | `GET /api/llm-roster.balance` | `?provider=<route>&ref=<credential reference>` |

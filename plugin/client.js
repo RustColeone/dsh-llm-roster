@@ -61,8 +61,9 @@ window.__ModuleLoader__.load({
       'roster.sort.provider': 'By provider',
       'roster.sort.rank': 'By rank',
       'roster.sort.released': 'By release date',
-      'roster.releasedNote': 'Release dates: Artificial Analysis\'s, else the day OpenRouter listed the model (as of {date}).',
+      'roster.releasedNote': 'Release dates: Artificial Analysis\'s, else the day OpenRouter listed the model (as of {date}); ~ marks the day a newer model was first seen here.',
       'page.released': 'Released {date}',
+      'released.seen': 'First seen here on {date}: no published release date yet',
       'rankings.sort.intelligence': 'By intelligence',
       'rankings.sort.released': 'Newest first',
       'roster.inUse': 'In use',
@@ -252,8 +253,9 @@ window.__ModuleLoader__.load({
       'roster.sort.provider': '按服务商',
       'roster.sort.rank': '按排名',
       'roster.sort.released': '按发布时间',
-      'roster.releasedNote': '发布时间：优先取 Artificial Analysis 的记录，否则取 OpenRouter 上架模型的日期（截至 {date}）。',
+      'roster.releasedNote': '发布时间：优先取 Artificial Analysis 的记录，否则取 OpenRouter 上架模型的日期（截至 {date}）；带 ~ 的是更新的模型在这里首次出现的日期。',
       'page.released': '发布于 {date}',
+      'released.seen': '于 {date} 首次在这里出现：尚无公开的发布日期',
       'rankings.sort.intelligence': '按智能',
       'rankings.sort.released': '最新发布在前',
       'roster.inUse': '使用中',
@@ -492,7 +494,7 @@ window.__ModuleLoader__.load({
       }
     }
     async function loadState () { bump({ state: await get(API.state) }); return shared.state }
-    function forgetResolved () { resolved.clear(); bump({ generation: shared.generation + 1 }) }
+    function forgetResolved () { resolved.clear(); datesById.clear(); bump({ generation: shared.generation + 1 }) }
 
     /** The server's word on these models (re-rendering as it arrives). */
     function useResolved (models) {
@@ -578,19 +580,35 @@ window.__ModuleLoader__.load({
     /** A model id as it is matched across providers: no vendor, lowercase, words joined by dashes (OpenRouter's
      * `anthropic/claude-opus-5.5` is Anthropic's `claude-opus-5-5`). */
     const slugOf = id => bare(id).replace(/[^a-z0-9]+/g, '-')
-    // Release dates by model slug (Artificial Analysis's, else OpenRouter's), for the lists of models the page sorts.
-    let loadingReleased = null
-    function loadReleasedDates () {
-      loadingReleased ??= get(API.released).then(found => { bump({ released: found }); return found })
-        .catch(() => null).finally(() => { loadingReleased = null })
-      return loadingReleased
+    // Release dates of the models in the page's lists, as the server gives them: Artificial Analysis's, else
+    // OpenRouter's, else the date in the id, else the day the model was first seen (`seen`, an estimate it keeps).
+    const datesById = new Map() // id → { date, seen }
+    const askingDates = new Set()
+    async function askDates (ids) {
+      const missing = [...new Set(ids)].filter(id => !datesById.has(id) && !askingDates.has(id)).slice(0, 1000)
+      if (!missing.length) return
+      for (const id of missing) askingDates.add(id)
+      try {
+        const answer = await post(API.released, { ids: missing })
+        for (const [id, about] of Object.entries(answer.dates ?? {})) datesById.set(id, about)
+      } catch { /* no dates: the lists keep their order */ } finally {
+        for (const id of missing) askingDates.delete(id)
+        bump()
+      }
     }
-    /** A model's release date, or null. */
-    function useReleasedDates () {
-      const { released } = useShared()
-      useEffect(() => { if (!released) loadReleasedDates() }, [])
-      return id => released?.dates?.[slugOf(String(id).split(':')[0])] ?? null
+    /** The release dates of `ids` (asked for once): `dateOf(id)` is its date or null, `dateOf.seen(id)` whether that is
+     * only the day it was first seen, and `dateOf.label(id)` the date as shown (`~` before an estimate). */
+    function useReleasedDates (ids = []) {
+      const { generation } = useShared()
+      const key = ids.join('\n')
+      useEffect(() => { if (ids.length) askDates(ids) }, [key, generation])
+      const dateOf = id => datesById.get(id)?.date ?? null
+      dateOf.seen = id => Boolean(datesById.get(id)?.seen)
+      dateOf.label = id => dateOf(id) ? `${dateOf.seen(id) ? '~' : ''}${dateOf(id)}` : null
+      return dateOf
     }
+    /** A release date as shown: `~` before the day a model was only first seen. */
+    const dateLabel = (date, seen) => date ? `${seen ? '~' : ''}${date}` : null
     /** Models newest first (by `dateOf`), the ones of no known date last, then by id. */
     const newestFirst = dateOf => (one, other) => String(dateOf(other.id) ?? '').localeCompare(String(dateOf(one.id) ?? '')) ||
       String(one.id).localeCompare(String(other.id))
@@ -764,7 +782,8 @@ window.__ModuleLoader__.load({
         h('span', { className: 'lr-card-name' }, name),
         h('span', { className: 'lr-card-meta' },
           h('span', null, card.providerName),
-          sort === 'released' ? h('span', { className: 'lr-date' }, found?.released ?? '—')
+          sort === 'released' ? h('span', { className: 'lr-date', title: found?.releasedSeen ? t('released.seen', { date: found.released }) : undefined },
+            dateLabel(found?.released, found?.releasedSeen) ?? '—')
             : aa ? h('span', { title: t('roster.rank', { rank: aa.rank, of: aa.of }) }, `AA ${aa.intelligence} · #${aa.rank}`) : null))),
       h('button', { type: 'button', className: 'lr-more', title: t('roster.more'), 'aria-label': `${t('roster.more')}: ${name}`,
         onClick: () => onMore(card) }, '…'))
@@ -1075,7 +1094,8 @@ window.__ModuleLoader__.load({
                 h('div', { className: 'lr-card-who lr-who-dark' }, whoOf(found, state, t) ?? card.providerName),
                 h('h2', { className: 'lr-character-name' }, name),
                 h('div', { className: 'lr-dim' }, `${card.providerName} · `, h('code', null, card.id)),
-                found?.released ? h('div', { className: 'lr-dim lr-date' }, t('page.released', { date: found.released })) : null)),
+                found?.released ? h('div', { className: 'lr-dim lr-date' }, found.releasedSeen ? t('released.seen', { date: found.released })
+                  : t('page.released', { date: found.released })) : null)),
             h('div', { className: 'lr-status-line', 'data-status': card.status },
               inSession ? t('page.inUse') : t(`status.${card.status}`)),
             routes?.length > 1 ? h('div', { className: 'lr-field' },
@@ -1181,7 +1201,8 @@ window.__ModuleLoader__.load({
       const [typed, setTyped] = useState(proposals.join(', '))
       const [busy, setBusy] = useState(false)
       const [failure, setFailure] = useState(null)
-      const dateOf = useReleasedDates()
+      const dateOf = useReleasedDates((found ?? []).map(model => model.id))
+      const shownFound = found ? [...found].sort(newestFirst(dateOf)) : null
       const id = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 63)
       const validURL = /^https?:\/\/\S+$/i.test(baseURL.trim())
       const run = async work => {
@@ -1192,7 +1213,7 @@ window.__ModuleLoader__.load({
         if (!validURL) throw new Error(t('compat.badURL'))
         const models = unwrap(await remote.llm.discoverModels('llm-pi-ai', { baseURL: baseURL.trim(), api: 'openai-completions',
           ...(key.trim() ? { apiKey: key.trim() } : {}) }))
-        setFound([...models].sort(newestFirst(dateOf)))
+        setFound(models)
         const wanted = new Set(proposals.map(slugOf))
         setChosen(new Set(models.filter(model => wanted.has(slugOf(model.id))).map(model => model.id)))
       })
@@ -1233,9 +1254,10 @@ window.__ModuleLoader__.load({
         h('div', { className: 'lr-row' },
           h('button', { type: 'button', className: 'lr-button lr-small', disabled: busy || !validURL, onClick: find }, t('compat.find')),
           found ? h('span', { className: 'lr-dim' }, t('compat.found', { count: found.length })) : null),
-        found ? h('div', { className: 'lr-pills' }, found.slice(0, 200).map(model => h('button', { key: model.id, type: 'button',
-          className: `lr-pill ${chosen.has(model.id) ? 'lr-used lr-static' : 'lr-ignored'}`, onClick: () => toggle(model.id) }, model.id,
-          dateOf(model.id) ? h('span', { className: 'lr-pill-date' }, dateOf(model.id)) : null)))
+        shownFound ? h('div', { className: 'lr-pills' }, shownFound.slice(0, 200).map(model => h('button', { key: model.id, type: 'button',
+          className: `lr-pill ${chosen.has(model.id) ? 'lr-used lr-static' : 'lr-ignored'}`, onClick: () => toggle(model.id),
+          title: dateOf.seen(model.id) ? t('released.seen', { date: dateOf(model.id) }) : undefined }, model.id,
+          dateOf(model.id) ? h('span', { className: 'lr-pill-date' }, dateOf.label(model.id)) : null)))
           : h('label', { className: 'lr-field' }, h('span', { className: 'lr-label' }, t('compat.models')),
             h('input', { className: 'lr-input lr-mono', value: typed, onChange: event => setTyped(event.target.value) })),
         failure ? h('div', { className: 'lr-error', role: 'alert' }, failure) : null,
@@ -1260,7 +1282,8 @@ window.__ModuleLoader__.load({
       const [found, setFound] = useState([])
       const [busy, setBusy] = useState(false)
       const [failure, setFailure] = useState(null)
-      const dateOf = useReleasedDates()
+      const dateOf = useReleasedDates(found.map(model => model.id))
+      const suggestions = [...found].sort(newestFirst(dateOf)) // (the suggestions open on the newest)
       useEffect(() => {
         if (!provider && options.length) setProvider((options.find(entry => providerInfo(providers, entry.provider).configured) ?? options[0]).provider)
       }, [options.length])
@@ -1273,7 +1296,7 @@ window.__ModuleLoader__.load({
         const models = live
           ? (await get(`${API.live}?provider=${encodeURIComponent(provider)}&ref=${encodeURIComponent(info.ref)}`)).models
           : unwrap(await remote.llm.discoverModels(info.entry.settingsNs, { provider }))
-        setFound([...models].sort(newestFirst(dateOf))) // (the suggestions open on the newest)
+        setFound(models)
       })
       const save = () => run(async () => {
         const id = model.trim()
@@ -1305,8 +1328,8 @@ window.__ModuleLoader__.load({
             h('div', { className: 'lr-row' },
               h('input', { className: 'lr-input lr-mono', list: 'lr-add-models', placeholder: t('add.modelHint'), value: model,
                 onChange: event => setModel(event.target.value) }),
-              h('datalist', { id: 'lr-add-models' }, found.map(item => h('option', { key: item.id, value: item.id },
-                [item.name ?? item.id, dateOf(item.id)].filter(Boolean).join(' · ')))),
+              h('datalist', { id: 'lr-add-models' }, suggestions.map(item => h('option', { key: item.id, value: item.id },
+                [item.name ?? item.id, dateOf.label(item.id)].filter(Boolean).join(' · ')))),
               h('button', { type: 'button', className: 'lr-button lr-small', disabled: busy || !info.entry, onClick: () => fetchModels(false) }, t('fetch.catalog')),
               state?.providers?.[provider]?.models ? h('button', { type: 'button', className: 'lr-button lr-small', disabled: busy,
                 title: t('fetch.liveTitle'), onClick: () => fetchModels(true) }, t('fetch.live')) : null),
@@ -1336,7 +1359,7 @@ window.__ModuleLoader__.load({
       const [failure, setFailure] = useState(null)
       const [faceFor, setFaceFor] = useState(null)
       const [order, setOrder] = useState('released')
-      const dateOf = useReleasedDates()
+      const dateOf = useReleasedDates((found ?? []).map(model => model.id))
       const [removing, setRemoving] = useState(false)
       const [dropKey, setDropKey] = useState(false)
       const run = async work => {
@@ -1455,8 +1478,9 @@ window.__ModuleLoader__.load({
               className: `lr-chip${order === id ? ' lr-on' : ''}`, onClick: () => setOrder(id) }, t(`ignored.sort.${id}`))))) : null,
           ignored.length ? h('div', { className: 'lr-pills' }, shownIgnored.slice(0, 150).map(model => h('button', {
             key: model.id, type: 'button', className: 'lr-pill lr-ignored', disabled: busy || !info.writable,
-            title: [model.name ?? model.id, dateOf(model.id)].filter(Boolean).join(' · '), onClick: () => move(model.id, true)
-          }, model.id, dateOf(model.id) ? h('span', { className: 'lr-pill-date' }, dateOf(model.id)) : null,
+            title: [model.name ?? model.id, dateOf.seen(model.id) ? t('released.seen', { date: dateOf(model.id) }) : dateOf(model.id)]
+              .filter(Boolean).join(' · '), onClick: () => move(model.id, true)
+          }, model.id, dateOf(model.id) ? h('span', { className: 'lr-pill-date' }, dateOf.label(model.id)) : null,
           model.live && !(found ?? []).some(item => item.id === model.id && item.live === false)
             ? h('span', { className: 'lr-new' }, t('fetch.newTag')) : null)),
           shownIgnored.length > 150 ? h('span', { className: 'lr-dim' }, t('ignored.more', { count: shownIgnored.length - 150 })) : null)
@@ -1611,8 +1635,8 @@ window.__ModuleLoader__.load({
         try { await post(API.rankings, {}) } catch (error) {
           setFailure(`${t('failed', { error: errorText(error) })} ${t('rankings.needKey')}`)
         } finally {
-          bump({ released: null }) // (the release dates come again even without a key)
-          await Promise.all([load(), loadState(), loadReleasedDates()]).catch(() => {}); forgetResolved()
+          // the release dates come again even without a key (and the dates of every list are asked again)
+          await Promise.all([load(), loadState()]).catch(() => {}); forgetResolved()
           setBusy(false)
         }
       }
