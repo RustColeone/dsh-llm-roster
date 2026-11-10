@@ -178,9 +178,20 @@ Order's published summon rates:
   another. You can add a pickup ★4, which is 1.5% of its 3%.
 - If the pickup ★5 hasn't come in 329 summons on its banner, the 330th is it, once per banner.
 
-Before the cards are dealt, a ring gathers light: rainbow for a ★5 character, gold for a ★4 character or ★5
-equipment. A click skips it, and the animation is off when your system asks for reduced motion. Each card you get
-goes into the album, and a summoned character opens its page.
+A summon plays out in two beats:
+
+1. **The charge.** The stars rush past and tokens stream into a ring that draws itself in. At the core, the ring's
+   light turns with a shockwave: rainbow, with rays, for a ★5 character; gold for a ★4 character or ★5 equipment.
+   Then it bursts into a flash.
+2. **The deal.** The cards fly out of the ring face down, their backs already glowing with what they are. They flip
+   one by one, and a light sweeps each card. A ★4 or ★5 pops and throws off stars, and a ★5 keeps a rainbow glow.
+
+A click skips ahead. Each card you get goes into the album, and a summoned character opens its page.
+
+**The feel.** Cards behave like boxed games on a shelf. Under the pointer a card lifts and leans toward it, a
+glossy band and a highlight follow the pointer across it, and ★4 and ★5 cards have a foil that shifts as they lean.
+The same goes for a character's big art, the album and the summon banner, whose art moves a little with the
+pointer. All of this, and every animation, is off when your system asks for reduced motion.
 
 Models & keys and Rankings are also on DSH's Plugins page, under **dsh-llm-roster**.
 

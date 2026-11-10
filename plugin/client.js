@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const module = { exports: {} }
     const imported = require('react')
     const React = typeof imported.createElement === 'function' ? imported : imported.default
-    const { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } = React
+    const { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } = React
     const h = React.createElement
     const dom = require('react-dom')
     const createPortal = dom?.createPortal ?? dom?.default?.createPortal
@@ -268,6 +268,7 @@ window.__ModuleLoader__.load({
       'summon.open': 'Open {name}\'s page',
       'summon.owned': '×{count}',
       'summon.unknown': 'Not summoned yet',
+      'summon.tally': '★5 ×{five} · ★4 ×{four}',
       'equip.context.name': 'Infinite Context',
       'equip.context.text': 'Remembers the whole conversation. Even that part.',
       'equip.nolimit.name': 'No Rate Limit',
@@ -533,6 +534,7 @@ window.__ModuleLoader__.load({
       'summon.open': '打开 {name} 的页面',
       'summon.owned': '×{count}',
       'summon.unknown': '尚未召唤到',
+      'summon.tally': '★5 ×{five} · ★4 ×{four}',
       'equip.context.name': '无限上下文',
       'equip.context.text': '记得整段对话，连那一段也记得。',
       'equip.nolimit.name': '无速率限制',
@@ -922,15 +924,15 @@ window.__ModuleLoader__.load({
       ? `${state?.characters?.[found.character]?.name ?? found.character} · ${t(`tier.${found.tier}`)}`
       : found?.art?.startsWith('custom:') ? t('tier.custom') : null
 
-    function Card ({ card, found, state, current, busy, onPick, onMore, sort, t }) {
+    function Card ({ card, found, state, current, busy, onPick, onMore, sort, index = 0, t }) {
       const rarity = rarityOf(found, state)
       const aa = found?.aa
       const name = card.source === 'catalog' ? card.name : (found?.name ?? card.name ?? card.id)
       const blocked = card.status !== 'ready'
       const hint = { unused: t('status.unusedHint'), nokey: card.provider.startsWith('deepseek') ? t('status.nokeyDeepseek') : t('status.nokeyHint'),
         rejected: t('status.rejectedHint'), absent: t('status.absentHint', { provider: card.providerName }) }[card.status]
-      return h('div', { className: 'lr-card', 'data-rarity': rarity, 'data-current': current ? '' : undefined,
-        'data-status': card.status },
+      return h('div', { className: 'lr-card lr-tilt', 'data-rarity': rarity, 'data-current': current ? '' : undefined,
+        'data-status': card.status, style: { '--n': index } },
       h('button', { type: 'button', className: 'lr-card-main', disabled: busy, title: `${card.providerName} · ${card.id}`,
         onClick: () => (blocked ? onMore(card) : onPick(card)) },
       h('span', { className: 'lr-card-art' }, h(Art, { art: found?.art, label: name })),
@@ -947,7 +949,9 @@ window.__ModuleLoader__.load({
             dateLabel(found?.released, found?.releasedSeen) ?? '—')
             : aa ? h('span', { title: t('roster.rank', { rank: aa.rank, of: aa.of }) }, `AA ${aa.intelligence} · #${aa.rank}`) : null))),
       h('button', { type: 'button', className: 'lr-more', title: t('roster.more'), 'aria-label': `${t('roster.more')}: ${name}`,
-        onClick: () => onMore(card) }, '…'))
+        onClick: () => onMore(card) }, '…'),
+      rarity === 'UR' || rarity === 'SSR' ? h('span', { className: 'lr-holo', 'aria-hidden': 'true' }) : null,
+      h('span', { className: 'lr-gloss', 'aria-hidden': 'true' }))
     }
 
     function Credit ({ state, t }) {
@@ -1008,12 +1012,12 @@ window.__ModuleLoader__.load({
             }, t(`roster.sort.${id}`))))),
         failure ? h('div', { className: 'lr-error', role: 'alert' }, failure) : null,
         h('div', { className: 'lr-grid' },
-          shown.map(card => h(Card, {
-            key: `${card.provider}/${card.id}`, card, found: lookup(card), state, t, busy: busy !== null, sort,
+          shown.map((card, index) => h(Card, {
+            key: `${card.provider}/${card.id}`, card, found: lookup(card), state, t, busy: busy !== null, sort, index,
             current: current?.provider === card.provider && current?.model === card.id,
             onPick: pick, onMore: chosen => onPage({ kind: 'character', card: chosen })
           })),
-          h('button', { type: 'button', className: 'lr-card lr-add-card', onClick: () => onPage({ kind: 'add' }) },
+          h('button', { type: 'button', className: 'lr-card lr-add-card lr-tilt', style: { '--n': shown.length }, onClick: () => onPage({ kind: 'add' }) },
             h('span', { className: 'lr-plus' }, '+'), h('strong', null, t('roster.add')), h('span', null, t('roster.addHint')))),
         Object.entries(hidden).map(([provider, count]) => h('div', { key: provider, className: 'lr-note lr-row lr-between' },
           h('span', null, t('roster.hidden', { count, provider: providerName(provider, snapshot, null) })),
@@ -1238,9 +1242,11 @@ window.__ModuleLoader__.load({
           h('button', { type: 'button', className: 'lr-button lr-small', onClick: onBack }, `‹ ${t('back')}`)),
         h('div', { className: 'lr-character' },
           h('div', { className: 'lr-character-art' },
-            h('div', { className: 'lr-showcase', 'data-rarity': rarity, 'data-status': card.status },
-              h(Art, { art: shownArt, label: name }),
-              h('span', { className: 'lr-rarity lr-rarity-big' }, rarity)),
+            h('div', { className: 'lr-showcase lr-tilt', 'data-rarity': rarity, 'data-status': card.status },
+              h(Art, { key: shownArt ?? '', art: shownArt, label: name, className: 'lr-showcase-art' }),
+              rarity === 'UR' || rarity === 'SSR' ? h('span', { className: 'lr-holo', 'aria-hidden': 'true' }) : null,
+              h('span', { className: 'lr-rarity lr-rarity-big' }, rarity),
+              h('span', { className: 'lr-gloss', 'aria-hidden': 'true' })),
             gallery.length ? h('div', { className: 'lr-gallery' },
               h('span', { className: 'lr-label' }, t('page.gallery')),
               h('div', { className: 'lr-gallery-row' }, gallery.map(picture =>
@@ -1908,12 +1914,64 @@ window.__ModuleLoader__.load({
     }
     function writeSummons (value) { try { localStorage.setItem(SUMMON_KEY, JSON.stringify(value)) } catch { /* kept for this visit only */ } }
     const reducedMotion = () => { try { return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) } catch { return false } }
-    const CHARGE_MS = 2100
+    const CHARGE_MS = 2800
     /** The light the ring gathers before the cards: rainbow for a ★5 character, gold for a ★4 character or ★5 equipment. */
     const glowOf = cards => cards.some(card => card.kind === 'character' && card.stars === 5) ? 'rainbow'
       : cards.some(card => card.kind === 'character' ? card.stars >= 4 : card.stars === 5) ? 'gold' : 'blue'
     const summonName = (card, t) => card.kind === 'character' ? card.name : t(`equip.${card.id}.name`)
 
+    // The stage's particles, the same every time (a number's own noise, so a re-render does not move them): tokens that
+    // stream into the ring, sparks that rise, the tokens written around the ring, the stars a ★4 or ★5 card throws off,
+    // and the banner's twinkles.
+    const noise = n => { const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x) }
+    const GLYPHS = ['{', '}', '<s>', '▁the', 'ing', 'λ', '∑', '01', '#', '→', '✦', '//', '⟩', '▁a', '…', '%', '::', 'π', '</s>', '▁of']
+    const FLYING = GLYPHS.map((text, n) => {
+      const angle = noise(n + 1) * Math.PI * 2, reach = 170 + noise(n + 40) * 160
+      return { text, dx: `${Math.round(Math.cos(angle) * reach)}px`, dy: `${Math.round(Math.sin(angle) * reach * 0.75)}px`, t: `${Math.round(200 + noise(n + 80) * 1300)}ms` }
+    })
+    const SPARKS = Array.from({ length: 28 }, (_, n) => ({ x: `${(noise(n + 200) * 100).toFixed(1)}%`, s: `${(1.5 + noise(n + 300) * 3).toFixed(1)}px`,
+      d: `${(1.8 + noise(n + 400) * 2).toFixed(2)}s`, t: `${(-noise(n + 500) * 3).toFixed(2)}s`, w: `${Math.round((noise(n + 600) - 0.5) * 60)}px` }))
+    const ORBIT = '✦ <s> ▁the ing λ ∑ 01 → { } # ✦ ▁a … % :: π ⟩ </s> '.repeat(2)
+    const BURST = Array.from({ length: 12 }, (_, n) => ({ a: `${Math.round(n * 30 + noise(n + 700) * 16)}deg`, r: `${Math.round(56 + noise(n + 800) * 54)}px` }))
+    const TWINKLES = Array.from({ length: 7 }, (_, n) => ({ x: `${(50 + noise(n + 900) * 48).toFixed(1)}%`, y: `${(8 + noise(n + 950) * 80).toFixed(1)}%`,
+      s: `${Math.round(9 + noise(n + 990) * 9)}px`, t: `${(noise(n + 1030) * 3.2).toFixed(2)}s` }))
+
+    /** The summon's first beat: the stars rush past, tokens stream into a ring that draws itself and charges, its light
+     * turns (rainbow for a ★5 character, gold for a ★4) with a shockwave, and it bursts into a flash. A click skips it. */
+    function ChargeStage ({ round, onSkip, t }) {
+      const prompt = t('summon.prompt', { count: round.count })
+      const layer = name => h('g', { key: name, className: name },
+        h('circle', { className: 'lr-draw', cx: 120, cy: 120, r: 112 }),
+        h('circle', { className: 'lr-ticks lr-spin', cx: 120, cy: 120, r: 103 }),
+        h('g', { className: 'lr-spin-back' }, h('text', null, h('textPath', { href: '#lr-orbit' }, ORBIT))),
+        h('circle', { className: 'lr-thin', cx: 120, cy: 120, r: 72 }),
+        h('circle', { className: 'lr-arcs lr-spin-fast', cx: 120, cy: 120, r: 62 }),
+        h('g', { className: 'lr-spin-slow' },
+          h('rect', { className: 'lr-square', x: 80, y: 80, width: 80, height: 80 }),
+          h('rect', { className: 'lr-square', x: 80, y: 80, width: 80, height: 80, transform: 'rotate(45 120 120)' })))
+      return h('button', { type: 'button', className: 'lr-stage lr-charge', 'data-glow': glowOf(round.cards), onClick: onSkip, title: t('summon.skip') },
+        h('span', { className: 'lr-sky', 'aria-hidden': 'true' }),
+        h('span', { className: 'lr-sparks', 'aria-hidden': 'true' }, SPARKS.map((spark, n) => h('span', {
+          key: n, style: { '--x': spark.x, '--s': spark.s, '--d': spark.d, '--t': spark.t, '--w': spark.w } }))),
+        h('span', { className: 'lr-ring', 'aria-hidden': 'true' },
+          h('span', { className: 'lr-rays' }),
+          h('svg', { className: 'lr-ring-svg', viewBox: '0 0 240 240' },
+            h('defs', null,
+              h('linearGradient', { id: 'lr-prism', x1: '0', y1: '0', x2: '1', y2: '1' },
+                ['#ff5f9e', '#ffd36e', '#7cf2c1', '#8fe3ff', '#b48cff'].map((color, n) => h('stop', { key: n, offset: `${n * 25}%`, stopColor: color }))),
+              h('path', { id: 'lr-orbit', d: 'M120,120 m-87,0 a87,87 0 1,1 174,0 a87,87 0 1,1 -174,0' })),
+            layer('lr-ring-base'), layer('lr-ring-lit')),
+          h('span', { className: 'lr-core' }),
+          h('span', { className: 'lr-shock' }),
+          h('span', { className: 'lr-tokens' }, FLYING.map((token, n) => h('span', {
+            key: n, style: { '--dx': token.dx, '--dy': token.dy, '--t': token.t } }, token.text)))),
+        h('span', { className: 'lr-prompt' }, prompt),
+        h('span', { className: 'lr-thinking' }, t('summon.thinking')),
+        h('span', { className: 'lr-flash', 'aria-hidden': 'true' }))
+    }
+
+    /** A dealt card: it flies out of the ring face down, its back glowing with what it is (gold for ★4, rainbow for
+     * ★5), flips in turn, and a ★4 or ★5 throws off stars as a light sweeps it. */
     function PullCard ({ card, index, state, onOpen, t }) {
       const name = summonName(card, t)
       const character = state?.characters?.[card.character]?.name ?? card.character
@@ -1922,17 +1980,23 @@ window.__ModuleLoader__.load({
       return h(open ? 'button' : 'div', { type: open ? 'button' : undefined, className: `lr-pull lr-pull-${card.kind}`,
         'data-rarity': STAR_RARITY[card.stars], style: { '--i': index }, title: open ? t('summon.open', { name }) : name,
         onClick: open ? () => onOpen(card) : undefined },
-      h('span', { className: 'lr-pull-inner' },
-        h('span', { className: 'lr-pull-back', 'aria-hidden': 'true' }, h('span', null, '✦')),
-        h('span', { className: 'lr-pull-front' },
-          h('span', { className: 'lr-pull-art' }, h(Art, { art: card.art, label: name })),
-          h('span', { className: 'lr-stars', 'aria-label': `★${card.stars}` }, '★'.repeat(card.stars)),
-          card.pity ? h('span', { className: 'lr-new lr-pity' }, t('summon.pityTag'))
-            : card.fresh ? h('span', { className: 'lr-new' }, t('summon.new')) : null,
-          h('span', { className: 'lr-pull-text' },
-            h('span', { className: 'lr-card-who' }, who),
-            h('span', { className: 'lr-card-name' }, name),
-            card.kind === 'equipment' ? h('span', { className: 'lr-pull-effect' }, t(`equip.${card.id}.text`)) : null))))
+      h('span', { className: 'lr-pull-tilt lr-tilt' },
+        h('span', { className: 'lr-pull-inner' },
+          h('span', { className: 'lr-pull-back', 'aria-hidden': 'true' }, h('span', null, '✦')),
+          h('span', { className: 'lr-pull-front' },
+            h('span', { className: 'lr-pull-art' }, h(Art, { art: card.art, label: name })),
+            card.stars >= 4 ? h('span', { className: 'lr-holo', 'aria-hidden': 'true' }) : null,
+            h('span', { className: 'lr-stars', 'aria-label': `★${card.stars}` }, '★'.repeat(card.stars)),
+            card.pity ? h('span', { className: 'lr-new lr-pity' }, t('summon.pityTag'))
+              : card.fresh ? h('span', { className: 'lr-new' }, t('summon.new')) : null,
+            h('span', { className: 'lr-pull-text' },
+              h('span', { className: 'lr-card-who' }, who),
+              h('span', { className: 'lr-card-name' }, name),
+              card.kind === 'equipment' ? h('span', { className: 'lr-pull-effect' }, t(`equip.${card.id}.text`)) : null),
+            h('span', { className: 'lr-sweep', 'aria-hidden': 'true' }))),
+        h('span', { className: 'lr-gloss', 'aria-hidden': 'true' })),
+      card.stars >= 4 ? h('span', { className: 'lr-pull-fx', 'aria-hidden': 'true' },
+        BURST.slice(0, card.stars === 5 ? 12 : 6).map((spark, n) => h('span', { key: n, style: { '--a': spark.a, '--r': spark.r } }, '✦'))) : null)
     }
 
     function SummonTab ({ onOpen, t }) {
@@ -1953,6 +2017,25 @@ window.__ModuleLoader__.load({
         if (round?.phase !== 'charge') return
         const timer = setTimeout(() => setRound(now => (now?.id === round.id ? { ...now, phase: 'reveal' } : now)), reducedMotion() ? 0 : CHARGE_MS)
         return () => clearTimeout(timer)
+      }, [round?.id, round?.phase])
+      // once every card has turned, there is nothing left to skip
+      useEffect(() => {
+        if (round?.phase !== 'reveal' || round.instant || round.settled) return
+        const timer = setTimeout(() => setRound(now => (now?.id === round.id ? { ...now, settled: true } : now)),
+          reducedMotion() ? 0 : round.count * 170 + 2300)
+        return () => clearTimeout(timer)
+      }, [round?.id, round?.phase, round?.instant])
+      // the dealt cards fly out of the ring: each starts at the stage's centre, so each is told how far that is
+      const pulls = useRef(null)
+      useLayoutEffect(() => {
+        const grid = pulls.current
+        const stage = grid?.closest('.lr-stage')?.getBoundingClientRect()
+        if (!grid || !stage?.width || round?.phase !== 'reveal') return
+        for (const card of grid.children) {
+          const box = card.getBoundingClientRect()
+          card.style.setProperty('--dx', `${Math.round(stage.left + stage.width / 2 - box.left - box.width / 2)}px`)
+          card.style.setProperty('--dy', `${Math.round(stage.top + stage.height * 0.45 - box.top - box.height / 2)}px`)
+        }
       }, [round?.id, round?.phase])
 
       const save = next => { setSaved(next); writeSummons(next) }
@@ -1979,25 +2062,18 @@ window.__ModuleLoader__.load({
 
       if (round) {
         const skip = () => setRound(now => ({ ...now, phase: 'reveal', instant: true }))
-        if (round.phase === 'charge') {
-          const prompt = t('summon.prompt', { count: round.count })
-          return h('div', { className: 'lr-summon' },
-            h('button', { type: 'button', className: 'lr-stage lr-charge', 'data-glow': glowOf(round.cards), onClick: skip, title: t('summon.skip') },
-              h('span', { className: 'lr-ring', 'aria-hidden': 'true' },
-                h('span', { className: 'lr-ring-outer' }), h('span', { className: 'lr-ring-inner' }), h('span', { className: 'lr-ring-core' }),
-                h('span', { className: 'lr-ring-pulse' })),
-              h('span', { className: 'lr-prompt', style: { '--n': prompt.length } }, prompt),
-              h('span', { className: 'lr-thinking' }, t('summon.thinking')),
-              h('span', { className: 'lr-flash', 'aria-hidden': 'true' })))
-        }
+        if (round.phase === 'charge') return h('div', { className: 'lr-summon' }, h(ChargeStage, { round, onSkip: skip, t }))
+        const tally = stars => round.cards.filter(card => card.stars === stars).length
         return h('div', { className: 'lr-summon' },
-          h('div', { className: 'lr-stage lr-reveal' },
-            h('div', { key: round.id, className: `lr-pulls${round.count === 1 ? ' lr-pulls-one' : ''}${round.instant ? ' lr-instant' : ''}` },
+          h('div', { className: 'lr-stage lr-reveal', 'data-glow': glowOf(round.cards) },
+            h('span', { className: 'lr-sky', 'aria-hidden': 'true' }),
+            h('div', { key: round.id, ref: pulls, className: `lr-pulls${round.count === 1 ? ' lr-pulls-one' : ''}${round.instant ? ' lr-instant' : ''}` },
               round.cards.map((card, index) => h(PullCard, { key: index, card, index, state, onOpen, t })))),
           h('div', { className: 'lr-row lr-stage-actions' },
             h('button', { type: 'button', className: 'lr-button', onClick: () => setRound(null) }, `‹ ${t('summon.back')}`),
-            !round.instant ? h('button', { type: 'button', className: 'lr-button', onClick: skip }, t('summon.skip')) : null,
+            !round.instant && !round.settled ? h('button', { type: 'button', className: 'lr-button', onClick: skip }, t('summon.skip')) : null,
             h('span', { className: 'lr-spacer' }),
+            h('span', { className: 'lr-tally' }, t('summon.tally', { five: tally(5), four: tally(4) })),
             h('span', { className: 'lr-dim' }, spent),
             buttons))
       }
@@ -2010,9 +2086,13 @@ window.__ModuleLoader__.load({
       const collected = pool.filter(card => owned[card.key]).length
       const rate = (kind, stars) => `${SUMMON.rates.find(([k, s]) => k === kind && s === stars)[2]}%`
       return h('div', { className: 'lr-summon' },
-        pickup5 ? h('div', { className: 'lr-banner', 'data-rarity': 'UR' },
+        pickup5 ? h('div', { className: 'lr-banner lr-tilt', 'data-rarity': 'UR' },
           pickup4 ? h('span', { className: 'lr-banner-art lr-banner-second' }, h(Art, { art: pickup4.art, label: pickup4.name })) : null,
           h('span', { className: 'lr-banner-art' }, h(Art, { art: pickup5.art, label: pickup5.name })),
+          TWINKLES.map((twinkle, n) => h('span', { key: n, className: 'lr-twinkle', 'aria-hidden': 'true',
+            style: { '--x': twinkle.x, '--y': twinkle.y, '--s': twinkle.s, '--t': twinkle.t } }, '✦')),
+          h('span', { className: 'lr-banner-shine', 'aria-hidden': 'true' }),
+          h('span', { className: 'lr-gloss', 'aria-hidden': 'true' }),
           h('div', { className: 'lr-banner-text' },
             h('span', { className: 'lr-banner-label' }, t('summon.banner')),
             h('strong', { className: 'lr-banner-name' }, pickup5.name),
@@ -2057,10 +2137,12 @@ window.__ModuleLoader__.load({
               : h('button', { type: 'button', className: 'lr-button lr-small', disabled: !saved.summons, onClick: () => setConfirming(true) }, t('summon.reset'))),
           h('div', { className: 'lr-album' }, album.map(card => {
             const count = owned[card.key] ?? 0
-            return h('span', { key: card.key, className: `lr-album-tile${count ? '' : ' lr-locked'}`, 'data-rarity': STAR_RARITY[card.stars],
+            return h('span', { key: card.key, className: `lr-album-tile${count ? ' lr-tilt' : ' lr-locked'}`, 'data-rarity': STAR_RARITY[card.stars],
               title: count ? `${summonName(card, t)} · ★${card.stars}` : `${t('summon.unknown')} · ★${card.stars}` },
             h(Art, { art: card.art, label: count ? summonName(card, t) : '?' }),
-            count ? h('span', { className: 'lr-album-count' }, t('summon.owned', { count })) : null)
+            count && card.stars >= 4 ? h('span', { className: 'lr-holo', 'aria-hidden': 'true' }) : null,
+            count ? h('span', { className: 'lr-album-count' }, t('summon.owned', { count })) : null,
+            count ? h('span', { className: 'lr-gloss', 'aria-hidden': 'true' }) : null)
           }))),
         h('div', { className: 'lr-foot' }, h('span', null, t('summon.free'))))
     }
@@ -2129,7 +2211,7 @@ window.__ModuleLoader__.load({
         return h(React.Fragment, null,
           h('button', { type: 'button', className: 'lr-avatar', 'data-rarity': rarity ?? undefined, title: label, 'aria-label': label,
             'data-pending': snapshot.status === 'selecting' ? '' : undefined, onClick: () => setOpen(true) },
-          h(Face, { face: found?.face, label: name ?? '?', size: 24 })),
+          h(Face, { key: found?.face ?? name ?? '', face: found?.face, label: name ?? '?', size: 24 })),
           open ? h(RosterDialog, { remote, directory, available, onClose: () => setOpen(false), t }) : null)
       }
     }
@@ -2162,6 +2244,52 @@ window.__ModuleLoader__.load({
             key: id, type: 'button', className: `lr-tab${tab === id ? ' lr-on' : ''}`, onClick: () => setTab(id)
           }, t(`tab.${id}`)))),
           tab === 'models' ? h(ModelsTab, { remote, directory, t }) : h(RankingsTab, { remote, directory, t }))
+      }
+    }
+
+    /** The cards' feel: a card under the pointer lifts and leans toward it, and a gloss band and a highlight follow the
+     * pointer across it, like a boxed game on a shelf. One listener for the page; an element opts in with `.lr-tilt`
+     * (`--lr-tilt` is how far it leans, in degrees). It writes the pointer's place as `--lr-px`/`--lr-py` (0 to 1) and
+     * the lean as `--lr-rx`/`--lr-ry`, once a frame; the CSS does the rest. Not for touch, nor when the system asks for
+     * less motion. */
+    function installTilt () {
+      let active = null, last = null, frame = 0, most = 10
+      const VARS = ['--lr-px', '--lr-py', '--lr-rx', '--lr-ry']
+      const release = element => { element.removeAttribute('data-lr-tilting'); for (const name of VARS) element.style.removeProperty(name) }
+      const paint = () => {
+        frame = 0
+        if (!active?.isConnected || !last) return
+        const box = active.getBoundingClientRect()
+        if (!box.width || !box.height) return
+        const x = Math.min(1, Math.max(0, (last.clientX - box.left) / box.width))
+        const y = Math.min(1, Math.max(0, (last.clientY - box.top) / box.height))
+        active.style.setProperty('--lr-px', x.toFixed(3))
+        active.style.setProperty('--lr-py', y.toFixed(3))
+        active.style.setProperty('--lr-rx', `${((0.5 - y) * most).toFixed(2)}deg`)
+        active.style.setProperty('--lr-ry', `${((x - 0.5) * most).toFixed(2)}deg`)
+      }
+      const move = event => {
+        if (event.pointerType === 'touch') return
+        const found = event.target?.closest?.('.lr-tilt') ?? null
+        if (found !== active) {
+          if (active) release(active)
+          active = found && !reducedMotion() ? found : null
+          if (active) {
+            most = parseFloat(getComputedStyle(active).getPropertyValue('--lr-tilt')) || 10
+            active.setAttribute('data-lr-tilting', '')
+          }
+        }
+        last = event
+        if (active && !frame) frame = requestAnimationFrame(paint)
+      }
+      const leave = event => { if (!event.relatedTarget && active) { release(active); active = null } }
+      document.addEventListener('pointermove', move, { passive: true })
+      document.addEventListener('pointerout', leave, { passive: true })
+      return () => {
+        document.removeEventListener('pointermove', move)
+        document.removeEventListener('pointerout', leave)
+        if (frame) cancelAnimationFrame(frame)
+        if (active) release(active)
       }
     }
 
@@ -2221,7 +2349,7 @@ window.__ModuleLoader__.load({
 .lr-card[data-rarity=UR]::before, .lr-showcase[data-rarity=UR]::before { content: ''; position: absolute; inset: 0; z-index: 4; pointer-events: none;
   border-radius: inherit; padding: 2px; background: linear-gradient(135deg, #ff5f9e, #ffd36e, #7cf2c1, #8fe3ff, #b48cff, #ff5f9e);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude }
-.lr-card:hover { transform: translateY(-3px); box-shadow: 0 0 0 2px var(--lr-c2), 0 10px 26px rgba(0,0,0,.35) }
+.lr-card:hover { box-shadow: 0 0 0 2px var(--lr-c2), 0 10px 26px rgba(0,0,0,.35) }
 .lr-card[data-current] { box-shadow: 0 0 0 3px var(--lr-c2), 0 0 22px 2px color-mix(in srgb, var(--lr-c2) 70%, transparent) }
 .lr-card-main { position: absolute; inset: 0; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left;
   cursor: pointer; display: block }
@@ -2424,56 +2552,180 @@ window.__ModuleLoader__.load({
   font-size: 18px; font-weight: 800; color: rgba(255,255,255,.4) }
 .lr-album-count { position: absolute; right: 2px; bottom: 2px; padding: 0 4px; border-radius: 4px; font-size: 10px; font-weight: 700;
   color: #fff; background: rgba(0,0,0,.66) }
+/* the cards' feel: lift and lean toward the pointer, a gloss band and a highlight following it (installTilt) */
+.lr-tilt { transform: perspective(900px) rotateX(var(--lr-rx, 0deg)) rotateY(var(--lr-ry, 0deg)) translateY(var(--lr-lift, 0px)) scale(var(--lr-zoom, 1));
+  transition: transform .7s cubic-bezier(.2,.9,.25,1), box-shadow .5s ease }
+.lr-tilt[data-lr-tilting] { --lr-lift: -7px; --lr-zoom: 1.035; z-index: 2; will-change: transform;
+  transition: transform .16s ease-out, box-shadow .3s ease }
+.lr-card.lr-tilt[data-lr-tilting] { box-shadow: 0 0 0 2px var(--lr-c2),
+  calc((var(--lr-px, .5) - .5) * -26px) calc(20px + (var(--lr-py, .5) - .5) * -14px) 34px -10px rgba(0,0,0,.6),
+  0 0 28px -6px color-mix(in srgb, var(--lr-c2) 65%, transparent) }
+.lr-add-card.lr-tilt[data-lr-tilting] { box-shadow: 0 16px 30px -14px rgba(0,0,0,.35) }
+.lr-gloss { position: absolute; inset: 0; z-index: 3; pointer-events: none; border-radius: inherit; overflow: hidden; opacity: 0;
+  transition: opacity .45s ease }
+.lr-tilt[data-lr-tilting] > .lr-gloss { opacity: 1 }
+.lr-gloss::before { content: ''; position: absolute; inset: 0;
+  background: radial-gradient(farthest-corner circle at calc(var(--lr-px, .5) * 100%) calc(var(--lr-py, 0) * 100%),
+    rgba(255,255,255,.26), rgba(255,255,255,.07) 30%, transparent 62%) }
+.lr-gloss::after { content: ''; position: absolute; top: -40%; bottom: -40%; left: 0; width: 34%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.06) 28%, rgba(255,255,255,.34) 50%, rgba(255,255,255,.06) 72%, transparent);
+  transform: translateX(calc(var(--lr-px, -.6) * 294% - 100%)) skewX(-18deg); transition: transform .6s cubic-bezier(.2,.9,.25,1) }
+.lr-holo { position: absolute; inset: 0; z-index: 1; pointer-events: none; border-radius: inherit; mix-blend-mode: color-dodge; opacity: .16;
+  background-image: linear-gradient(115deg, transparent 18%, rgba(255,95,158,.6) 30%, rgba(255,211,110,.6) 38%, rgba(124,242,193,.6) 46%,
+    rgba(143,227,255,.6) 54%, rgba(180,140,255,.6) 62%, transparent 74%);
+  background-size: 260% 260%; background-position: calc(var(--lr-px, .5) * 100%) calc(var(--lr-py, .5) * 100%);
+  transition: opacity .45s ease; animation: lr-holo-drift 7s ease-in-out infinite alternate }
+[data-rarity=SSR] .lr-holo { opacity: .12; background-image: linear-gradient(115deg, transparent 26%, rgba(255,226,140,.75) 42%,
+  rgba(255,255,255,.55) 50%, rgba(255,190,80,.75) 58%, transparent 74%) }
+.lr-tilt[data-lr-tilting] .lr-holo { opacity: .46; animation: none }
+.lr-more { z-index: 6 }
+.lr-showcase.lr-tilt { --lr-tilt: 7 }
+.lr-showcase.lr-tilt[data-lr-tilting] { --lr-lift: -4px; --lr-zoom: 1.015;
+  box-shadow: 0 0 0 3px var(--lr-c, #4a90e2), calc((var(--lr-px, .5) - .5) * -30px) calc(24px + (var(--lr-py, .5) - .5) * -16px) 40px -12px rgba(0,0,0,.55) }
+.lr-showcase-art { animation: lr-fade .45s ease both }
+.lr-album-tile.lr-tilt { --lr-tilt: 16 }
+.lr-album-tile.lr-tilt[data-lr-tilting] { --lr-lift: -3px; --lr-zoom: 1.1; box-shadow: 0 0 0 1.5px var(--lr-c), 0 10px 18px -6px rgba(0,0,0,.55) }
+.lr-banner.lr-tilt { --lr-tilt: 3 }
+.lr-banner.lr-tilt[data-lr-tilting] { --lr-lift: -2px; --lr-zoom: 1.006 }
+.lr-banner-art { translate: calc((var(--lr-px, .5) - .5) * -18px) calc((var(--lr-py, .5) - .5) * -8px); transition: translate .7s cubic-bezier(.2,.9,.25,1) }
+.lr-banner-second { translate: calc((var(--lr-px, .5) - .5) * -7px) calc((var(--lr-py, .5) - .5) * -3px) }
+.lr-banner-shine { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; border-radius: inherit }
+.lr-banner-shine::after { content: ''; position: absolute; top: -30%; bottom: -30%; left: 0; width: 20%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.2), transparent); transform: translateX(-120%) skewX(-18deg);
+  animation: lr-shine 7s 1.2s ease-in-out infinite }
+.lr-twinkle { position: absolute; z-index: 1; left: var(--x); top: var(--y); font-size: var(--s); line-height: 1; color: #fff; pointer-events: none;
+  opacity: 0; text-shadow: 0 0 8px #8fe3ff, 0 0 14px #ff8fd0; animation: lr-twinkle 3.4s var(--t) ease-in-out infinite }
+
+/* the dialog's entrances */
+.lr-overlay { animation: lr-fade .28s ease both }
+.lr-dialog { animation: lr-dialog-in .45s cubic-bezier(.2,.9,.25,1) both }
+.lr-dialog-body > * { animation: lr-fade-up .4s cubic-bezier(.2,.9,.25,1) both }
+.lr-grid > .lr-card { animation: lr-rise .55s calc(min(var(--n, 0), 24) * 24ms) cubic-bezier(.2,.9,.25,1) both }
+.lr-page-character .lr-character-art { animation: lr-from-side .5s cubic-bezier(.2,.9,.25,1) both }
+.lr-page-character .lr-character-info { animation: lr-fade-up .5s .08s cubic-bezier(.2,.9,.25,1) both }
+.lr-avatar { transition: transform .3s cubic-bezier(.3,1.5,.5,1) }
+.lr-avatar:hover { transform: scale(1.12) }
+.lr-avatar:active { transform: scale(.95) }
+.lr-avatar .lr-face { animation: lr-pop-in .5s cubic-bezier(.3,1.6,.5,1) both }
+.lr-thumb, .lr-tile { transition: transform .3s cubic-bezier(.2,.9,.25,1), border-color .2s, box-shadow .3s }
+.lr-thumb:hover, .lr-tile:hover { transform: translateY(-3px); box-shadow: 0 8px 16px -6px rgba(0,0,0,.45) }
+.lr-chip, .lr-tab, .lr-button { transition: background-color .2s, border-color .2s, color .2s, transform .15s, box-shadow .2s, filter .2s }
+.lr-button:active:not(:disabled), .lr-chip:active { transform: scale(.97) }
+.lr-summon-button { position: relative; overflow: hidden }
+.lr-summon-button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 18px -6px rgba(77,107,254,.55) }
+.lr-summon-button:active:not(:disabled) { transform: translateY(0) scale(.97) }
+.lr-summon-button.lr-primary::after { content: ''; position: absolute; top: -20%; bottom: -20%; left: 0; width: 30%; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent); transform: translateX(-150%) skewX(-20deg);
+  animation: lr-shine-button 3.6s 1s ease-in-out infinite }
+
+/* the summon's stage */
 .lr-stage { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
-  width: 100%; min-height: 440px; padding: 18px; box-sizing: border-box; border: 0; border-radius: 14px; overflow: hidden; color: #fff;
-  font: inherit; isolation: isolate;
-  background: radial-gradient(1.5px 1.5px at 12% 18%, rgba(255,255,255,.85), transparent), radial-gradient(1px 1px at 27% 72%, rgba(255,255,255,.7), transparent),
-    radial-gradient(1.5px 1.5px at 44% 12%, rgba(255,255,255,.6), transparent), radial-gradient(1px 1px at 63% 84%, rgba(255,255,255,.75), transparent),
-    radial-gradient(1.5px 1.5px at 78% 22%, rgba(255,255,255,.8), transparent), radial-gradient(1px 1px at 90% 58%, rgba(255,255,255,.6), transparent),
-    radial-gradient(1px 1px at 6% 60%, rgba(255,255,255,.6), transparent), radial-gradient(1.5px 1.5px at 54% 46%, rgba(255,255,255,.35), transparent),
-    radial-gradient(90% 80% at 50% 45%, #1c2b66, #0b1029 68%, #060818) }
+  width: 100%; min-height: 460px; padding: 18px; box-sizing: border-box; border: 0; border-radius: 14px; overflow: hidden; color: #fff;
+  font: inherit; isolation: isolate; --lr-o: #8fb8ff; --lr-lit: #dbe7ff; --lr-lit-glow: rgba(190,215,255,.85);
+  background: radial-gradient(90% 80% at 50% 45%, #1c2b66, #0b1029 68%, #060818) }
+.lr-stage[data-glow=gold] { --lr-lit: #ffd36e; --lr-lit-glow: rgba(255,200,90,.9) }
+.lr-stage[data-glow=rainbow] { --lr-lit: #ffffff; --lr-lit-glow: rgba(255,150,220,.9) }
+.lr-sky { position: absolute; inset: -30%; z-index: -1; pointer-events: none;
+  background: radial-gradient(1.5px 1.5px at 12% 18%, rgba(255,255,255,.9), transparent), radial-gradient(1px 1px at 27% 72%, rgba(255,255,255,.75), transparent),
+    radial-gradient(1.5px 1.5px at 44% 12%, rgba(255,255,255,.65), transparent), radial-gradient(1px 1px at 63% 84%, rgba(255,255,255,.8), transparent),
+    radial-gradient(2px 2px at 78% 22%, rgba(255,255,255,.85), transparent), radial-gradient(1px 1px at 90% 58%, rgba(255,255,255,.6), transparent),
+    radial-gradient(1px 1px at 6% 60%, rgba(255,255,255,.65), transparent), radial-gradient(1.5px 1.5px at 54% 46%, rgba(255,255,255,.4), transparent),
+    radial-gradient(1px 1px at 35% 38%, rgba(200,220,255,.7), transparent), radial-gradient(1.5px 1.5px at 70% 66%, rgba(200,220,255,.6), transparent),
+    radial-gradient(1px 1px at 18% 88%, rgba(255,255,255,.6), transparent), radial-gradient(1px 1px at 86% 8%, rgba(255,255,255,.7), transparent);
+  animation: lr-drift 60s linear infinite }
+.lr-charge .lr-sky { animation: lr-warp 2.8s cubic-bezier(.6,0,.9,.4) both, lr-drift 60s linear infinite }
 .lr-charge { cursor: pointer }
-.lr-ring { position: relative; width: 210px; height: 210px; --lr-o: #8fb8ff; --lr-glow: rgba(150,190,255,.75) }
-.lr-charge[data-glow=gold] .lr-ring { --lr-glow: rgba(255,205,90,.95) }
-.lr-ring > span { position: absolute; border-radius: 50% }
-.lr-ring-outer { inset: 0; border: 2px dashed var(--lr-o); box-shadow: 0 0 18px rgba(120,160,255,.6), inset 0 0 18px rgba(120,160,255,.45);
-  animation: lr-grow .7s ease-out both, lr-spin 7s linear infinite }
-.lr-ring-inner { inset: 15%; border: 1.5px solid var(--lr-o);
-  background: conic-gradient(transparent 0 18%, var(--lr-o) 18% 23%, transparent 23% 43%, var(--lr-o) 43% 48%, transparent 48% 68%, var(--lr-o) 68% 73%, transparent 73%);
-  -webkit-mask: radial-gradient(circle, transparent 60%, #000 62%); mask: radial-gradient(circle, transparent 60%, #000 62%);
-  animation: lr-grow .9s .15s ease-out both, lr-spin-back 1.5s linear infinite }
-.lr-ring-core { inset: 36%; background: radial-gradient(circle, #fff 0 12%, var(--lr-o) 38%, transparent 70%); animation: lr-core 2.1s ease-in both }
-.lr-ring-pulse { inset: 0; border: 2px solid var(--lr-o); opacity: 0; animation: lr-pulse-ring 1s .5s ease-out infinite }
-.lr-ring::after { content: ''; position: absolute; inset: -28%; border-radius: 50%; opacity: 0; pointer-events: none;
-  background: radial-gradient(circle, var(--lr-glow) 0 28%, transparent 68%); animation: lr-glow 2.1s ease-in both }
-.lr-charge[data-glow=rainbow] .lr-ring::after { background: conic-gradient(#ff5f9e, #ffd36e, #7cf2c1, #8fe3ff, #b48cff, #ff5f9e); filter: blur(18px);
-  -webkit-mask: radial-gradient(circle, #000 30%, transparent 70%); mask: radial-gradient(circle, #000 30%, transparent 70%);
-  animation: lr-glow 2.1s ease-in both, lr-spin 1.2s linear infinite }
+.lr-charge[data-glow=rainbow] { animation: lr-shake 2.8s linear both }
+.lr-sparks { position: absolute; inset: 0; z-index: -1; pointer-events: none }
+.lr-sparks span { position: absolute; bottom: -8px; left: var(--x); width: var(--s); height: var(--s); border-radius: 50%; opacity: 0;
+  background: #e2ecff; box-shadow: 0 0 6px 1px rgba(150,190,255,.85); animation: lr-spark-rise var(--d) var(--t) linear infinite }
+.lr-ring { position: relative; width: 240px; height: 240px; flex: none }
+.lr-ring-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible }
+.lr-ring-svg circle, .lr-ring-svg rect { fill: none; stroke: var(--lr-o); stroke-width: 1.5 }
+.lr-ring-svg text { fill: var(--lr-o); font: 600 8.5px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 1.4px }
+.lr-ring-lit circle, .lr-ring-lit rect { stroke: var(--lr-lit) }
+.lr-ring-lit text { fill: var(--lr-lit) }
+.lr-charge[data-glow=rainbow] .lr-ring-lit circle, .lr-charge[data-glow=rainbow] .lr-ring-lit rect { stroke: url(#lr-prism) }
+.lr-charge[data-glow=rainbow] .lr-ring-lit text { fill: url(#lr-prism) }
+.lr-ring-svg > g { transform-origin: 120px 120px }
+.lr-ring-base { filter: drop-shadow(0 0 4px rgba(120,160,255,.85)); animation: lr-ring-in .9s cubic-bezier(.2,.9,.25,1) both }
+.lr-ring-lit { filter: drop-shadow(0 0 6px var(--lr-lit-glow)); animation: lr-ring-in .9s cubic-bezier(.2,.9,.25,1) both, lr-lit 2.8s ease-in both }
+.lr-draw { stroke-width: 2.2 !important; stroke-dasharray: 704; stroke-dashoffset: 704; animation: lr-draw 1s .1s cubic-bezier(.6,0,.2,1) forwards }
+.lr-ticks { stroke-width: 5 !important; stroke-dasharray: 1.2 9.6; opacity: .75 }
+.lr-thin { stroke-width: 1 !important; opacity: .6 }
+.lr-arcs { stroke-width: 3 !important; stroke-dasharray: 60 37.4 }
+.lr-square { stroke-width: 1 !important; opacity: .55 }
+.lr-spin, .lr-spin-back, .lr-spin-fast, .lr-spin-slow { transform-origin: 120px 120px }
+.lr-spin { animation: lr-spin 12s linear infinite }
+.lr-spin-back { animation: lr-spin-back 18s linear infinite }
+.lr-spin-fast { animation: lr-spin-back 2.4s linear infinite }
+.lr-spin-slow { animation: lr-spin 26s linear infinite }
+.lr-rays { position: absolute; left: 50%; top: 50%; width: 1100px; height: 1100px; margin: -550px 0 0 -550px; z-index: -1; border-radius: 50%;
+  pointer-events: none; opacity: 0;
+  background: repeating-conic-gradient(from 0deg, rgba(190,215,255,.14) 0deg 3deg, transparent 3deg 15deg);
+  -webkit-mask: radial-gradient(circle, #000 6%, transparent 60%); mask: radial-gradient(circle, #000 6%, transparent 60%);
+  animation: lr-rays-in 2.8s ease-in both, lr-spin 22s linear infinite }
+.lr-charge[data-glow=gold] .lr-rays { background: repeating-conic-gradient(from 0deg, rgba(255,210,110,.26) 0deg 3deg, transparent 3deg 14deg);
+  animation: lr-rays-in 2.8s ease-in both, lr-spin 16s linear infinite }
+.lr-charge[data-glow=rainbow] .lr-rays { background: repeating-conic-gradient(from 0deg, rgba(255,255,255,.26) 0deg 3deg, transparent 3deg 12deg),
+  conic-gradient(rgba(255,95,158,.4), rgba(255,211,110,.4), rgba(124,242,193,.4), rgba(143,227,255,.4), rgba(180,140,255,.4), rgba(255,95,158,.4));
+  animation: lr-rays-in 2.8s ease-in both, lr-spin 10s linear infinite }
+.lr-core { position: absolute; left: 50%; top: 50%; width: 92px; height: 92px; margin: -46px 0 0 -46px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, #fff 0 14%, var(--lr-o) 38%, transparent 70%); animation: lr-core 2.8s ease-in both }
+.lr-core::after { content: ''; position: absolute; inset: 0; border-radius: 50%; opacity: 0;
+  background: radial-gradient(circle, #fff 0 14%, var(--lr-lit) 40%, transparent 70%); animation: lr-lit 2.8s ease-in both }
+.lr-charge[data-glow=rainbow] .lr-core::after {
+  background: radial-gradient(circle, #fff 0 16%, transparent 58%), conic-gradient(#ff5f9e, #ffd36e, #7cf2c1, #8fe3ff, #b48cff, #ff5f9e);
+  -webkit-mask: radial-gradient(circle, #000 34%, transparent 70%); mask: radial-gradient(circle, #000 34%, transparent 70%);
+  animation: lr-lit 2.8s ease-in both, lr-spin 1.2s linear infinite }
+.lr-shock { position: absolute; left: 50%; top: 50%; width: 240px; height: 240px; margin: -120px 0 0 -120px; border-radius: 50%; pointer-events: none;
+  opacity: 0; box-shadow: 0 0 0 3px var(--lr-lit), 0 0 26px 6px var(--lr-lit-glow), inset 0 0 18px 2px var(--lr-lit-glow);
+  animation: lr-shock 2.8s ease-out both }
+.lr-charge[data-glow=rainbow] .lr-shock { box-shadow: 0 0 0 3px #fff, 0 0 30px 8px #ff8fd0, inset 0 0 24px 4px #8fe3ff }
+.lr-tokens span { position: absolute; left: 50%; top: 50%; white-space: nowrap; pointer-events: none; opacity: 0;
+  font: 600 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #d5e3ff; text-shadow: 0 0 8px rgba(140,180,255,.95);
+  animation: lr-token 1.2s var(--t) cubic-bezier(.55,0,.8,.4) both }
 .lr-prompt { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; color: #d5e3ff; white-space: nowrap;
-  clip-path: inset(0 100% 0 0); animation: lr-type .8s steps(12) .2s forwards }
+  clip-path: inset(0 100% 0 0); animation: lr-type .8s steps(12) .25s forwards }
 .lr-thinking { font-size: 12px; letter-spacing: .08em; color: rgba(210,225,255,.65); animation: lr-breathe 1.2s ease-in-out infinite }
-.lr-flash { position: absolute; inset: 0; z-index: 5; background: #fff; opacity: 0; pointer-events: none; animation: lr-flash 2.1s ease-in both }
+.lr-flash { position: absolute; inset: 0; z-index: 5; background: #fff; opacity: 0; pointer-events: none; animation: lr-flash 2.8s ease-in both }
+
+/* the cards dealt */
 .lr-reveal { justify-content: center }
 .lr-reveal::before { content: ''; position: absolute; inset: 0; z-index: 5; background: #fff; opacity: 0; pointer-events: none;
-  animation: lr-unflash .5s ease-out both }
+  animation: lr-unflash .55s ease-out both }
 .lr-pulls { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; width: 100%; max-width: 900px }
 .lr-pulls-one { grid-template-columns: minmax(0, 220px); justify-content: center }
 .lr-pull { position: relative; display: block; aspect-ratio: 2 / 3; padding: 0; border: 0; background: transparent; color: #fff; font: inherit;
-  text-align: left; isolation: isolate; perspective: 900px; --lr-c: #4a90e2; --lr-c2: #9cc7ff;
-  animation: lr-deal .4s calc(var(--i) * 60ms) cubic-bezier(.2,.8,.3,1) both }
+  text-align: left; isolation: isolate; --lr-c: #4a90e2; --lr-c2: #9cc7ff; --flip: calc(var(--i) * 170ms + 900ms);
+  animation: lr-deal .75s calc(var(--i) * 45ms + 80ms) cubic-bezier(.2,.9,.3,1.04) both }
 button.lr-pull { cursor: pointer }
-button.lr-pull:hover .lr-pull-front::before { box-shadow: inset 0 0 0 2px var(--lr-c2), inset 0 0 16px color-mix(in srgb, var(--lr-c2) 60%, transparent) }
+.lr-pull-tilt { position: absolute; inset: 0; border-radius: 10px; perspective: 900px; --lr-tilt: 12 }
+.lr-pull-tilt[data-lr-tilting] { box-shadow: calc((var(--lr-px, .5) - .5) * -22px) calc(16px + (var(--lr-py, .5) - .5) * -12px) 28px -10px rgba(0,0,0,.75) }
 .lr-pull-inner { position: absolute; inset: 0; transform-style: preserve-3d;
-  animation: lr-flip .6s calc(var(--i) * 140ms + 450ms) cubic-bezier(.3,.7,.3,1.15) both }
+  animation: lr-flip .62s var(--flip) cubic-bezier(.3,.7,.3,1.1) both }
+.lr-pull[data-rarity=SSR] .lr-pull-inner { animation: lr-flip .62s var(--flip) cubic-bezier(.3,.7,.3,1.1) both,
+  lr-pop-small .55s calc(var(--flip) + 420ms) cubic-bezier(.3,1.5,.5,1) both }
+.lr-pull[data-rarity=UR] .lr-pull-inner { animation: lr-flip .62s var(--flip) cubic-bezier(.3,.7,.3,1.1) both,
+  lr-pop .65s calc(var(--flip) + 420ms) cubic-bezier(.3,1.5,.5,1) both }
 .lr-pull-back, .lr-pull-front { position: absolute; inset: 0; border-radius: 10px; overflow: hidden; backface-visibility: hidden;
   -webkit-backface-visibility: hidden }
 .lr-pull-back { transform: rotateY(180deg); display: flex; align-items: center; justify-content: center;
   background: repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0 6px, transparent 6px 12px), linear-gradient(160deg, #26337e, #0e1331);
   box-shadow: inset 0 0 0 2px rgba(160,190,255,.5), inset 0 0 0 6px rgba(10,14,40,.9), inset 0 0 0 7px rgba(160,190,255,.3) }
-.lr-pull-back span { font-size: 30px; color: rgba(195,215,255,.85); text-shadow: 0 0 14px rgba(140,180,255,.9) }
+.lr-pull-back span { font-size: 30px; color: rgba(195,215,255,.85); text-shadow: 0 0 14px rgba(140,180,255,.9); animation: lr-breathe 1.6s ease-in-out infinite }
+.lr-pull[data-rarity=SSR] .lr-pull-back { animation: lr-hint-gold 1.1s ease-in-out infinite;
+  box-shadow: inset 0 0 0 2px #ffd36e, inset 0 0 0 6px rgba(10,14,40,.9), inset 0 0 0 7px rgba(255,211,110,.45), inset 0 0 26px rgba(255,200,90,.45) }
+.lr-pull[data-rarity=SSR] .lr-pull-back span { color: #ffe39a; text-shadow: 0 0 16px rgba(255,200,90,.95) }
+.lr-pull[data-rarity=UR] .lr-pull-back::before { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 2.5px;
+  background: conic-gradient(#ff5f9e, #ffd36e, #7cf2c1, #8fe3ff, #b48cff, #ff5f9e); animation: lr-hue 1.6s linear infinite;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude }
+.lr-pull[data-rarity=UR] .lr-pull-back { box-shadow: inset 0 0 0 6px rgba(10,14,40,.9), inset 0 0 34px rgba(255,150,220,.5) }
+.lr-pull[data-rarity=UR] .lr-pull-back span { color: #fff; text-shadow: 0 0 12px #ff8fd0, 0 0 24px #8fe3ff }
 .lr-pull-front { isolation: isolate; background: linear-gradient(160deg, color-mix(in srgb, var(--lr-c) 35%, #1b1d2e), #10121d 70%) }
 .lr-pull-front::before { content: ''; position: absolute; inset: 0; z-index: 2; border-radius: inherit; pointer-events: none;
   box-shadow: inset 0 0 0 2px var(--lr-c) }
+button.lr-pull:hover .lr-pull-front::before { box-shadow: inset 0 0 0 2px var(--lr-c2), inset 0 0 16px color-mix(in srgb, var(--lr-c2) 60%, transparent) }
 .lr-pull-art { position: absolute; inset: 0; z-index: 0 }
 .lr-pull-art img, .lr-pull-art .lr-card-blank { width: 100%; height: 100%; object-fit: cover; object-position: 50% 12% }
 .lr-pull-equipment .lr-pull-front { background: repeating-linear-gradient(-45deg, rgba(255,255,255,.04) 0 5px, transparent 5px 10px),
@@ -2489,36 +2741,78 @@ button.lr-pull:hover .lr-pull-front::before { box-shadow: inset 0 0 0 2px var(--
   background: rgba(8,9,16,.6) }
 .lr-pull-equipment .lr-stars { top: 10px; left: 10px }
 .lr-new { position: absolute; top: 5px; right: 6px; z-index: 2; padding: 0 5px; border-radius: 4px; font-size: 10px; font-weight: 800;
-  color: #1b1300; background: #ffe39a }
+  color: #1b1300; background: #ffe39a; animation: lr-badge .5s calc(var(--flip) + 560ms) cubic-bezier(.3,1.7,.5,1) both }
 .lr-new.lr-pity { color: #fff; background: linear-gradient(90deg, #ff5f9e, #6aa8ff) }
+.lr-sweep { position: absolute; inset: 0; z-index: 4; pointer-events: none; overflow: hidden; border-radius: inherit }
+.lr-sweep::after { content: ''; position: absolute; top: -30%; bottom: -30%; left: 0; width: 40%; transform: translateX(-130%) skewX(-18deg);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent); animation: lr-sweep .85s calc(var(--flip) + 380ms) ease-out both }
+.lr-pull[data-rarity=R] .lr-sweep::after { background: linear-gradient(90deg, transparent, rgba(255,255,255,.22), transparent) }
+.lr-pull-fx { position: absolute; left: 50%; top: 45%; width: 0; height: 0; z-index: 3; pointer-events: none }
+.lr-pull-fx span { position: absolute; left: 0; top: 0; font-size: 15px; line-height: 1; color: #ffe39a; opacity: 0;
+  text-shadow: 0 0 2px rgba(40,24,0,.8), 0 0 8px rgba(255,200,90,.95); animation: lr-spark-out .95s calc(var(--flip) + 420ms) cubic-bezier(.2,.8,.3,1) both }
+.lr-pull[data-rarity=UR] .lr-pull-fx span { font-size: 18px; color: #fff; text-shadow: 0 0 2px rgba(60,0,40,.8), 0 0 8px #ff8fd0, 0 0 16px #8fe3ff }
 .lr-pull::after { content: ''; position: absolute; inset: -16%; z-index: -1; border-radius: 50%; pointer-events: none; opacity: 0 }
 .lr-pull[data-rarity=SSR]::after { background: radial-gradient(circle, rgba(255,210,100,.75), transparent 65%);
-  animation: lr-burst .9s calc(var(--i) * 140ms + 900ms) ease-out both }
+  animation: lr-burst 1s calc(var(--flip) + 420ms) ease-out both }
 .lr-pull[data-rarity=UR]::after { background: conic-gradient(#ff5f9e, #ffd36e, #7cf2c1, #8fe3ff, #b48cff, #ff5f9e); filter: blur(12px);
-  animation: lr-burst-stay 1.2s calc(var(--i) * 140ms + 900ms) ease-out both }
+  animation: lr-burst-stay 1.3s calc(var(--flip) + 420ms) ease-out both }
 .lr-pull[data-rarity=UR] .lr-pull-front::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; border-radius: inherit;
   padding: 2px; background: linear-gradient(135deg, #ff5f9e, #ffd36e, #7cf2c1, #8fe3ff, #b48cff, #ff5f9e);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude }
-.lr-instant .lr-pull, .lr-instant .lr-pull-inner { animation: none }
-.lr-instant .lr-pull::after { animation-delay: 0s }
+.lr-instant .lr-pull { animation: none; --flip: 0ms }
+.lr-instant .lr-pull-inner, .lr-instant .lr-new { animation: none }
 .lr-stage-actions { gap: 8px }
-@keyframes lr-grow { from { scale: .3; opacity: 0 } }
+.lr-tally { font-size: 12px; font-weight: 700; color: #c99a1e; letter-spacing: .02em }
+
+@keyframes lr-fade { from { opacity: 0 } }
+@keyframes lr-fade-up { from { opacity: 0; translate: 0 10px } }
+@keyframes lr-dialog-in { from { opacity: 0; translate: 0 16px; scale: .97 } }
+@keyframes lr-rise { from { opacity: 0; translate: 0 18px; scale: .96 } }
+@keyframes lr-from-side { from { opacity: 0; translate: -18px 0 } }
+@keyframes lr-pop-in { from { opacity: 0; scale: .6 } }
+@keyframes lr-holo-drift { from { background-position: 0% 20% } to { background-position: 100% 80% } }
+@keyframes lr-shine { 0%, 60% { transform: translateX(-120%) skewX(-18deg) } 85%, 100% { transform: translateX(620%) skewX(-18deg) } }
+@keyframes lr-shine-button { 0%, 70% { transform: translateX(-150%) skewX(-20deg) } 100% { transform: translateX(420%) skewX(-20deg) } }
+@keyframes lr-twinkle { 0%, 100% { opacity: 0; scale: .4 } 50% { opacity: .95; scale: 1 } }
+@keyframes lr-drift { to { rotate: 25deg } }
+@keyframes lr-warp { from { scale: 1 } to { scale: 1.9; filter: brightness(1.7) } }
+@keyframes lr-shake { 0%, 84%, 100% { translate: 0 0 } 86% { translate: -3px 1px } 88% { translate: 3px -2px } 90% { translate: -2px 2px }
+  92% { translate: 2px -1px } 94% { translate: -1px 0 } }
+@keyframes lr-spark-rise { 0% { opacity: 0; translate: 0 0 } 15% { opacity: .9 } 100% { opacity: 0; translate: var(--w) -540px } }
+@keyframes lr-ring-in { from { scale: .55; opacity: 0 } }
+@keyframes lr-lit { 0%, 55% { opacity: 0 } 66%, 100% { opacity: 1 } }
+@keyframes lr-draw { to { stroke-dashoffset: 0 } }
 @keyframes lr-spin { to { rotate: 360deg } }
 @keyframes lr-spin-back { to { rotate: -360deg } }
-@keyframes lr-core { 0% { scale: .2; opacity: 0 } 30% { opacity: 1 } 88% { scale: 1.3 } 100% { scale: 2.4; opacity: 1 } }
-@keyframes lr-pulse-ring { from { scale: .5; opacity: .8 } to { scale: 1.5; opacity: 0 } }
-@keyframes lr-glow { 0%, 48% { opacity: 0; scale: .6 } 100% { opacity: 1; scale: 1.15 } }
+@keyframes lr-rays-in { 0%, 56% { opacity: 0; scale: .6 } 72% { opacity: .9 } 100% { opacity: 1; scale: 1.12 } }
+@keyframes lr-core { 0% { scale: .1; opacity: 0 } 22% { scale: .5; opacity: 1 } 38% { scale: .62 } 42% { scale: .54 } 50% { scale: .76 }
+  54% { scale: .66 } 82% { scale: 1.05 } 90% { scale: .6 } 100% { scale: 3.4; opacity: 1 } }
+@keyframes lr-shock { 0%, 56% { opacity: 0; scale: .25 } 58% { opacity: 1; scale: .3 } 78% { opacity: 0; scale: 2.4 } 100% { opacity: 0; scale: 2.4 } }
+@keyframes lr-token { 0% { opacity: 0; transform: translate(-50%, -50%) translate(var(--dx), var(--dy)) scale(1.15) } 25% { opacity: 1 }
+  85% { opacity: .8 } 100% { opacity: 0; transform: translate(-50%, -50%) scale(.2) } }
 @keyframes lr-type { to { clip-path: inset(0 0 0 0) } }
 @keyframes lr-breathe { 50% { opacity: .35 } }
-@keyframes lr-flash { 0%, 84% { opacity: 0 } 100% { opacity: .95 } }
+@keyframes lr-flash { 0%, 86% { opacity: 0 } 100% { opacity: .95 } }
 @keyframes lr-unflash { from { opacity: .95 } to { opacity: 0 } }
-@keyframes lr-deal { from { opacity: 0; transform: translateY(24px) scale(.9) } }
-@keyframes lr-flip { from { transform: rotateY(180deg) } to { transform: rotateY(0deg) } }
+@keyframes lr-deal { from { opacity: 0; transform: translate(var(--dx, 0px), var(--dy, 40px)) scale(.3) rotate(calc((var(--i) - 5) * 6deg)) }
+  35% { opacity: 1 } }
+@keyframes lr-flip { 0% { transform: rotateY(180deg) } 50% { transform: rotateY(90deg) scale(1.08) } 100% { transform: rotateY(0deg) } }
+@keyframes lr-pop { 0% { scale: 1 } 35% { scale: 1.14 } 100% { scale: 1 } }
+@keyframes lr-pop-small { 0% { scale: 1 } 35% { scale: 1.06 } 100% { scale: 1 } }
+@keyframes lr-hint-gold { 50% { box-shadow: inset 0 0 0 2px #ffe39a, inset 0 0 0 6px rgba(10,14,40,.9), inset 0 0 0 7px rgba(255,211,110,.7),
+  inset 0 0 44px rgba(255,200,90,.75) } }
+@keyframes lr-hue { to { filter: hue-rotate(360deg) } }
+@keyframes lr-sweep { from { transform: translateX(-130%) skewX(-18deg) } to { transform: translateX(330%) skewX(-18deg) } }
+@keyframes lr-spark-out { 0% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--a)) translateY(0) scale(.4) } 20% { opacity: 1 }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--a)) translateY(calc(var(--r) * -1)) scale(1) } }
+@keyframes lr-badge { from { opacity: 0; scale: 0 } }
 @keyframes lr-burst { 0% { opacity: 0; transform: scale(.5) } 35% { opacity: 1 } 100% { opacity: 0; transform: scale(1.25) } }
 @keyframes lr-burst-stay { 0% { opacity: 0; transform: scale(.5) } 35% { opacity: 1 } 100% { opacity: .5; transform: scale(1.02) } }
 @media (prefers-reduced-motion: reduce) {
-  .lr-pull, .lr-pull-inner, .lr-pull::after, .lr-ring > span, .lr-ring::after, .lr-prompt, .lr-thinking, .lr-flash, .lr-reveal::before { animation: none !important }
+  .lr-overlay, .lr-overlay *, .lr-overlay *::before, .lr-overlay *::after, .lr-avatar, .lr-avatar * {
+    animation-duration: 1ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important }
   .lr-prompt { clip-path: none }
+  .lr-sparks, .lr-tokens, .lr-rays, .lr-twinkle, .lr-banner-shine { display: none }
   .lr-pull[data-rarity=UR]::after { opacity: .5 }
 }
 @media (max-width: 720px) {
@@ -2556,6 +2850,7 @@ button.lr-pull:hover .lr-pull-front::before { box-shadow: inset 0 0 0 2px var(--
         return () => tag.remove()
       }, 'llm-roster: style')
       ctx.effect(() => ctx.locale.register(NS, { en: EN, zh: ZH }), 'llm-roster: words')
+      ctx.effect(() => installTilt(), 'llm-roster: the cards\' feel')
       const remoteFaces = ['remote', 'remote.settings', 'remote.credentials', 'remote.llm', 'remote.session']
       // the avatar, just left of the composer's model picker
       ctx.inject(['modelDirectories', 'sessions', ...remoteFaces], scope => {
