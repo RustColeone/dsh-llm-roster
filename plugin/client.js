@@ -728,6 +728,19 @@ window.__ModuleLoader__.load({
     /** A model id as it is matched across providers: no vendor, lowercase, words joined by dashes (OpenRouter's
      * `anthropic/claude-opus-5.5` is Anthropic's `claude-opus-5-5`). */
     const slugOf = id => bare(id).replace(/[^a-z0-9]+/g, '-')
+    const undatedSlug = slug => slug.replace(/-(\d{8}|\d{6}|\d{4}-\d{2}-\d{2}|latest)$/, '')
+    /** The names a provider's model may be the lineup's under (as the server's `formsOf`): its own, without a date or
+     * build stamp at the end, and without its family's name in front (Volcengine's `doubao-seed-2-1-turbo-260628` is
+     * the lineup's `seed-2-1-turbo`). */
+    const formsOf = id => {
+      const plain = undatedSlug(slugOf(id))
+      return [...new Set([slugOf(id), plain, plain.replace(/^[a-z]+-(?=[a-z])/, '')])]
+    }
+    /** Whether a provider's model `id` is the lineup's `model`. */
+    const sameModel = (id, model) => formsOf(id).some(form => form === slugOf(model) || form === undatedSlug(slugOf(model)))
+    /** The one of a provider's `ids` that is the lineup's `model`: the same name, else its newest build. */
+    const matchOf = (ids, model) => ids.find(id => slugOf(id) === slugOf(model)) ??
+      ids.filter(id => sameModel(id, model)).sort().at(-1)
     // Release dates of the models in the page's lists, as the server gives them: Artificial Analysis's, else
     // OpenRouter's, else the date in the id, else the day the model was first seen (`seen`, an estimate it keeps).
     const datesById = new Map() // id → { date, seen }
@@ -830,7 +843,7 @@ window.__ModuleLoader__.load({
         const merged = [], deepseek = new Map()
         for (const model of catalog) {
           const card = { ...model, source: 'catalog' }
-          if (big.has(model.provider) && !known.has(slugOf(model.id))) { hidden[model.provider] = (hidden[model.provider] ?? 0) + 1; continue }
+          if (big.has(model.provider) && !formsOf(model.id).some(form => known.has(form))) { hidden[model.provider] = (hidden[model.provider] ?? 0) + 1; continue }
           if (!DEEPSEEK_ROUTES.includes(model.provider)) { merged.push(card); continue }
           const found = deepseek.get(bare(model.id))
           if (found) { found.routes.push(card); continue }
@@ -844,7 +857,7 @@ window.__ModuleLoader__.load({
         }
         // the lineup models DSH does not offer yet, each through the provider its character goes through: her own, or
         // OpenRouter or an endpoint of yours, where it is matched by name among the models that provider offers
-        const have = new Set(catalog.map(model => slugOf(model.id)))
+        const have = new Set(catalog.flatMap(model => formsOf(model.id)))
         const lineup = []
         for (const item of state?.lineup ?? []) {
           const via = routes[item.character] ?? item.provider
@@ -853,10 +866,10 @@ window.__ModuleLoader__.load({
             const offered = routeModels[via]
             if (!offered || offered.status === 'loading') card.pendingRoute = true
             else {
-              const match = offered.ids.find(id => slugOf(id) === slugOf(item.id))
+              const match = matchOf(offered.ids, item.id)
               if (match) card.id = match; else card.absent = true
             }
-          }
+          } else if (item.listed === false) card.absent = true // (a lineup model OpenRouter does not list, as of its list)
           if (have.has(slugOf(card.id))) continue
           lineup.push({ ...card, providerName: providerName(via, snapshot, providers) })
         }
@@ -1174,7 +1187,7 @@ window.__ModuleLoader__.load({
       const { snapshot, state, providers, catalog, cards } = useCards(directory, remote)
       const listed = (initial.lineupId && cards.find(item => item.lineupId === initial.lineupId)) ??
         cards.find(item => (item.routes ?? [item]).some(route => route.provider === initial.provider && route.id === initial.id)) ??
-        (initial.lineupId ? cards.find(item => slugOf(item.id) === slugOf(initial.lineupId)) : undefined)
+        (initial.lineupId ? cards.find(item => sameModel(item.id, initial.lineupId)) : undefined)
       const [routeChoice, setRouteChoice] = useState(null)
       const routes = listed?.routes ?? null
       const chosen = routes?.find(route => route.provider === routeChoice) ?? null
@@ -1255,7 +1268,8 @@ window.__ModuleLoader__.load({
             h('div', { className: 'lr-row' },
               h('button', { type: 'button', className: 'lr-button lr-primary lr-big', disabled: busy || !canUse || inSession, onClick: use },
                 card.status === 'unused' ? t('page.useAdd') : t('page.use')),
-              !canUse ? h('span', { className: 'lr-dim' }, t('page.needKey')) : null),
+              !canUse ? h('span', { className: 'lr-dim' }, card.status === 'absent'
+                ? t('status.absentHint', { provider: card.providerName }) : t('page.needKey')) : null),
             failure ? h('div', { className: 'lr-error', role: 'alert' }, failure) : null,
             h('section', { className: 'lr-section' },
               h('h3', null, t('page.stats')),
@@ -1364,7 +1378,7 @@ window.__ModuleLoader__.load({
           ...(key.trim() ? { apiKey: key.trim() } : {}) }))
         setFound(models)
         const wanted = new Set(proposals.map(slugOf))
-        setChosen(new Set(models.filter(model => wanted.has(slugOf(model.id))).map(model => model.id)))
+        setChosen(new Set(models.filter(model => formsOf(model.id).some(form => wanted.has(form))).map(model => model.id)))
       })
       const toggle = model => setChosen(previous => {
         const next = new Set(previous)

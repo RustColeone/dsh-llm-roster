@@ -44,9 +44,13 @@ You can sort by provider, by rank, or by release date. In the release-date sort,
 shows its date. A model's release date is, in this order:
 
 1. Artificial Analysis's, where they measure it.
-2. The day OpenRouter listed the model, whichever provider you use it through.
-3. The date written in its id, if there is one (`claude-3-5-haiku-20241022`).
-4. Otherwise, **the day the roster first saw it**, shown with a `~` (`~2026-11-12`). A model in none of the lists we
+2. The day OpenRouter listed the model, whichever provider you use it through (Volcengine's
+   `doubao-seed-2-1-turbo-260628` gets OpenRouter's date for Seed 2.1 Turbo).
+3. For a lineup model neither of them lists, the date the roster gives it in [`art/art.json`](art/art.json): the day
+   its maker announced it (Seed 2.1 Pro, 2026-06-23).
+4. The date written in its id, if there is one (`claude-3-5-haiku-20241022`, or a build stamp like Volcengine's
+   `doubao-seed-2-1-pro-260628`).
+5. Otherwise, **the day the roster first saw it**, shown with a `~` (`~2026-11-12`). A model in none of the lists we
    have can only be newer than them, so a "Claude Fable 5.5" turning up tomorrow counts as released tomorrow. That
    day is kept in your DSH home, so it doesn't move, until Artificial Analysis or OpenRouter publish a date for the
    model. Their date then replaces it.
@@ -66,8 +70,10 @@ OpenRouter has stopped listing, and that carries no date in its id, also gets th
 - **Served through** (for a lineup model): which provider and key serve the character. The choices are her own
   provider, OpenRouter, or an OpenAI-compatible endpoint of yours, and **+ OpenAI-compatible endpoint** adds one.
   - Her models are matched by name among the ones that provider offers, so OpenRouter's `anthropic/claude-opus-5.5`
-    is Anthropic's `claude-opus-5-5`.
-  - A model it doesn't offer says **Not offered there**.
+    is Anthropic's `claude-opus-5-5`. A family name in front and a build stamp at the end don't count, so
+    Volcengine's `doubao-seed-2-1-turbo-260628` is Seed 2.1 Turbo (with several builds, the newest).
+  - A model it doesn't offer says **Not offered there**. So does a lineup model OpenRouter doesn't list, for a
+    character who comes through OpenRouter by default.
   - So with only an OpenRouter key, every character can still be played: GPT, Claude, Kimi, GLM and the rest.
 - **Provider:** the provider's key, with a test and the balance.
 - **Use this model**, or **Add and use this model** for one not in use yet.
@@ -95,6 +101,12 @@ Fourteen characters ship, each with a card picture and a face for every tier:
 
 - GPT, Claude, Gemini, DeepSeek and Grok, from their own providers;
 - Kimi, GLM, Qwen, Mistral, MiniMax, Llama, Doubao, Perplexity and Hunyuan, through OpenRouter by default.
+
+Doubao is ByteDance's Seed family. OpenRouter lists Seed 2.1 Turbo, 2.0 Code, 2.0 Lite and 2.0 Mini. ByteDance's
+flagship, Seed 2.1 Pro, is only on its own cloud, Volcengine Ark, so its card says **Not offered there**. To play it,
+add Ark as an OpenAI-compatible endpoint on Doubao's page (base URL `https://ark.cn-beijing.volces.com/api/v3`, your
+Ark key) and send her through it. Ark's own ids, such as `doubao-seed-2-1-pro-260628`, are matched to the lineup and
+keep its tiers. Artificial Analysis doesn't measure the Seed models, so their cards have no rankings.
 
 [`art/art.json`](art/art.json) says which mainstream model is which character and tier (GPT-6 Luna a chibi, GPT-6.1
 Sol a high-schooler, Claude Fable a university student, Kimi K3.1 Pro a high-schooler, …), and those models are the

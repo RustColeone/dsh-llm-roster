@@ -6,6 +6,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { formsOf, undated } from './rankings.js'
 
 export const ART = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'art')
 export const TABLE = JSON.parse(fs.readFileSync(path.join(ART, 'art.json'), 'utf8'))
@@ -60,10 +61,15 @@ export function tierOf (model) {
  * `anthropic/claude-opus-5.5` is Anthropic's `claude-opus-5-5`). */
 export const slug = model => bare(model).replace(/[^a-z0-9]+/g, '-')
 const SLUGGED = new Map(Object.entries(TABLE.models).map(([model, art]) => [slug(model), art]))
+const RELEASED = new Map(Object.entries(TABLE.released ?? {}).filter(([model]) => model !== '_').map(([model, date]) => [slug(model), date]))
+/** The release date art.json gives a lineup model that neither Artificial Analysis nor OpenRouter lists (by its id as
+ * it is, or undated), or null. */
+export const releasedInLineup = model => RELEASED.get(slug(model)) ?? RELEASED.get(undated(slug(model))) ?? null
 
 /** The bundled pick for a model, `character/tier`, or null for a model of no known character. */
 export function bundledArt (provider, model) {
-  const exact = TABLE.models[bare(model)] ?? SLUGGED.get(slug(model))
+  // (also as another provider lists it: Volcengine's `doubao-seed-2-0-lite-260215` is the lineup's `seed-2.0-lite`)
+  const exact = TABLE.models[bare(model)] ?? formsOf(slug(model)).map(form => SLUGGED.get(form)).find(Boolean)
   if (exact) return exact
   const character = characterOf(provider, model)
   return character ? `${character}/${tierOf(model)}` : null

@@ -7,7 +7,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, test } from 'node:test'
 import { dshHome } from '../plugin/index.js'
 import { balance, check, keyFor, liveModels } from '../plugin/providers.js'
-import { compact, dateInId, load, loadReleased, releasedDates, slugOf, split } from '../plugin/rankings.js'
+import { compact, dateInId, formsOf, load, loadReleased, releasedDates, slugOf, split } from '../plugin/rankings.js'
 import { bundledArt, CHARACTERS, characterOf, lineup, Roster, tierOf, validArt, validFace } from '../plugin/roster.js'
 import { createRoster, ROUTES, serve, spelled } from '../plugin/server.js'
 
@@ -82,6 +82,28 @@ describe('who a model is', () => {
     assert.equal(spelled('moonshotai/kimi-k2.6'), 'Kimi K2.6')
     assert.equal(spelled('perplexity/sonar-deep-research'), 'Sonar Deep Research')
     assert.equal(spelled('z-ai/glm-5.3-prime'), 'GLM 5.3 Prime')
+    // a version written with dashes is a version, but a date stays a date
+    assert.equal(spelled('bytedance-seed/seed-2-1-turbo'), 'Seed 2.1 Turbo')
+    assert.equal(spelled('claude-3-5-haiku-20241022'), 'Claude 3.5 Haiku 20241022')
+    assert.equal(spelled('doubao-seed-2-1-pro-260628'), 'Doubao Seed 2.1 Pro 260628')
+    assert.equal(spelled('gpt-4o-2024-08-06'), 'GPT 4o 2024 08 06')
+    // Volcengine's build stamps are dates too, but four digits (`qwen3.8-max-0902`) are not
+    assert.equal(dateInId('doubao-seed-2-1-pro-260628'), '2026-06-28')
+    assert.equal(dateInId('qwen3.8-max-0902'), null)
+    assert.equal(dateInId('vendor/model-123456'), null)
+  })
+  test('Doubao: OpenRouter\'s Seed models, and Volcengine\'s dated ids for them', () => {
+    const doubao = lineup().filter(item => item.character === 'doubao').map(item => `${item.id} ${item.tier}`)
+    assert.deepEqual(doubao, ['bytedance-seed/seed-2.0-mini chibi', 'bytedance-seed/seed-2.0-lite middle', 'bytedance-seed/seed-2.0-code middle',
+      'bytedance-seed/seed-2-1-turbo high', 'bytedance-seed/seed-2-1-pro high'])
+    // Volcengine Ark's ids carry the family's name in front and a build stamp at the end: the same tiers as the lineup's
+    assert.deepEqual(formsOf('doubao-seed-2-1-turbo-260628'), ['doubao-seed-2-1-turbo-260628', 'doubao-seed-2-1-turbo', 'seed-2-1-turbo'])
+    assert.equal(bundledArt('volcengine', 'doubao-seed-2-0-lite-260215'), 'doubao/middle') // (not a chibi, for its "lite")
+    assert.equal(bundledArt('volcengine', 'doubao-seed-2-1-turbo-260628'), 'doubao/high')
+    assert.equal(bundledArt('volcengine', 'doubao-seed-2-1-pro-260628'), 'doubao/high')
+    assert.equal(bundledArt('volcengine', 'doubao-seed-2-0-mini-260215'), 'doubao/chibi')
+    // and the stripping is only for looking a model up: a plain id keeps its own tier
+    assert.equal(bundledArt('openai', 'gpt-6-luna'), 'gpt/chibi')
   })
 })
 
@@ -190,6 +212,17 @@ describe('rankings', () => {
     assert.equal(all['kimi-k2-6'], '2026-04-20')
     assert.equal(all['deepseek-flash'], all['deepseek-v4-1-flash-1017'])
     assert.ok(Object.keys(all).length > 300)
+    // a Volcengine id gets OpenRouter's date for its model, and its name with its version
+    const [turbo] = work.resolve([{ provider: 'volcengine', id: 'doubao-seed-2-1-turbo-260628' }])
+    assert.deepEqual([turbo.released, turbo.releasedSeen, turbo.name, turbo.tier], ['2026-08-12', false, 'Doubao Seed 2.1 Turbo 260628', 'high'])
+    // a lineup model OpenRouter does not list (Seed 2.1 Pro is Volcengine's alone) is marked so; the others are not
+    const doubao = Object.fromEntries(work.state().lineup.filter(item => item.character === 'doubao').map(item => [item.id, item.listed]))
+    assert.deepEqual(doubao, { 'bytedance-seed/seed-2.0-mini': undefined, 'bytedance-seed/seed-2.0-lite': undefined,
+      'bytedance-seed/seed-2.0-code': undefined, 'bytedance-seed/seed-2-1-turbo': undefined, 'bytedance-seed/seed-2-1-pro': false })
+    assert.equal(work.state().lineup.filter(item => item.listed === false).length, 1, 'every other OpenRouter lineup model is listed')
+    // …with the date art.json gives it (not "first seen today"), while a Volcengine build of it keeps its own stamp
+    const [pro, build] = work.resolve([{ provider: 'openrouter', id: 'bytedance-seed/seed-2-1-pro' }, { provider: 'volcengine', id: 'doubao-seed-2-1-pro-260815' }])
+    assert.deepEqual([pro.released, pro.releasedSeen, build.released, build.releasedSeen], ['2026-06-23', false, '2026-08-15', false])
     // fetched again, even without an Artificial Analysis key
     const { fetch } = fakeFetch({ 'https://openrouter.ai/api/v1/models': { data: [{ id: 'moonshotai/kimi-k2.6', created: at('2026-04-01') }] } })
     const again = createRoster(folder, { fetch, resolve: async () => undefined, now: () => 0 })

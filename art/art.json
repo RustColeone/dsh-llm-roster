@@ -141,7 +141,9 @@
     "llama-4-maverick": "llama/high",
     "seed-2.0-mini": "doubao/chibi",
     "seed-2.0-lite": "doubao/middle",
+    "seed-2.0-code": "doubao/middle",
     "seed-2-1-turbo": "doubao/high",
+    "seed-2-1-pro": "doubao/high",
     "sonar": "perplexity/chibi",
     "sonar-pro": "perplexity/middle",
     "sonar-reasoning-pro": "perplexity/high",
@@ -149,6 +151,10 @@
     "hunyuan-a13b-instruct": "hunyuan/chibi",
     "hy3": "hunyuan/middle",
     "hy4": "hunyuan/high"
+  },
+  "released": {
+    "_": "Release dates for lineup models that neither Artificial Analysis nor OpenRouter lists (when theirs come, they win): the day the maker announced the model.",
+    "seed-2-1-pro": "2026-06-23"
   },
   "words": {
     "chibi": [

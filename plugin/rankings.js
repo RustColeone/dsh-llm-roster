@@ -77,12 +77,23 @@ export function loadReleased (folder) {
 }
 
 /** A slug without a date or `-latest` at its end (`claude-3-5-haiku-20241022` is `claude-3-5-haiku`). */
-export const undated = slug => slug.replace(/-(\d{8}|\d{4}-\d{2}-\d{2}|latest)$/, '')
+export const undated = slug => slug.replace(/-(\d{8}|\d{6}|\d{4}-\d{2}-\d{2}|latest)$/, '')
+
+/** The names a model (as a slug) may be listed under elsewhere: as is, without a date or build stamp at the end, and
+ * without its family's name in front, so Volcengine's `doubao-seed-2-1-turbo-260628` is OpenRouter's
+ * `seed-2-1-turbo`. */
+export function formsOf (slug) {
+  const plain = undated(slug)
+  return [...new Set([slug, plain, plain.replace(/^[a-z]+-(?=[a-z])/, '')])]
+}
 
 /** The date a model id carries in itself (`claude-3-5-haiku-20241022`, `qwen3.5-plus-2026-04-20`), or null. */
 export function dateInId (id) {
   const found = /(?:^|[-_/])(20\d{2})-?(0[1-9]|1[0-2])-?(0[1-9]|[12]\d|3[01])(?=$|[-_:])/.exec(String(id))
-  return found ? `${found[1]}-${found[2]}-${found[3]}` : null
+  if (found) return `${found[1]}-${found[2]}-${found[3]}`
+  // a build stamp at the end, as Volcengine dates its models (`doubao-seed-2-1-pro-260628`: 2026-06-28)
+  const stamp = /-([23]\d)(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])(?=$|:)/.exec(String(id))
+  return stamp ? `20${stamp[1]}-${stamp[2]}-${stamp[3]}` : null
 }
 
 /** The day each model with no published date was first seen here (kept in DSH's home, llm-roster/seen.json): a model

@@ -29,8 +29,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { balance, check, keyFor, liveModels, offered } from './providers.js'
-import { ALIASES, dateInId, fetchRankings, fetchReleased, load, loadReleased, Seen, slugOf, undated } from './rankings.js'
-import { CHARACTERS, lineup, Roster, TABLE, TIERS } from './roster.js'
+import { ALIASES, dateInId, fetchRankings, fetchReleased, formsOf, load, loadReleased, Seen, slugOf, undated } from './rankings.js'
+import { CHARACTERS, lineup, releasedInLineup, Roster, TABLE, TIERS } from './roster.js'
 
 export const ROUTES = {
   state: '/api/llm-roster.state', resolve: '/api/llm-roster.resolve', pick: '/api/llm-roster.pick',
@@ -44,9 +44,18 @@ const CHECKED_FOR = 10 * 60 * 1000 // how long a key's check stands (a fresh one
 
 const answer = (body, status = 200) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } })
 const ACRONYMS = new Set(['gpt', 'glm', 'hy', 'ai', 'xl'])
-/** A model id as a name: without its vendor, its words capitalised (`sonar-deep-research` → `Sonar Deep Research`). */
-export const spelled = model => String(model).split('/').pop().split('-').filter(Boolean)
-  .map(word => ACRONYMS.has(word.toLowerCase()) ? word.toUpperCase() : word[0].toUpperCase() + word.slice(1)).join(' ')
+/** A model id as a name: without its vendor, its words capitalised (`sonar-deep-research` → `Sonar Deep Research`), and
+ * a version written with dashes as a version (`seed-2-1-turbo` → `Seed 2.1 Turbo`), unless the id has a date written
+ * with dashes (`2024-08-06`). */
+export function spelled (model) {
+  const words = String(model).split('/').pop().split('-').filter(Boolean)
+  const joined = /\d{4}-\d{2}-\d{2}/.test(String(model)) ? words : words.reduce((out, word) => {
+    if (/^\d{1,2}$/.test(word) && /^\d{1,2}$/.test(out.at(-1) ?? '')) out[out.length - 1] += `.${word}`
+    else out.push(word)
+    return out
+  }, [])
+  return joined.map(word => ACRONYMS.has(word.toLowerCase()) ? word.toUpperCase() : word[0].toUpperCase() + word.slice(1)).join(' ')
+}
 
 /** The plugin's state and work, without DSH: what the routes call (and the tests). `resolve(name)` reads a credential
  * reference (DSH's store, then the environment). */
@@ -67,18 +76,21 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
    * spelled as a name (`moonshotai/kimi-k2.6` → `Kimi K2.6`). */
   const nameOf = (model, aa) => aa?.name ? aa.name.replace(/\s*\([^)]*\)\s*$/, '') : spelled(model)
 
-  // A model's release date: Artificial Analysis's; else the day OpenRouter listed it (the id as it is, or without a
-  // date at its end); else the date the id carries; else the day it was first seen here (`seen`), which stands until
-  // one of them gives a date.
+  // A model's release date: Artificial Analysis's; else the day OpenRouter listed it (the id as it is, without a date
+  // or build stamp at its end, or without its family's name in front); else, for a lineup model neither lists, the
+  // date art.json gives it; else the date the id carries; else the day it was first seen here (`seen`), which stands
+  // until one of them gives a date.
   const seen = new Seen(folder)
   const today = () => {
     const day = new Date(now())
     return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`
   }
-  const published = (id, aa) => {
-    const slug = slugOf(String(id).split(':')[0])
-    return aa?.released || released.dates[slug] || released.dates[undated(slug)] || dateInId(id) || null
-  }
+  const listedOn = slug => formsOf(slug).map(form => released.dates[form]).find(Boolean) ?? null
+  const published = (id, aa) => aa?.released || listedOn(slugOf(String(id).split(':')[0])) || releasedInLineup(id) || dateInId(id) || null
+  // Whether OpenRouter lists a lineup model the roster offers through it (judged only with its list at hand; a lineup
+  // id is OpenRouter's own name, so only as it is or undated)
+  const onOpenRouter = item => item.provider !== 'openrouter' || !Object.keys(released.dates).length ||
+    Boolean(released.dates[slugOf(item.id)] || released.dates[undated(slugOf(item.id))])
   /** The release dates of `ids` (with their Artificial Analysis rows, when known), stamping the ones of no date. */
   function datesOf (models) {
     const found = models.map(({ id, aa }) => ({ id, slug: slugOf(String(id).split(':')[0]), date: published(id, aa) }))
@@ -90,7 +102,8 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
     roster,
     state: () => ({
       tiers, characters,
-      lineup: lineup().map(item => ({ ...item, name: nameOf(item.id, rankings.of(item.provider, item.id, aliases)) })),
+      lineup: lineup().map(item => ({ ...item, name: nameOf(item.id, rankings.of(item.provider, item.id, aliases)),
+        ...(onOpenRouter(item) ? {} : { listed: false }) })),
       uploads: Object.entries(roster.data.uploads).map(([id, about]) => ({ id, name: about.name, at: about.at })),
       parked: roster.data.parked,
       routes: roster.data.routes,
@@ -145,7 +158,7 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
         fs.writeFileSync(path.join(folder, 'openrouter.json'), JSON.stringify(dates))
         released = loadReleased(folder)
       } catch { /* the dates we have stand */ }
-      seen.settle(slug => Boolean(released.dates[slug] || released.dates[undated(slug)] || rankings.models.has(slug)))
+      seen.settle(slug => Boolean(listedOn(slug) || releasedInLineup(slug) || rankings.models.has(slug)))
       let key
       for (const reference of aaKeys()) if ((key = await resolve(reference))) break
       if (!key) throw new RangeError(`no Artificial Analysis key: set ${aaKeys()[0]} (a free key from artificialanalysis.ai)`)
