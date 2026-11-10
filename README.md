@@ -109,6 +109,9 @@ choose the ones you use.
     DeepSeek), so the Used models are exactly what DSH's model picker and the roster offer. A provider with no list
     uses its whole catalog until you first move one out.
   - Ignored shows what **Fetch catalog** found: DSH's installed catalog, with no network call.
+  - Ignored is sorted newest first, each model with its release date (models of no known date last). A long list
+    such as OpenRouter's therefore opens on the models that just came out. **A–Z** sorts it by name instead. The
+    models found for a new OpenAI-compatible endpoint, and the + card's suggestions, come newest first too.
   - **Fetch live list** asks the provider itself which models your key can call. That finds models newer than DSH's
     catalog, such as Claude Fable 5.2 on its release day. Picture, speech and embedding models are left out.
   - The small face on each Used pill changes that model's avatar.
@@ -194,6 +197,7 @@ The routes are on DSH's API, behind its sign-in and for its owner only:
 | `POST /api/llm-roster.park` / `unpark` | `{provider, ns, path, profile}` / `{provider}`: a provider set aside by Ignore all, and put back |
 | `POST /api/llm-roster.route` | `{character, provider \| null}`: the provider a character's lineup goes through |
 | `GET /api/llm-roster.image` | `?art=<character>/<tier, face or face-tier>` or `?upload=<id>` |
+| `GET /api/llm-roster.released` | every release date known, by model slug: Artificial Analysis's over OpenRouter's |
 | `GET/POST /api/llm-roster.rankings` | the top models (`?top=`, `&sort=released` for the newest), or fetch the release dates and the rankings again |
 | `GET /api/llm-roster.check` | `?provider=<route>&ref=<credential reference>&fresh=1`: does the key work (`ok`, `missing`, `rejected`, `error`, `untested`) |
 | `GET /api/llm-roster.balance` | `?provider=<route>&ref=<credential reference>` |

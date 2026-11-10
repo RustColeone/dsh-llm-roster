@@ -33,7 +33,7 @@ window.__ModuleLoader__.load({
       upload: 'api/llm-roster.upload', forget: 'api/llm-roster.forget', settings: 'api/llm-roster.settings',
       park: 'api/llm-roster.park', unpark: 'api/llm-roster.unpark', route: 'api/llm-roster.route', image: 'api/llm-roster.image',
       rankings: 'api/llm-roster.rankings', check: 'api/llm-roster.check', balance: 'api/llm-roster.balance',
-      live: 'api/llm-roster.live'
+      live: 'api/llm-roster.live', released: 'api/llm-roster.released'
     }
     const RARITY = { R: 1, SR: 2, SSR: 3, UR: 4 }
     const TIER_ORDER = ['chibi', 'middle', 'high', 'university']
@@ -201,6 +201,8 @@ window.__ModuleLoader__.load({
       'ignored.title': 'Ignored ({count})',
       'ignored.none': 'Nothing else found yet: fetch the catalog or the provider\'s live list.',
       'ignored.filter': 'Filter',
+      'ignored.sort.released': 'Newest first',
+      'ignored.sort.name': 'A–Z',
       'ignored.more': '{count} more: filter to find them',
       'fetch.catalog': 'Fetch catalog',
       'fetch.live': 'Fetch live list',
@@ -390,6 +392,8 @@ window.__ModuleLoader__.load({
       'ignored.title': '忽略（{count}）',
       'ignored.none': '暂时没有其他模型：可以拉取目录或服务商的实时列表。',
       'ignored.filter': '筛选',
+      'ignored.sort.released': '最新在前',
+      'ignored.sort.name': '按名称',
       'ignored.more': '还有 {count} 个：请筛选查找',
       'fetch.catalog': '拉取目录',
       'fetch.live': '拉取实时列表',
@@ -466,7 +470,7 @@ window.__ModuleLoader__.load({
     // resolved: `provider/model` → the server's word on it (art, face, character, tier, name, rankings)
     // state: the server's state; providers: DSH's settings and provider directory; checks: provider → its key's check
     const resolved = new Map()
-    let shared = { version: 0, generation: 0, state: null, providers: null, checks: {}, routeModels: {} }
+    let shared = { version: 0, generation: 0, state: null, providers: null, checks: {}, routeModels: {}, released: null }
     const listeners = new Set()
     const bump = (changes = {}) => { shared = { ...shared, ...changes, version: shared.version + 1 }; for (const listener of listeners) listener() }
     const sharedStore = { subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
@@ -574,6 +578,23 @@ window.__ModuleLoader__.load({
     /** A model id as it is matched across providers: no vendor, lowercase, words joined by dashes (OpenRouter's
      * `anthropic/claude-opus-5.5` is Anthropic's `claude-opus-5-5`). */
     const slugOf = id => bare(id).replace(/[^a-z0-9]+/g, '-')
+    // Release dates by model slug (Artificial Analysis's, else OpenRouter's), for the lists of models the page sorts.
+    let loadingReleased = null
+    function loadReleasedDates () {
+      loadingReleased ??= get(API.released).then(found => { bump({ released: found }); return found })
+        .catch(() => null).finally(() => { loadingReleased = null })
+      return loadingReleased
+    }
+    /** A model's release date, or null. */
+    function useReleasedDates () {
+      const { released } = useShared()
+      useEffect(() => { if (!released) loadReleasedDates() }, [])
+      return id => released?.dates?.[slugOf(String(id).split(':')[0])] ?? null
+    }
+    /** Models newest first (by `dateOf`), the ones of no known date last, then by id. */
+    const newestFirst = dateOf => (one, other) => String(dateOf(other.id) ?? '').localeCompare(String(dateOf(one.id) ?? '')) ||
+      String(one.id).localeCompare(String(other.id))
+
     /** The models a provider a character goes through offers: DSH's catalog for it (or, for an endpoint of yours, what
      * DSH reads from it with the key it keeps), and for OpenRouter its live list too. */
     async function loadRouteModels (remote, provider) {
@@ -1160,6 +1181,7 @@ window.__ModuleLoader__.load({
       const [typed, setTyped] = useState(proposals.join(', '))
       const [busy, setBusy] = useState(false)
       const [failure, setFailure] = useState(null)
+      const dateOf = useReleasedDates()
       const id = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 63)
       const validURL = /^https?:\/\/\S+$/i.test(baseURL.trim())
       const run = async work => {
@@ -1170,7 +1192,7 @@ window.__ModuleLoader__.load({
         if (!validURL) throw new Error(t('compat.badURL'))
         const models = unwrap(await remote.llm.discoverModels('llm-pi-ai', { baseURL: baseURL.trim(), api: 'openai-completions',
           ...(key.trim() ? { apiKey: key.trim() } : {}) }))
-        setFound(models)
+        setFound([...models].sort(newestFirst(dateOf)))
         const wanted = new Set(proposals.map(slugOf))
         setChosen(new Set(models.filter(model => wanted.has(slugOf(model.id))).map(model => model.id)))
       })
@@ -1212,7 +1234,8 @@ window.__ModuleLoader__.load({
           h('button', { type: 'button', className: 'lr-button lr-small', disabled: busy || !validURL, onClick: find }, t('compat.find')),
           found ? h('span', { className: 'lr-dim' }, t('compat.found', { count: found.length })) : null),
         found ? h('div', { className: 'lr-pills' }, found.slice(0, 200).map(model => h('button', { key: model.id, type: 'button',
-          className: `lr-pill ${chosen.has(model.id) ? 'lr-used lr-static' : 'lr-ignored'}`, onClick: () => toggle(model.id) }, model.id)))
+          className: `lr-pill ${chosen.has(model.id) ? 'lr-used lr-static' : 'lr-ignored'}`, onClick: () => toggle(model.id) }, model.id,
+          dateOf(model.id) ? h('span', { className: 'lr-pill-date' }, dateOf(model.id)) : null)))
           : h('label', { className: 'lr-field' }, h('span', { className: 'lr-label' }, t('compat.models')),
             h('input', { className: 'lr-input lr-mono', value: typed, onChange: event => setTyped(event.target.value) })),
         failure ? h('div', { className: 'lr-error', role: 'alert' }, failure) : null,
@@ -1237,6 +1260,7 @@ window.__ModuleLoader__.load({
       const [found, setFound] = useState([])
       const [busy, setBusy] = useState(false)
       const [failure, setFailure] = useState(null)
+      const dateOf = useReleasedDates()
       useEffect(() => {
         if (!provider && options.length) setProvider((options.find(entry => providerInfo(providers, entry.provider).configured) ?? options[0]).provider)
       }, [options.length])
@@ -1249,7 +1273,7 @@ window.__ModuleLoader__.load({
         const models = live
           ? (await get(`${API.live}?provider=${encodeURIComponent(provider)}&ref=${encodeURIComponent(info.ref)}`)).models
           : unwrap(await remote.llm.discoverModels(info.entry.settingsNs, { provider }))
-        setFound(models)
+        setFound([...models].sort(newestFirst(dateOf))) // (the suggestions open on the newest)
       })
       const save = () => run(async () => {
         const id = model.trim()
@@ -1281,7 +1305,8 @@ window.__ModuleLoader__.load({
             h('div', { className: 'lr-row' },
               h('input', { className: 'lr-input lr-mono', list: 'lr-add-models', placeholder: t('add.modelHint'), value: model,
                 onChange: event => setModel(event.target.value) }),
-              h('datalist', { id: 'lr-add-models' }, found.map(item => h('option', { key: item.id, value: item.id }, item.name ?? item.id))),
+              h('datalist', { id: 'lr-add-models' }, found.map(item => h('option', { key: item.id, value: item.id },
+                [item.name ?? item.id, dateOf(item.id)].filter(Boolean).join(' · ')))),
               h('button', { type: 'button', className: 'lr-button lr-small', disabled: busy || !info.entry, onClick: () => fetchModels(false) }, t('fetch.catalog')),
               state?.providers?.[provider]?.models ? h('button', { type: 'button', className: 'lr-button lr-small', disabled: busy,
                 title: t('fetch.liveTitle'), onClick: () => fetchModels(true) }, t('fetch.live')) : null),
@@ -1310,6 +1335,8 @@ window.__ModuleLoader__.load({
       const [note, setNote] = useState(null)
       const [failure, setFailure] = useState(null)
       const [faceFor, setFaceFor] = useState(null)
+      const [order, setOrder] = useState('released')
+      const dateOf = useReleasedDates()
       const [removing, setRemoving] = useState(false)
       const [dropKey, setDropKey] = useState(false)
       const run = async work => {
@@ -1339,7 +1366,9 @@ window.__ModuleLoader__.load({
       const catalog = catalogNames ?? []
       const usedIds = info.used ? info.used.map(modelId) : catalog.map(model => model.id)
       const usedSet = new Set(usedIds)
+      // Ignored: newest first (or by name), so a long list (OpenRouter's) opens on the models that just came out
       const ignored = (found ?? []).filter(model => !usedSet.has(model.id))
+        .sort(order === 'released' ? newestFirst(dateOf) : (one, other) => one.id.localeCompare(other.id))
       const shownIgnored = ignored.filter(model => !filter || `${model.id} ${model.name ?? ''}`.toLowerCase().includes(filter.toLowerCase()))
       const nameOf = id => catalog.find(model => model.id === id)?.name ?? found?.find(model => model.id === id)?.name ?? id
       const lookup = useResolved(usedIds.map(id => ({ provider: entry.provider, id })))
@@ -1419,12 +1448,16 @@ window.__ModuleLoader__.load({
               h('button', { type: 'button', className: 'lr-button lr-small', disabled: busy, onClick: () => fetchCatalog(false) }, t('fetch.catalog')),
               shared.state?.providers?.[entry.provider]?.models ? h('button', { type: 'button', className: 'lr-button lr-small', disabled: busy,
                 title: t('fetch.liveTitle'), onClick: fetchLive }, t('fetch.live')) : null)),
-          ignored.length > 12 ? h('input', { className: 'lr-input lr-small-input', placeholder: t('ignored.filter'), value: filter,
-            onChange: event => setFilter(event.target.value) }) : null,
+          ignored.length ? h('div', { className: 'lr-row' },
+            ignored.length > 12 ? h('input', { className: 'lr-input lr-small-input', placeholder: t('ignored.filter'), value: filter,
+              onChange: event => setFilter(event.target.value) }) : null,
+            h('span', { className: 'lr-chips' }, ['released', 'name'].map(id => h('button', { key: id, type: 'button',
+              className: `lr-chip${order === id ? ' lr-on' : ''}`, onClick: () => setOrder(id) }, t(`ignored.sort.${id}`))))) : null,
           ignored.length ? h('div', { className: 'lr-pills' }, shownIgnored.slice(0, 150).map(model => h('button', {
-            key: model.id, type: 'button', className: 'lr-pill lr-ignored', disabled: busy || !info.writable, title: model.name ?? model.id,
-            onClick: () => move(model.id, true)
-          }, model.id, model.live && !(found ?? []).some(item => item.id === model.id && item.live === false)
+            key: model.id, type: 'button', className: 'lr-pill lr-ignored', disabled: busy || !info.writable,
+            title: [model.name ?? model.id, dateOf(model.id)].filter(Boolean).join(' · '), onClick: () => move(model.id, true)
+          }, model.id, dateOf(model.id) ? h('span', { className: 'lr-pill-date' }, dateOf(model.id)) : null,
+          model.live && !(found ?? []).some(item => item.id === model.id && item.live === false)
             ? h('span', { className: 'lr-new' }, t('fetch.newTag')) : null)),
           shownIgnored.length > 150 ? h('span', { className: 'lr-dim' }, t('ignored.more', { count: shownIgnored.length - 150 })) : null)
             : h('div', { className: 'lr-dim' }, t('ignored.none'))),
@@ -1578,7 +1611,8 @@ window.__ModuleLoader__.load({
         try { await post(API.rankings, {}) } catch (error) {
           setFailure(`${t('failed', { error: errorText(error) })} ${t('rankings.needKey')}`)
         } finally {
-          await Promise.all([load(), loadState()]).catch(() => {}); forgetResolved() // (the release dates come again even without a key)
+          bump({ released: null }) // (the release dates come again even without a key)
+          await Promise.all([load(), loadState(), loadReleasedDates()]).catch(() => {}); forgetResolved()
           setBusy(false)
         }
       }
@@ -1889,6 +1923,7 @@ window.__ModuleLoader__.load({
 .lr-ignored { padding: 0 11px; cursor: pointer; color: var(--dsw-alias-label-secondary, #555) }
 .lr-ignored:hover:not(:disabled) { border-color: var(--dsw-alias-state-business-primary, #4d6bfe); color: var(--dsw-alias-label-primary, inherit) }
 .lr-pill:disabled, .lr-pill-text:disabled { opacity: .6; cursor: default }
+.lr-pill-date { font-size: 10px; color: var(--dsw-alias-label-tertiary, #888); font-variant-numeric: tabular-nums }
 .lr-new { font-size: 9.5px; font-weight: 700; padding: 0 5px; border-radius: 6px; color: #fff; background: #22a559 }
 .lr-pictures { display: flex; flex-direction: column; gap: 4px }
 .lr-tiles { display: grid; gap: 8px }

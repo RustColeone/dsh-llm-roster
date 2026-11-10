@@ -20,13 +20,14 @@
 //     GET  /api/llm-roster.rankings   ?top=20&sort=released: the best models, each once (or the newest)
 //     POST /api/llm-roster.rankings   fetch the release dates again (OpenRouter, public) and the rankings (needs a free
 //                                     Artificial Analysis key)
+//     GET  /api/llm-roster.released   every release date known, by model slug (for the page's lists of models)
 //     GET  /api/llm-roster.check      ?provider=<route>&ref=<credential reference>&fresh=1: does the key work
 //     GET  /api/llm-roster.balance    ?provider=<route>&ref=<credential reference>
 //     GET  /api/llm-roster.live       ?provider=<route>&ref=<credential reference>: the models the provider lists
 import fs from 'node:fs'
 import path from 'node:path'
 import { balance, check, keyFor, liveModels, offered } from './providers.js'
-import { fetchRankings, fetchReleased, load, loadReleased, slugOf } from './rankings.js'
+import { ALIASES, fetchRankings, fetchReleased, load, loadReleased, slugOf } from './rankings.js'
 import { CHARACTERS, lineup, Roster, TABLE, TIERS } from './roster.js'
 
 export const ROUTES = {
@@ -34,7 +35,7 @@ export const ROUTES = {
   upload: '/api/llm-roster.upload', forget: '/api/llm-roster.forget', settings: '/api/llm-roster.settings',
   park: '/api/llm-roster.park', unpark: '/api/llm-roster.unpark', route: '/api/llm-roster.route', image: '/api/llm-roster.image',
   rankings: '/api/llm-roster.rankings', check: '/api/llm-roster.check', balance: '/api/llm-roster.balance',
-  live: '/api/llm-roster.live'
+  live: '/api/llm-roster.live', released: '/api/llm-roster.released'
 }
 const AA_KEYS = ['ARTIFICIAL_ANALYSIS_API_KEY', 'AA_API_TOKEN']
 const CHECKED_FOR = 10 * 60 * 1000 // how long a key's check stands (a fresh one is asked for after a change)
@@ -95,6 +96,17 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
     route: (character, provider) => { roster.route(character, provider); return { routes: roster.data.routes } },
     image: query => roster.image(query),
     top: (count, sort) => ({ ...rankings.about, rows: rankings.top(count, sort) }),
+    /** Every release date known, by slug, for lists of models the page sorts itself: OpenRouter's, with Artificial
+     * Analysis's over them (and their names for the models DSH calls otherwise). */
+    releasedDates () {
+      const dates = { ...released.dates }
+      for (const [base, row] of rankings.models) if (row.released) dates[base] = row.released
+      for (const [model, slug] of Object.entries(ALIASES)) {
+        const row = rankings.models.get(slugOf(slug))
+        if (row?.released) dates[slugOf(model)] = row.released
+      }
+      return { as_of: released.as_of, dates }
+    },
     async refreshRankings () {
       // the release dates first: OpenRouter's list is public, so they come again even without an Artificial Analysis key
       try {
@@ -185,6 +197,7 @@ export function serve (connection, work) {
   route(ROUTES.rankings, ['GET', 'POST'], async (request, query) => request.method === 'POST'
     ? answer(await work.refreshRankings())
     : answer(work.top(Math.min(100, Math.max(1, Number(query.get('top')) || 20)), query.get('sort') === 'released' ? 'released' : 'intelligence')))
+  route(ROUTES.released, ['GET'], () => answer(work.releasedDates()))
   route(ROUTES.check, ['GET'], async (request, query) =>
     answer(await work.check(provider(query), query.get('ref') ?? undefined, query.get('fresh') === '1')))
   route(ROUTES.balance, ['GET'], async (request, query) =>

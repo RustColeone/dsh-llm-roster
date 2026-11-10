@@ -184,6 +184,12 @@ describe('rankings', () => {
     const newest = work.top(5, 'released').rows
     assert.ok(newest.every((row, index) => index === 0 || row.released <= newest[index - 1].released))
     assert.equal(newest[0].slug, 'claude-fable-5-2')
+    // every date known, for the page's lists of models: Artificial Analysis's over OpenRouter's, and by DSH's names
+    const all = work.releasedDates().dates
+    assert.equal(all['gpt-6-1-sol'], '2026-09-29')
+    assert.equal(all['kimi-k2-6'], '2026-04-20')
+    assert.equal(all['deepseek-flash'], all['deepseek-v4-1-flash-1017'])
+    assert.ok(Object.keys(all).length > 300)
     // fetched again, even without an Artificial Analysis key
     const { fetch } = fakeFetch({ 'https://openrouter.ai/api/v1/models': { data: [{ id: 'moonshotai/kimi-k2.6', created: at('2026-04-01') }] } })
     const again = createRoster(folder, { fetch, resolve: async () => undefined, now: () => 0 })
@@ -295,6 +301,9 @@ describe('the routes', () => {
     assert.equal((await json(await call('GET', `${ROUTES.live}?provider=deepseek-official`))).body.models.length, 2)
     assert.equal((await call('GET', `${ROUTES.live}?provider=openai`)).status, 400)
     assert.equal((await json(await call('GET', `${ROUTES.rankings}?top=5`))).body.rows.length, 5)
+    const newest = (await json(await call('GET', `${ROUTES.rankings}?top=3&sort=released`))).body.rows
+    assert.ok(newest[0].released >= newest[1].released && newest[1].released >= newest[2].released)
+    assert.equal((await json(await call('GET', ROUTES.released))).body.dates['gpt-6-1-sol'], '2026-09-29')
     assert.equal((await call('POST', ROUTES.forget, { body: { upload: uploaded.body.id } })).status, 200)
     assert.equal((await json(await call('POST', ROUTES.settings, { body: { aaKeyEnv: 'MY_AA' } }))).body.keys[0], 'MY_AA')
     const state = (await json(await call('GET', ROUTES.state))).body
