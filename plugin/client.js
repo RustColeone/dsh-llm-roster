@@ -60,6 +60,11 @@ window.__ModuleLoader__.load({
       'roster.available': 'Available',
       'roster.sort.provider': 'By provider',
       'roster.sort.rank': 'By rank',
+      'roster.sort.released': 'By release date',
+      'roster.releasedNote': 'Release dates: Artificial Analysis\'s, else the day OpenRouter listed the model (as of {date}).',
+      'page.released': 'Released {date}',
+      'rankings.sort.intelligence': 'By intelligence',
+      'rankings.sort.released': 'Newest first',
       'roster.inUse': 'In use',
       'roster.loading': 'Reading the models…',
       'roster.switching': 'Switching…',
@@ -244,6 +249,11 @@ window.__ModuleLoader__.load({
       'roster.available': '可用',
       'roster.sort.provider': '按服务商',
       'roster.sort.rank': '按排名',
+      'roster.sort.released': '按发布时间',
+      'roster.releasedNote': '发布时间：优先取 Artificial Analysis 的记录，否则取 OpenRouter 上架模型的日期（截至 {date}）。',
+      'page.released': '发布于 {date}',
+      'rankings.sort.intelligence': '按智能',
+      'rankings.sort.released': '最新发布在前',
       'roster.inUse': '使用中',
       'roster.loading': '正在读取模型……',
       'roster.switching': '切换中……',
@@ -712,7 +722,7 @@ window.__ModuleLoader__.load({
       ? `${state?.characters?.[found.character]?.name ?? found.character} · ${t(`tier.${found.tier}`)}`
       : found?.art?.startsWith('custom:') ? t('tier.custom') : null
 
-    function Card ({ card, found, state, current, busy, onPick, onMore, t }) {
+    function Card ({ card, found, state, current, busy, onPick, onMore, sort, t }) {
       const rarity = rarityOf(found, state)
       const aa = found?.aa
       const name = card.source === 'catalog' ? card.name : (found?.name ?? card.name ?? card.id)
@@ -733,7 +743,8 @@ window.__ModuleLoader__.load({
         h('span', { className: 'lr-card-name' }, name),
         h('span', { className: 'lr-card-meta' },
           h('span', null, card.providerName),
-          aa ? h('span', { title: t('roster.rank', { rank: aa.rank, of: aa.of }) }, `AA ${aa.intelligence} · #${aa.rank}`) : null))),
+          sort === 'released' ? h('span', { className: 'lr-date' }, found?.released ?? '—')
+            : aa ? h('span', { title: t('roster.rank', { rank: aa.rank, of: aa.of }) }, `AA ${aa.intelligence} · #${aa.rank}`) : null))),
       h('button', { type: 'button', className: 'lr-more', title: t('roster.more'), 'aria-label': `${t('roster.more')}: ${name}`,
         onClick: () => onMore(card) }, '…'))
     }
@@ -759,6 +770,10 @@ window.__ModuleLoader__.load({
       const strength = card => [RARITY[rarityOf(lookup(card), state)] ?? 0, lookup(card)?.aa?.intelligence ?? -1]
       if (sort === 'rank') {
         shown.sort((one, other) => (STATUS_ORDER[one.status] > 0) - (STATUS_ORDER[other.status] > 0) ||
+          (lookup(other)?.aa?.intelligence ?? -1) - (lookup(one)?.aa?.intelligence ?? -1))
+      } else if (sort === 'released') {
+        // newest first; a model with no date known last; on the same day, the stronger first
+        shown.sort((one, other) => String(lookup(other)?.released ?? '').localeCompare(String(lookup(one)?.released ?? '')) ||
           (lookup(other)?.aa?.intelligence ?? -1) - (lookup(one)?.aa?.intelligence ?? -1))
       } else {
         const order = new Map(providers.map(([id], index) => [id, index]))
@@ -787,13 +802,13 @@ window.__ModuleLoader__.load({
               key: id, type: 'button', className: `lr-chip${filter === id ? ' lr-on' : ''}`, onClick: () => setFilter(id)
             }, label))),
           h('div', { className: 'lr-chips' },
-            ['provider', 'rank'].map(id => h('button', {
+            ['provider', 'rank', 'released'].map(id => h('button', {
               key: id, type: 'button', className: `lr-chip${sort === id ? ' lr-on' : ''}`, onClick: () => setSort(id)
             }, t(`roster.sort.${id}`))))),
         failure ? h('div', { className: 'lr-error', role: 'alert' }, failure) : null,
         h('div', { className: 'lr-grid' },
           shown.map(card => h(Card, {
-            key: `${card.provider}/${card.id}`, card, found: lookup(card), state, t, busy: busy !== null,
+            key: `${card.provider}/${card.id}`, card, found: lookup(card), state, t, busy: busy !== null, sort,
             current: current?.provider === card.provider && current?.model === card.id,
             onPick: pick, onMore: chosen => onPage({ kind: 'character', card: chosen })
           })),
@@ -802,7 +817,9 @@ window.__ModuleLoader__.load({
         Object.entries(hidden).map(([provider, count]) => h('div', { key: provider, className: 'lr-note lr-row lr-between' },
           h('span', null, t('roster.hidden', { count, provider: providerName(provider, snapshot, null) })),
           onTab ? h('button', { type: 'button', className: 'lr-button lr-small', onClick: () => onTab('models') }, t('tab.models')) : null)),
-        h('div', { className: 'lr-foot' }, h('span', null, busy ? t('roster.switching') : t('roster.hint')), h(Credit, { state, t })))
+        h('div', { className: 'lr-foot' }, h('span', null, busy ? t('roster.switching') : t('roster.hint')),
+          sort === 'released' ? h('span', { className: 'lr-credit' }, t('roster.releasedNote', { date: state?.rankings?.released_as_of ?? '?' }))
+            : h(Credit, { state, t })))
     }
 
     // ---- pictures: choosing a card picture or an avatar ----
@@ -1036,7 +1053,8 @@ window.__ModuleLoader__.load({
               h('div', null,
                 h('div', { className: 'lr-card-who lr-who-dark' }, whoOf(found, state, t) ?? card.providerName),
                 h('h2', { className: 'lr-character-name' }, name),
-                h('div', { className: 'lr-dim' }, `${card.providerName} · `, h('code', null, card.id)))),
+                h('div', { className: 'lr-dim' }, `${card.providerName} · `, h('code', null, card.id)),
+                found?.released ? h('div', { className: 'lr-dim lr-date' }, t('page.released', { date: found.released })) : null)),
             h('div', { className: 'lr-status-line', 'data-status': card.status },
               inSession ? t('page.inUse') : t(`status.${card.status}`)),
             routes?.length > 1 ? h('div', { className: 'lr-field' },
@@ -1547,24 +1565,30 @@ window.__ModuleLoader__.load({
       const [data, setData] = useState(null)
       const [busy, setBusy] = useState(false)
       const [failure, setFailure] = useState(null)
-      const load = async () => {
-        try { setData(await get(`${API.rankings}?top=30`)) } catch (error) { setFailure(t('failed', { error: errorText(error) })) }
+      const [sort, setSort] = useState('intelligence')
+      const load = async (order = sort) => {
+        try { setData(await get(`${API.rankings}?top=30&sort=${order}`)) } catch (error) { setFailure(t('failed', { error: errorText(error) })) }
       }
-      useEffect(() => { load() }, [])
+      useEffect(() => { load(sort) }, [sort])
       const models = catalogOf(snapshot)
       const lookup = useResolved(models)
       const mine = new Set(models.map(model => lookup(model)?.aa?.slug).filter(Boolean))
       async function refresh () {
         setBusy(true); setFailure(null)
-        try { await post(API.rankings, {}); await Promise.all([load(), loadState()]); forgetResolved() } catch (error) {
+        try { await post(API.rankings, {}) } catch (error) {
           setFailure(`${t('failed', { error: errorText(error) })} ${t('rankings.needKey')}`)
-        } finally { setBusy(false) }
+        } finally {
+          await Promise.all([load(), loadState()]).catch(() => {}); forgetResolved() // (the release dates come again even without a key)
+          setBusy(false)
+        }
       }
       return h('div', { className: 'lr-rankings' },
         h(AaKey, { remote, t }),
         h('div', { className: 'lr-row lr-between' },
           h('span', { className: 'lr-dim' }, data?.as_of ? t('rankings.intro', { version: data.version ?? '?', date: data.as_of }) : t('credit.none')),
           h('button', { type: 'button', className: 'lr-button', disabled: busy, onClick: refresh }, busy ? t('rankings.refreshing') : t('rankings.refresh'))),
+        h('div', { className: 'lr-chips' }, ['intelligence', 'released'].map(id => h('button', { key: id, type: 'button',
+          className: `lr-chip${sort === id ? ' lr-on' : ''}`, onClick: () => setSort(id) }, t(`rankings.sort.${id}`)))),
         failure ? h('div', { className: 'lr-error' }, failure) : null,
         data ? h('table', { className: 'lr-table' },
           h('thead', null, h('tr', null, ['#', t('rankings.model'), t('rankings.index'), t('rankings.coding'), t('rankings.agentic'), t('rankings.price')]
@@ -1748,6 +1772,7 @@ window.__ModuleLoader__.load({
 .lr-who-dark { color: color-mix(in srgb, var(--lr-c, #4a90e2) 80%, var(--dsw-alias-label-primary, #222)) }
 .lr-card-name { font-size: 13.5px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere }
 .lr-card-meta { display: flex; justify-content: space-between; gap: 6px; font-size: 10.5px; color: rgba(255,255,255,.72) }
+.lr-date { font-variant-numeric: tabular-nums }
 .lr-rarity { position: absolute; top: 7px; left: 7px; z-index: 2; padding: 1px 7px; border-radius: 6px; font-size: 11px; font-weight: 800;
   font-style: italic; letter-spacing: .04em; color: #1b1300; background: linear-gradient(135deg, var(--lr-c2), var(--lr-c));
   box-shadow: 0 1px 4px rgba(0,0,0,.35) }

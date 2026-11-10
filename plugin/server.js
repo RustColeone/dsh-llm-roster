@@ -17,15 +17,16 @@
 //     POST /api/llm-roster.unpark     { provider } → what was kept of it
 //     POST /api/llm-roster.route      { character, provider | null }: the provider her lineup goes through
 //     GET  /api/llm-roster.image      ?art=<character>/<tier, face or face-tier>, or ?upload=<id>
-//     GET  /api/llm-roster.rankings   ?top=20: the best models, each once
-//     POST /api/llm-roster.rankings   fetch the rankings again (needs a free Artificial Analysis key)
+//     GET  /api/llm-roster.rankings   ?top=20&sort=released: the best models, each once (or the newest)
+//     POST /api/llm-roster.rankings   fetch the release dates again (OpenRouter, public) and the rankings (needs a free
+//                                     Artificial Analysis key)
 //     GET  /api/llm-roster.check      ?provider=<route>&ref=<credential reference>&fresh=1: does the key work
 //     GET  /api/llm-roster.balance    ?provider=<route>&ref=<credential reference>
 //     GET  /api/llm-roster.live       ?provider=<route>&ref=<credential reference>: the models the provider lists
 import fs from 'node:fs'
 import path from 'node:path'
 import { balance, check, keyFor, liveModels, offered } from './providers.js'
-import { fetchRankings, load } from './rankings.js'
+import { fetchRankings, fetchReleased, load, loadReleased, slugOf } from './rankings.js'
 import { CHARACTERS, lineup, Roster, TABLE, TIERS } from './roster.js'
 
 export const ROUTES = {
@@ -49,6 +50,7 @@ export const spelled = model => String(model).split('/').pop().split('-').filter
 export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async name => process.env[name], fetch, now = Date.now } = {}) {
   const roster = new Roster(folder)
   let rankings = load(folder)
+  let released = loadReleased(folder)
   const options = fetch ? { fetch } : {}
   const tiers = Object.fromEntries(TIERS.map(tier => [tier, { rarity: TABLE.tiers[tier].rarity }]))
   const characters = Object.fromEntries(CHARACTERS.map(found => [found, { name: TABLE.characters[found].name,
@@ -70,7 +72,7 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
       uploads: Object.entries(roster.data.uploads).map(([id, about]) => ({ id, name: about.name, at: about.at })),
       parked: roster.data.parked,
       routes: roster.data.routes,
-      rankings: { ...rankings.about, keys: aaKeys(), keyEnv: roster.data.settings.aaKeyEnv ?? null },
+      rankings: { ...rankings.about, keys: aaKeys(), keyEnv: roster.data.settings.aaKeyEnv ?? null, released_as_of: released.as_of },
       providers: offered()
     }),
     resolve (models) {
@@ -80,7 +82,8 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
         const { art, own } = roster.artOf(provider, id)
         const [character, tier] = art && !art.startsWith('custom:') ? art.split('/') : [null, null]
         const aa = rankings.of(provider, id, aliases)
-        return { provider, id, art, own, face: roster.faceOf(provider, id, art), character, tier, name: nameOf(id, aa), aa }
+        return { provider, id, art, own, face: roster.faceOf(provider, id, art), character, tier, name: nameOf(id, aa), aa,
+          released: aa?.released || released.dates[slugOf(id.split(':')[0])] || null }
       })
     },
     pick: (model, picks) => roster.pick(model, picks),
@@ -91,8 +94,15 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
     unpark: provider => ({ kept: roster.unpark(provider), parked: roster.data.parked }),
     route: (character, provider) => { roster.route(character, provider); return { routes: roster.data.routes } },
     image: query => roster.image(query),
-    top: count => ({ ...rankings.about, rows: rankings.top(count) }),
+    top: (count, sort) => ({ ...rankings.about, rows: rankings.top(count, sort) }),
     async refreshRankings () {
+      // the release dates first: OpenRouter's list is public, so they come again even without an Artificial Analysis key
+      try {
+        const dates = await fetchReleased(options)
+        fs.mkdirSync(folder, { recursive: true })
+        fs.writeFileSync(path.join(folder, 'openrouter.json'), JSON.stringify(dates))
+        released = loadReleased(folder)
+      } catch { /* the dates we have stand */ }
       let key
       for (const reference of aaKeys()) if ((key = await resolve(reference))) break
       if (!key) throw new RangeError(`no Artificial Analysis key: set ${aaKeys()[0]} (a free key from artificialanalysis.ai)`)
@@ -174,7 +184,7 @@ export function serve (connection, work) {
   })
   route(ROUTES.rankings, ['GET', 'POST'], async (request, query) => request.method === 'POST'
     ? answer(await work.refreshRankings())
-    : answer(work.top(Math.min(100, Math.max(1, Number(query.get('top')) || 20)))))
+    : answer(work.top(Math.min(100, Math.max(1, Number(query.get('top')) || 20)), query.get('sort') === 'released' ? 'released' : 'intelligence')))
   route(ROUTES.check, ['GET'], async (request, query) =>
     answer(await work.check(provider(query), query.get('ref') ?? undefined, query.get('fresh') === '1')))
   route(ROUTES.balance, ['GET'], async (request, query) =>

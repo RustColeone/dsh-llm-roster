@@ -1,22 +1,32 @@
 #!/usr/bin/env node
-// Fetch Artificial Analysis's free models list and ship it as data/aa-<today>.json (older snapshots are removed).
+// Ship today's snapshots in data/: OpenRouter's release dates (data/openrouter-<today>.json; its model list is public)
+// and, with a key, Artificial Analysis's rankings (data/aa-<today>.json). Older snapshots of each are removed.
 //
-//     ARTIFICIAL_ANALYSIS_API_KEY=... node tools/aa-snapshot.mjs     (or AA_API_TOKEN)
+//     node tools/aa-snapshot.mjs                                     the release dates only
+//     ARTIFICIAL_ANALYSIS_API_KEY=... node tools/aa-snapshot.mjs     both (or AA_API_TOKEN)
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { fetchRankings } from '../plugin/rankings.js'
+import { fetchRankings, fetchReleased } from '../plugin/rankings.js'
 
+const data = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data')
+
+/** Write `value` as data/<prefix>-<date>.json and remove the older ones of that prefix. */
+function ship (prefix, value) {
+  const file = path.join(data, `${prefix}-${value.as_of}.json`)
+  fs.writeFileSync(file, JSON.stringify(value))
+  for (const old of fs.readdirSync(data)) {
+    if (new RegExp(`^${prefix}-\\d{4}-\\d{2}-\\d{2}\\.json$`).test(old) && path.join(data, old) !== file) fs.rmSync(path.join(data, old))
+  }
+  return path.relative(process.cwd(), file)
+}
+
+const released = await fetchReleased()
+console.log(`${ship('openrouter', released)}: ${Object.keys(released.dates).length} release dates`)
 const key = process.env.ARTIFICIAL_ANALYSIS_API_KEY || process.env.AA_API_TOKEN
 if (!key) {
-  console.error('set ARTIFICIAL_ANALYSIS_API_KEY (or AA_API_TOKEN): a free key from artificialanalysis.ai')
-  process.exit(1)
+  console.log('no ARTIFICIAL_ANALYSIS_API_KEY (or AA_API_TOKEN): the rankings snapshot is left as it is')
+  process.exit(0)
 }
-const data = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data')
-const fetched = await fetchRankings(key)
-const file = path.join(data, `aa-${fetched.as_of}.json`)
-fs.writeFileSync(file, JSON.stringify(fetched))
-for (const old of fs.readdirSync(data)) {
-  if (/^aa-\d{4}-\d{2}-\d{2}\.json$/.test(old) && path.join(data, old) !== file) fs.rmSync(path.join(data, old))
-}
-console.log(`${path.relative(process.cwd(), file)}: ${fetched.rows.length} rows, intelligence index v${fetched.version}`)
+const rankings = await fetchRankings(key)
+console.log(`${ship('aa', rankings)}: ${rankings.rows.length} rows, intelligence index v${rankings.version}`)

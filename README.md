@@ -38,8 +38,13 @@ A click on a ready card switches the session to that model. A card that can't be
 Each key is tested by asking the provider for usage: its balance where it reports one, otherwise the models the key
 can call. A result is kept for ten minutes, and the **Test key** button asks again. DeepSeek models need no key when
 you're signed in to a DeepSeek account in DSH. They then come through the account, and a DeepSeek card's page lets
-you choose the account or the API key instead. You can filter by provider or to available models only, and sort by
-provider or by rank.
+you choose the account or the API key instead. You can filter by provider or to available models only.
+
+You can sort by provider, by rank, or by release date. In the release-date sort, newest comes first and each card
+shows its date. A model's release date is Artificial Analysis's where they measure it. Otherwise it is the day
+OpenRouter listed the model, whichever provider you use it through. The plugin ships a snapshot of OpenRouter's dates,
+and **Fetch again** on the Rankings tab updates it (OpenRouter's list is public, so this part needs no key). A
+character's page shows her release date under her name.
 
 **A character's page** (the **…** button) has:
 
@@ -123,7 +128,8 @@ An endpoint's key is tested by DSH itself, which lists its models with the key i
 The roster speaks English and Chinese, following DSH's language.
 
 **Rankings.** Artificial Analysis's top models, each listed once at its best effort, with the intelligence, coding
-and agentic indexes and prices. Models in your roster are highlighted. The plugin ships a snapshot (the date is shown).
+and agentic indexes and prices, by intelligence or newest first. Models in your roster are highlighted. The plugin
+ships a snapshot (the date is shown).
 **Fetch again** downloads the current list, which needs your own free key from
 [artificialanalysis.ai](https://artificialanalysis.ai). Paste it on the Rankings tab, where it is stored write-only in
 DSH's credential store like a provider's key. Or name the environment variable that holds it. Otherwise the roster
@@ -155,6 +161,7 @@ The roster keeps its own files in `$DSH_HOME/llm-roster/` (`~/.dsh/llm-roster/`)
 | `roster.json` | your art and avatar picks (`provider/model` → `gpt/high`, `gpt/face-high` or `custom:<id>`), your uploads' names, the provider each character goes through, the providers you set aside with Ignore all (as they were in DSH's settings), and the variable your Artificial Analysis key is in, if you named one |
 | `art/<id>.<ext>` | the pictures you uploaded |
 | `aa.json` | the rankings, once fetched again |
+| `openrouter.json` | the release dates from OpenRouter, once fetched again |
 
 ## How it works
 
@@ -167,8 +174,8 @@ The roster keeps its own files in `$DSH_HOME/llm-roster/` (`~/.dsh/llm-roster/`)
 | [`plugin/rankings.js`](plugin/rankings.js) | The Artificial Analysis list: matching a model to its slug, ranks, and fetching the list again. |
 | [`plugin/providers.js`](plugin/providers.js) | Each provider's balance and live-list endpoints, at fixed official addresses, and the key check built on them. |
 | [`art/`](art) | The characters' art and [`art.json`](art/art.json). Credits are in [`art/CREDITS.md`](art/CREDITS.md). |
-| [`tools/`](tools) | [`import-art.py`](tools/import-art.py) brings in the five ChimeraArchiveHarness characters. [`draw-art.py`](tools/draw-art.py) draws the others from [`characters.yml`](tools/characters.yml) with OpenAI's image model. [`aa-snapshot.mjs`](tools/aa-snapshot.mjs) refreshes the rankings snapshot. |
-| [`data/`](data) | The shipped rankings snapshot. |
+| [`tools/`](tools) | [`import-art.py`](tools/import-art.py) brings in the five ChimeraArchiveHarness characters. [`draw-art.py`](tools/draw-art.py) draws the others from [`characters.yml`](tools/characters.yml) with OpenAI's image model. [`aa-snapshot.mjs`](tools/aa-snapshot.mjs) refreshes the rankings and release-date snapshots. |
+| [`data/`](data) | The shipped snapshots: Artificial Analysis's rankings, and OpenRouter's release dates. |
 
 Keys never reach the page. A key check, a balance or a live list is asked by the server, using the key DSH resolves
 for the provider's credential reference. It is sent only to that provider's official address, never to an address the page
@@ -187,7 +194,7 @@ The routes are on DSH's API, behind its sign-in and for its owner only:
 | `POST /api/llm-roster.park` / `unpark` | `{provider, ns, path, profile}` / `{provider}`: a provider set aside by Ignore all, and put back |
 | `POST /api/llm-roster.route` | `{character, provider \| null}`: the provider a character's lineup goes through |
 | `GET /api/llm-roster.image` | `?art=<character>/<tier, face or face-tier>` or `?upload=<id>` |
-| `GET/POST /api/llm-roster.rankings` | the top models (`?top=`), or fetch them again |
+| `GET/POST /api/llm-roster.rankings` | the top models (`?top=`, `&sort=released` for the newest), or fetch the release dates and the rankings again |
 | `GET /api/llm-roster.check` | `?provider=<route>&ref=<credential reference>&fresh=1`: does the key work (`ok`, `missing`, `rejected`, `error`, `untested`) |
 | `GET /api/llm-roster.balance` | `?provider=<route>&ref=<credential reference>` |
 | `GET /api/llm-roster.live` | `?provider=<route>&ref=<credential reference>` |
@@ -200,7 +207,7 @@ python3 tools/import-art.py ~/Projects/DiscordStudyBot  # art/ again from a Chim
 python3 tools/draw-art.py --dry-run                   # the other characters' tiers: what it would draw
 python3 tools/draw-art.py --env-file .env             # draw what is missing (OPENAI_API_KEY; needs openai, pillow, pyyaml)
 python3 tools/draw-art.py --faces-only                # crop the avatars again after tuning `faces` in characters.yml
-AA_API_TOKEN=... node tools/aa-snapshot.mjs           # a new rankings snapshot in data/
+AA_API_TOKEN=... node tools/aa-snapshot.mjs           # new snapshots in data/ (release dates even with no key)
 ```
 
 To add a character, give her an entry in [`tools/characters.yml`](tools/characters.yml) (her standing art, look,
@@ -215,4 +222,5 @@ For a local checkout, `dsh plugin --profile web add link:/path/to/dsh-llm-roster
 - **Art (`art/`):** CC BY-NC-SA 4.0, so non-commercial only. These are AI-generated adaptations of character
   designs by [ZipZipPipe](https://space.bilibili.com/4168597/). DeepSeek-chan, the original character, is by
   [上善无形](https://space.bilibili.com/4456176). See [`art/CREDITS.md`](art/CREDITS.md).
-- **Rankings data (`data/`):** Artificial Analysis's, used under their terms with credit to them.
+- **Data (`data/`):** the rankings are Artificial Analysis's, used under their terms with credit to them; the release
+  dates are from OpenRouter's public model list.

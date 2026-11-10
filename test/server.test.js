@@ -7,7 +7,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, test } from 'node:test'
 import { dshHome } from '../plugin/index.js'
 import { balance, check, keyFor, liveModels } from '../plugin/providers.js'
-import { compact, load, slugOf, split } from '../plugin/rankings.js'
+import { compact, load, loadReleased, releasedDates, slugOf, split } from '../plugin/rankings.js'
 import { bundledArt, CHARACTERS, characterOf, lineup, Roster, tierOf, validArt, validFace } from '../plugin/roster.js'
 import { createRoster, ROUTES, serve, spelled } from '../plugin/server.js'
 
@@ -162,11 +162,33 @@ describe('rankings', () => {
     const work = createRoster(folder, { fetch, resolve: async name => name === 'AA_API_TOKEN' ? 'aa-key' : undefined })
     const about = await work.refreshRankings()
     assert.equal(about.version, 6)
-    assert.equal(asked.length, 2)
-    assert.equal(asked[0].headers['x-api-key'], 'aa-key')
+    const toAA = asked.filter(call => call.url.startsWith('https://artificialanalysis.ai/'))
+    assert.equal(toAA.length, 2)
+    assert.equal(toAA[0].headers['x-api-key'], 'aa-key')
     assert.equal(work.top(1).rows[0].slug, 'model-2')
     const none = createRoster(folder, { resolve: async () => undefined })
     await assert.rejects(none.refreshRankings(), /no Artificial Analysis key/)
+  })
+  test('release dates: Artificial Analysis\'s, else when OpenRouter listed the model', async () => {
+    const at = date => Date.parse(`${date}T12:00:00Z`) / 1000
+    assert.deepEqual(releasedDates({ data: [{ id: 'z-ai/glm-5.3', created: at('2026-09-01') }, { id: 'z-ai/glm-5.3:free', created: at('2026-08-30') },
+      { id: 'anthropic/claude-opus-5.5', created: at('2026-09-22') }, { id: 'broken' }] }),
+    { 'glm-5-3': '2026-08-30', 'claude-opus-5-5': '2026-09-22' })
+    const work = createRoster(folder)
+    const [sol, kimi, mine] = work.resolve([{ provider: 'openai', id: 'gpt-6.1-sol' }, { provider: 'openrouter', id: 'moonshotai/kimi-k2.6' },
+      { provider: 'my-gateway', id: 'nothing-known' }])
+    assert.equal(sol.released, '2026-09-29') // Artificial Analysis's
+    assert.equal(kimi.released, '2026-04-20') // OpenRouter's (shipped snapshot)
+    assert.equal(mine.released, null)
+    assert.equal(work.state().rankings.released_as_of, loadReleased(folder).as_of)
+    const newest = work.top(5, 'released').rows
+    assert.ok(newest.every((row, index) => index === 0 || row.released <= newest[index - 1].released))
+    assert.equal(newest[0].slug, 'claude-fable-5-2')
+    // fetched again, even without an Artificial Analysis key
+    const { fetch } = fakeFetch({ 'https://openrouter.ai/api/v1/models': { data: [{ id: 'moonshotai/kimi-k2.6', created: at('2026-04-01') }] } })
+    const again = createRoster(folder, { fetch, resolve: async () => undefined, now: () => 0 })
+    await assert.rejects(again.refreshRankings(), /no Artificial Analysis key/)
+    assert.equal(again.resolve([{ provider: 'openrouter', id: 'moonshotai/kimi-k2.6' }])[0].released, '2026-04-01')
   })
   test('your key: the variable named on the page, then the plugin\'s, then the usual names', async () => {
     const asked = []

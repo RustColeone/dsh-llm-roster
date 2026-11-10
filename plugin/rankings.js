@@ -47,6 +47,44 @@ export function split (slug) {
   return found ? { base: slug.slice(0, -found[0].length), effort: found[1] } : { base: slug, effort: null }
 }
 
+// ---- release dates: Artificial Analysis's for the models they measure, else when OpenRouter listed the model ----
+export const OPENROUTER = 'https://openrouter.ai/api/v1/models'
+
+/** OpenRouter's public model list as release dates by slug (variants such as `:free` are the model; the earliest date
+ * of a slug listed twice wins). */
+export function releasedDates (body) {
+  const dates = {}
+  for (const model of body?.data ?? []) {
+    if (typeof model?.id !== 'string' || !Number.isFinite(model.created)) continue
+    const slug = slugOf(model.id.split(':')[0])
+    const date = new Date(model.created * 1000).toISOString().slice(0, 10)
+    if (!dates[slug] || date < dates[slug]) dates[slug] = date
+  }
+  return dates
+}
+
+/** The release dates we have: the newest of what was fetched and the shipped snapshot. */
+export function loadReleased (folder) {
+  const shipped = fs.readdirSync(DATA).filter(name => /^openrouter-\d{4}-\d{2}-\d{2}\.json$/.test(name)).sort().pop()
+  let best = { as_of: null, dates: {} }
+  for (const file of [shipped && path.join(DATA, shipped), folder && path.join(folder, 'openrouter.json')].filter(Boolean)) {
+    try {
+      const read = JSON.parse(fs.readFileSync(file, 'utf8'))
+      if (read?.dates && (!best.as_of || String(read.as_of) >= String(best.as_of))) best = read
+    } catch { /* not there, or unreadable: the other */ }
+  }
+  return best
+}
+
+/** OpenRouter's release dates as of today (its model list is public: no key). */
+export async function fetchReleased ({ fetch = globalThis.fetch, today = new Date() } = {}) {
+  const response = await fetch(OPENROUTER, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(30000) })
+  if (!response.ok) throw new Error(`OpenRouter answered HTTP ${response.status}`)
+  const dates = releasedDates(await response.json())
+  if (!Object.keys(dates).length) throw new Error('OpenRouter sent an empty list')
+  return { as_of: today.toISOString().slice(0, 10), source: OPENROUTER, dates }
+}
+
 /** The rankings we have: the newest of what was fetched and the shipped snapshot. */
 export function load (folder) {
   const shipped = fs.readdirSync(DATA).filter(name => /^aa-\d{4}-\d{2}-\d{2}\.json$/.test(name)).sort().pop()
@@ -119,8 +157,10 @@ export class Rankings {
     return { ...best, slug: base, rank: this.order.indexOf(base) + 1, of: this.order.length, efforts }
   }
 
-  /** The best `count` models, each once, at its best. */
-  top (count = 20) {
-    return this.order.slice(0, count).map((base, index) => ({ ...this.models.get(base), slug: base, rank: index + 1 }))
+  /** The best `count` models, each once, at its best; or (`sort` 'released') the newest, with their rank. */
+  top (count = 20, sort = 'intelligence') {
+    const rows = this.order.map((base, index) => ({ ...this.models.get(base), slug: base, rank: index + 1 }))
+    if (sort === 'released') rows.sort((one, other) => String(other.released).localeCompare(String(one.released)) || one.rank - other.rank)
+    return rows.slice(0, count)
   }
 }
