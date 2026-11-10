@@ -34,7 +34,7 @@ test('the pool: the lineup as characters (★ by tier) and the equipment, every 
     for (const words of [EN, ZH]) {
       assert.ok(words[`equip.${card.id}.name`] && words[`equip.${card.id}.text`], card.id)
     }
-    assert.ok(fs.existsSync(new URL(`../art/${card.art}.webp`, import.meta.url)), card.art)
+    assert.ok(fs.existsSync(new URL(`../art/${card.character}/${card.tier}.webp`, import.meta.url)), `${card.character}/${card.tier}`)
   }
   assert.equal(new Set(pool.map(card => card.key)).size, pool.length)
   assert.equal(SUMMON.rates.reduce((sum, [, , rate]) => sum + rate, 0), 100)

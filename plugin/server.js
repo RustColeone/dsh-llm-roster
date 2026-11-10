@@ -5,24 +5,27 @@
 // Routes, on DSH's own API (behind its sign-in, for its owner only):
 //
 //     GET  /api/llm-roster.state      tiers and characters (as the art pack in use names and pictures them), the pack,
-//                                     the lineup, your uploads, parked providers, the rankings' date and where your
-//                                     Artificial Analysis key is, what each provider offers
+//                                     the lineup, parked providers, the rankings' date and where your Artificial
+//                                     Analysis key is, what each provider offers
 //     POST /api/llm-roster.resolve    { models: [{ provider, id }] } → each one's character, tier, picture, avatar, name
 //                                     and rankings
-//     POST /api/llm-roster.pick       { model: 'provider/model', art?: 'gpt/high' | 'custom:<id>' | null,
-//                                       face?: 'gpt/face-high' | 'custom:<id>' | null }
-//     POST /api/llm-roster.upload     ?name=<file name>, the picture as the body (png, jpeg, webp or gif; 4 MB at most)
-//     POST /api/llm-roster.forget     { upload: '<id>' }
+//     POST /api/llm-roster.pick       { model: 'provider/model', art?: 'deepseek/image2.webp' | null,
+//                                       face?: 'deepseek/face-2.webp' | null }: a change to the pack in use
+//     POST /api/llm-roster.upload     ?name=<file name>&character=<character>, the picture as the body (png, jpeg, webp
+//                                     or gif; 4 MB at most) → { file }: added to the pack in use, as a change
+//     POST /api/llm-roster.forget     { file }: a picture you added, taken back
 //     POST /api/llm-roster.settings   { aaKeyEnv: '<variable>' | null }: where your Artificial Analysis key is
 //     POST /api/llm-roster.park       { provider, ns, path, profile }: a provider set aside whole ("Ignore all")
 //     POST /api/llm-roster.unpark     { provider } → what was kept of it
 //     POST /api/llm-roster.route      { character, provider | null }: the provider her lineup goes through
-//     GET  /api/llm-roster.image      ?art=<character>/<picture> (the art pack's: `claude/high`, `claude/face-high`; or
-//                                     the pack `&pack=<id>`'s), or ?upload=<id>
-//     GET  /api/llm-roster.packs      the art packs: the bundled one and yours, and which is in use
-//     POST /api/llm-roster.packs      { use: '<id>' | null } | { remove: '<id>' } | { fetch: '<GitHub or .zip link>' }
+//     GET  /api/llm-roster.image      ?art=<folder>/<file> (a picture of the pack in use: `deepseek/high.webp`; or of the
+//                                     pack `&pack=<id>`)
+//     GET  /api/llm-roster.packs      your art packs, the one in use, and the ones that come with the roster
+//     POST /api/llm-roster.packs      { use: '<id>' } | { create: '<name>' } | { remove: '<id>' } | { discard: '<id>' } |
+//                                     { fetch: '<GitHub or .zip link>' } | { add: '<file>' }: one that comes with the
+//                                     roster (academy, or packs/<file>.zip)
 //     POST /api/llm-roster.pack-import  ?name=<file name>, a .zip of a pack (or a lone pack.json) as the body
-//     GET  /api/llm-roster.pack-export  ?id=<pack>: the pack as a .zip
+//     GET  /api/llm-roster.pack-export  ?id=<pack>: the pack as a .zip, with your changes to it
 //     GET  /api/llm-roster.rankings   ?top=20&sort=released&efforts=1: the leaderboard, the best models each once (or
 //                                     the newest; or every effort each was measured at)
 //     POST /api/llm-roster.rankings   fetch the release dates again (OpenRouter, public) and the rankings (needs a free
@@ -37,7 +40,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { balance, check, keyFor, liveModels, offered } from './providers.js'
 import { ALIASES, dateInId, fetchRankings, fetchReleased, formsOf, load, loadReleased, Seen, slugOf, undated } from './rankings.js'
-import { BUNDLED, fetchPack, filesOf } from './packs.js'
+import { fetchPack, filesOf } from './packs.js'
 import { CHARACTERS, lineup, MODELS, RARITY, releasedInLineup, Roster, TIERS } from './roster.js'
 
 export const ROUTES = {
@@ -71,17 +74,25 @@ export function spelled (model) {
  * reference (DSH's store, then the environment). */
 export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async name => process.env[name], fetch, now = Date.now } = {}) {
   const roster = new Roster(folder)
+  // the packs that come with the roster are yours from the start, to switch to (once: one you remove stays removed);
+  // a roster before 0.5.2 kept your picks in its own file: they become your changes to the pack in use
+  try { roster.seedPacks(); roster.migrate() } catch { /* no place to keep them: the bundled pack alone */ }
   let rankings = load(folder)
   let released = loadReleased(folder)
   const options = fetch ? { fetch } : {}
-  // the tiers and characters, as the art pack in use names and pictures them (read again as the page asks: a pack you
-  // change in place shows as it is now)
+  // the tiers and characters, as the art pack in use names and pictures them: each character's card and avatar at each
+  // tier, and every picture of hers to choose from (read again as the page asks: a pack changed in place shows as it is
+  // now)
   const dressed = (look = roster.look(true)) => ({
     tiers: Object.fromEntries(TIERS.map(tier => [tier, { rarity: RARITY[tier], ...look.tier(tier) }])),
     characters: Object.fromEntries(CHARACTERS.map(found => [found, { ...look.character(found), home: MODELS.characters[found].home,
-      providers: MODELS.characters[found].providers, pictures: look.cards(found), faces: look.faces(found),
-      tierFaces: Object.fromEntries(TIERS.map(tier => [tier, look.faceOf(`${found}/${tier}`, tier)])) }])),
-    pack: { id: look.id, name: look.about.name, names: look.about.names, version: look.version }
+      providers: MODELS.characters[found].providers,
+      art: Object.fromEntries(TIERS.map(tier => [tier, look.tierArt(found, tier)])),
+      face: Object.fromEntries(TIERS.map(tier => [tier, look.tierFace(found, tier)])),
+      pictures: look.choices(found, 'art'), faces: look.choices(found, 'face') }])),
+    pack: { id: look.id, name: look.about.name, names: look.about.names, version: look.about.version, stamp: look.stamp, labels: look.labels(),
+      // the pictures you added (yours to take back), and the ones for models of no character
+      added: [...(look.changes?.files.keys() ?? [])], uploads: look.packs.flatMap(pack => pack.folderFiles('uploads')) }
   })
   // Where your Artificial Analysis key is, in lookup order: the variable named on the page, then in the plugin's
   // settings, then the usual names. A key pasted on the page is stored under the first.
@@ -121,7 +132,6 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
       // (each with its picture and avatar as its card shows them: the pack's, or your pick)
       lineup: lineup().map(item => ({ ...item, name: nameOf(item.id, rankings.of(item.provider, item.id, aliases)),
         art: roster.artOf(item.provider, item.id).art, face: roster.faceOf(item.provider, item.id), ...(onOpenRouter(item) ? {} : { listed: false }) })),
-      uploads: Object.entries(roster.data.uploads).map(([id, about]) => ({ id, name: about.name, at: about.at })),
       parked: roster.data.parked,
       routes: roster.data.routes,
       rankings: { ...rankings.about, keys: aaKeys(), keyEnv: roster.data.settings.aaKeyEnv ?? null, released_as_of: released.as_of },
@@ -132,7 +142,7 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
       const found = models.slice(0, 500).map(({ provider, id }) => {
         provider = String(provider ?? ''); id = String(id ?? '')
         const { art, own } = roster.artOf(provider, id)
-        const { character, tier } = roster.whoOf(provider, id, art)
+        const { character, tier } = roster.whoOf(provider, id)
         const aa = rankings.of(provider, id, aliases)
         return { provider, id, art, own, face: roster.faceOf(provider, id, art), character, tier, name: nameOf(id, aa), aa }
       })
@@ -148,8 +158,8 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
       return { dates: Object.fromEntries(wanted.map((id, index) => [id, dates[index]])) }
     },
     pick: (model, picks) => roster.pick(model, picks),
-    upload: (bytes, type, fileName) => roster.upload(bytes, type, fileName),
-    forget: id => roster.forget(id),
+    upload: (bytes, type, fileName, character) => roster.upload(bytes, type, fileName, character),
+    forget: file => roster.forget(file),
     settings: values => { roster.set(values); return { keys: aaKeys(), keyEnv: roster.data.settings.aaKeyEnv ?? null } },
     park: (provider, about) => { roster.park(provider, about); return { parked: roster.data.parked } },
     unpark: provider => ({ kept: roster.unpark(provider), parked: roster.data.parked }),
@@ -157,13 +167,15 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
     image: query => roster.image(query),
     top: (count, sort, efforts) => ({ ...rankings.about, rows: rankings.top(count, sort, { efforts }) }),
     // ---- art packs ----
-    packs: () => ({ active: roster.look(true).id, packs: roster.packs.list(roster.data.settings.pack) }),
-    usePack: id => { roster.usePack(id); return { ...dressed(), active: roster.look().id } },
-    removePack: id => {
-      roster.packs.remove(id)
-      if (roster.data.settings.pack === id) roster.usePack(null)
-      return { active: roster.look(true).id }
-    },
+    packs: () => ({ active: roster.active, packs: roster.packs.list(roster.active), included: roster.packs.includedList() }),
+    /** Add a pack that comes with the roster (academy, or packs/<file>.zip). */
+    addPack: file => { const kept = roster.packs.addIncluded(String(file)); roster.look(true); return kept },
+    usePack: id => { roster.usePack(id); return { ...dressed(), active: roster.active } },
+    /** A new, empty pack, put in use. */
+    createPack: name => { const id = roster.packs.create(name); roster.usePack(id); return { id, active: id } },
+    removePack: id => { roster.packs.remove(id); roster.look(true); return { active: roster.active } },
+    /** Let go of your changes to a pack. */
+    discardChanges: id => { roster.packs.discard(id); roster.look(true); return { active: roster.active } },
     /** Keep a pack from a .zip or a lone pack.json (`bytes`), named by `fileName` when its pack.json does not. */
     importPack: (bytes, fileName = '') => {
       if (!bytes.length) throw new RangeError('the file is empty')
@@ -179,7 +191,7 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
       roster.look(true)
       return kept
     },
-    exportPack: id => roster.packs.zip(String(id ?? BUNDLED)),
+    exportPack: id => roster.packs.zip(String(id ?? roster.active)),
     /** Every release date known, by slug, for lists of models the page sorts itself: OpenRouter's, with Artificial
      * Analysis's over them (and their names for the models DSH calls otherwise). */
     releasedDates () {
@@ -258,7 +270,7 @@ export function serve (connection, work) {
   route(ROUTES.upload, ['POST'], async (request, query) => {
     const type = String(request.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
     const bytes = Buffer.from(await request.arrayBuffer())
-    return answer({ id: work.upload(bytes, type, query.get('name') ?? '') })
+    return answer({ file: work.upload(bytes, type, query.get('name') ?? '', query.get('character')) })
   })
   route(ROUTES.settings, ['POST'], async request => answer(work.settings(await json(request))))
   route(ROUTES.park, ['POST'], async request => {
@@ -271,11 +283,11 @@ export function serve (connection, work) {
     return answer(work.route(String(body.character ?? ''), body.provider ?? null))
   })
   route(ROUTES.forget, ['POST'], async request => {
-    work.forget(String((await json(request)).upload ?? ''))
+    work.forget(String((await json(request)).file ?? ''))
     return answer({ ok: true })
   })
   route(ROUTES.image, ['GET'], (request, query) => {
-    const found = work.image(query.has('upload') ? { upload: query.get('upload') } : { art: query.get('art'), pack: query.get('pack') ?? undefined })
+    const found = work.image({ art: query.get('art'), pack: query.get('pack') ?? undefined })
     if (!found || !fs.existsSync(found.file)) return answer({ error: 'no such picture' }, 404)
     return new Response(fs.readFileSync(found.file), { headers: { 'content-type': found.type,
       'cache-control': 'private, max-age=86400', 'x-content-type-options': 'nosniff' } })
@@ -287,8 +299,11 @@ export function serve (connection, work) {
   route(ROUTES.packs, ['GET', 'POST'], async request => {
     if (request.method === 'GET') return answer(work.packs())
     const body = await json(request)
-    if ('use' in body) return answer(work.usePack(body.use === null ? null : String(body.use)))
+    if ('use' in body) return answer(work.usePack(String(body.use)))
+    if ('create' in body) return answer(work.createPack(String(body.create)))
     if ('remove' in body) return answer(work.removePack(String(body.remove)))
+    if ('discard' in body) return answer(work.discardChanges(String(body.discard)))
+    if ('add' in body) return answer(work.addPack(String(body.add)))
     if ('fetch' in body) return answer(await work.fetchPack(String(body.fetch)))
     throw new RangeError('say { use }, { remove } or { fetch }')
   })

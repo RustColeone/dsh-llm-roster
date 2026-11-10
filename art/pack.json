@@ -1,33 +1,88 @@
 {
-  "_": "An art pack: what the roster's characters look like and what they and their tiers are called. Each character's pictures are the files in her folder (claude/high.webp): a card picture per tier (chibi, middle, high, university) and an avatar for each (face-high.webp), any of .webp .png .jpg .gif. More pictures in a folder are more to choose from. Anything a pack leaves out comes from the bundled pack. See the README's 'Art packs'.",
+  "_": "An art pack: what the roster's characters look like and what they and their tiers are called. Every picture is named by its file, in the pack's folders, or by a pattern as ls takes one (\"deepseek/image*.webp\": the first that matches, in ls order). `characters`: each one's name, and her card (`art`) and avatar (`face`) at each tier: chibi, middle, high, university. `models`: a model's own card and avatar, { \"art\": \"deepseek/image2.webp\", \"face\": \"deepseek/face-2.webp\" }, by its id or a pattern (\"claude-opus-*\"): the first that fits it (else it wears its character's at its tier). `pictures`: what a picture is called. Names are a string, or a `name` with other languages beside it by their codes (\"zh-CN\": \"高中生\"). See the README's \"Art packs\".",
   "name": "Academy",
-  "zh": "学园",
+  "zh-CN": "学园",
+  "version": "1.0.0",
   "author": "ZipZipPipe (designs), 上善无形 (DeepSeek-chan)",
   "license": "CC BY-NC-SA 4.0",
   "url": "https://github.com/RustColeone/dsh-llm-roster",
   "tiers": {
-    "chibi": { "name": "Chibi", "zh": "Q版" },
-    "middle": { "name": "Middle-schooler", "zh": "初中生" },
-    "high": { "name": "High-schooler", "zh": "高中生" },
-    "university": { "name": "University student", "zh": "大学生" }
+    "chibi": { "name": "Chibi", "zh-CN": "Q版" },
+    "middle": { "name": "Middle-schooler", "zh-CN": "初中生" },
+    "high": { "name": "High-schooler", "zh-CN": "高中生" },
+    "university": { "name": "University student", "zh-CN": "大学生" }
   },
   "characters": {
-    "gpt": { "name": "GPT" },
-    "claude": { "name": "Claude" },
-    "gemini": { "name": "Gemini" },
-    "deepseek": { "name": "DeepSeek" },
-    "grok": { "name": "Grok" },
-    "kimi": { "name": "Kimi" },
-    "glm": { "name": "GLM" },
-    "qwen": { "name": "Qwen" },
-    "mistral": { "name": "Mistral" },
-    "minimax": { "name": "MiniMax" },
-    "llama": { "name": "Llama" },
-    "doubao": { "name": "Doubao" },
-    "perplexity": { "name": "Perplexity" },
-    "hunyuan": { "name": "Hunyuan" }
+    "gpt": {
+      "name": "GPT",
+      "art": { "chibi": "gpt/chibi.webp", "middle": "gpt/middle.webp", "high": "gpt/high.webp", "university": "gpt/university.webp" },
+      "face": { "chibi": "gpt/face-chibi.webp", "middle": "gpt/face-middle.webp", "high": "gpt/face-high.webp", "university": "gpt/face-university.webp" }
+    },
+    "claude": {
+      "name": "Claude",
+      "art": { "chibi": "claude/chibi.webp", "middle": "claude/middle.webp", "high": "claude/high.webp", "university": "claude/university.webp" },
+      "face": { "chibi": "claude/face-chibi.webp", "middle": "claude/face-middle.webp", "high": "claude/face-high.webp", "university": "claude/face-university.webp" }
+    },
+    "gemini": {
+      "name": "Gemini",
+      "art": { "chibi": "gemini/chibi.webp", "middle": "gemini/middle.webp", "high": "gemini/high.webp", "university": "gemini/university.webp" },
+      "face": { "chibi": "gemini/face-chibi.webp", "middle": "gemini/face-middle.webp", "high": "gemini/face-high.webp", "university": "gemini/face-university.webp" }
+    },
+    "deepseek": {
+      "name": "DeepSeek",
+      "art": { "chibi": "deepseek/chibi.webp", "middle": "deepseek/middle.webp", "high": "deepseek/high.webp", "university": "deepseek/university.webp" },
+      "face": { "chibi": "deepseek/face-chibi.webp", "middle": "deepseek/face-middle.webp", "high": "deepseek/face-high.webp", "university": "deepseek/face-university.webp" }
+    },
+    "grok": {
+      "name": "Grok",
+      "art": { "chibi": "grok/chibi.webp", "middle": "grok/middle.webp", "high": "grok/high.webp", "university": "grok/university.webp" },
+      "face": { "chibi": "grok/face-chibi.webp", "middle": "grok/face-middle.webp", "high": "grok/face-high.webp", "university": "grok/face-university.webp" }
+    },
+    "kimi": {
+      "name": "Kimi",
+      "art": { "chibi": "kimi/chibi.webp", "middle": "kimi/middle.webp", "high": "kimi/high.webp", "university": "kimi/university.webp" },
+      "face": { "chibi": "kimi/face-chibi.webp", "middle": "kimi/face-middle.webp", "high": "kimi/face-high.webp", "university": "kimi/face-university.webp" }
+    },
+    "glm": {
+      "name": "GLM",
+      "art": { "chibi": "glm/chibi.webp", "middle": "glm/middle.webp", "high": "glm/high.webp", "university": "glm/university.webp" },
+      "face": { "chibi": "glm/face-chibi.webp", "middle": "glm/face-middle.webp", "high": "glm/face-high.webp", "university": "glm/face-university.webp" }
+    },
+    "qwen": {
+      "name": "Qwen",
+      "art": { "chibi": "qwen/chibi.webp", "middle": "qwen/middle.webp", "high": "qwen/high.webp", "university": "qwen/university.webp" },
+      "face": { "chibi": "qwen/face-chibi.webp", "middle": "qwen/face-middle.webp", "high": "qwen/face-high.webp", "university": "qwen/face-university.webp" }
+    },
+    "mistral": {
+      "name": "Mistral",
+      "art": { "chibi": "mistral/chibi.webp", "middle": "mistral/middle.webp", "high": "mistral/high.webp", "university": "mistral/university.webp" },
+      "face": { "chibi": "mistral/face-chibi.webp", "middle": "mistral/face-middle.webp", "high": "mistral/face-high.webp", "university": "mistral/face-university.webp" }
+    },
+    "minimax": {
+      "name": "MiniMax",
+      "art": { "chibi": "minimax/chibi.webp", "middle": "minimax/middle.webp", "high": "minimax/high.webp", "university": "minimax/university.webp" },
+      "face": { "chibi": "minimax/face-chibi.webp", "middle": "minimax/face-middle.webp", "high": "minimax/face-high.webp", "university": "minimax/face-university.webp" }
+    },
+    "llama": {
+      "name": "Llama",
+      "art": { "chibi": "llama/chibi.webp", "middle": "llama/middle.webp", "high": "llama/high.webp", "university": "llama/university.webp" },
+      "face": { "chibi": "llama/face-chibi.webp", "middle": "llama/face-middle.webp", "high": "llama/face-high.webp", "university": "llama/face-university.webp" }
+    },
+    "doubao": {
+      "name": "Doubao",
+      "art": { "chibi": "doubao/chibi.webp", "middle": "doubao/middle.webp", "high": "doubao/high.webp", "university": "doubao/university.webp" },
+      "face": { "chibi": "doubao/face-chibi.webp", "middle": "doubao/face-middle.webp", "high": "doubao/face-high.webp", "university": "doubao/face-university.webp" }
+    },
+    "perplexity": {
+      "name": "Perplexity",
+      "art": { "chibi": "perplexity/chibi.webp", "middle": "perplexity/middle.webp", "high": "perplexity/high.webp", "university": "perplexity/university.webp" },
+      "face": { "chibi": "perplexity/face-chibi.webp", "middle": "perplexity/face-middle.webp", "high": "perplexity/face-high.webp", "university": "perplexity/face-university.webp" }
+    },
+    "hunyuan": {
+      "name": "Hunyuan",
+      "art": { "chibi": "hunyuan/chibi.webp", "middle": "hunyuan/middle.webp", "high": "hunyuan/high.webp", "university": "hunyuan/university.webp" },
+      "face": { "chibi": "hunyuan/face-chibi.webp", "middle": "hunyuan/face-middle.webp", "high": "hunyuan/face-high.webp", "university": "hunyuan/face-university.webp" }
+    }
   },
-  "models": {
-    "_": "A model's own picture, when it should not wear its tier's: \"claude-opus-5-5\": \"claude/opus\" shows claude/opus.png (or .webp, .jpg, .gif). A tier's picture works too (\"gpt-6-luna\": \"gpt/high\"), and then the card is that tier."
-  }
+  "models": {}
 }

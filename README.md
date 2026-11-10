@@ -1,5 +1,7 @@
 # dsh-llm-roster
 
+English · [简体中文](README.zh-CN.md)
+
 A gacha-style character roster for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH). Your
 models become characters: an avatar sits just left of the composer's model picker, and a click opens the roster, where
 picking a card switches the session to that model.
@@ -71,8 +73,10 @@ OpenRouter has stopped listing, and that carries no date in its id, also gets th
   - with a Pro key, the time and tokens a task takes;
   - price, speed, and how long until the first answer token (thinking included);
   - every effort they measured, with its index and cost per task.
-- **Equipment:** the card art and the avatar, each changeable on its own. Pick any character's art or face, or upload
-  a picture (PNG, JPEG, WebP or GIF, up to 4 MB).
+- **Equipment:** the card art and the avatar, each changeable on its own. Pick any picture the art pack has, her own
+  listed first (her tiers' and any more in her folder), any other character's, or upload a picture (PNG, JPEG, WebP or
+  GIF, up to 4 MB). Your choices are changes to the pack in use, written into it when you export it (see **Art
+  packs**).
 - **In the roster:** whether the model is Used or Ignored, with **Move to Ignored**.
 - **Served through** (for a lineup model): which provider and key serve the character. The choices are her own
   provider, OpenRouter, or an OpenAI-compatible endpoint of yours, and **+ OpenAI-compatible endpoint** adds one.
@@ -105,7 +109,7 @@ and DeepSeek), and anything else can come in as an OpenAI-compatible key.
 | University student | grown-up, on campus | UR |
 
 Those are the bundled art pack's names and pictures. Another pack can call the tiers anything (Squire, Page, Knight,
-Paladin) and draw the characters any way: see [Art packs](#art-packs).
+Paladin) and draw the characters any way: see **Art packs** below.
 
 Fourteen characters ship, each with a card picture and a face for every tier:
 
@@ -217,70 +221,154 @@ glossy band and a highlight follow the pointer across it, and ★4 and ★5 card
 The same goes for a character's big art, the album and the summon banner, whose art moves a little with the
 pointer. All of this, and every animation, is off when your system asks for reduced motion.
 
-**Art packs.** How the characters look, and what they and their tiers are called, come from an art pack. The
-bundled one is *Academy*: the school-age tiers above, drawn after ZipZipPipe's designs. A pack doesn't change who a
-model is (her character, her tier and its rarity, the lineup), only how she's dressed and named. The tab lists the
-packs you have:
+**Art packs.** How the characters look, and what they and their tiers are called, come from an art pack. A pack
+doesn't change who a model is (her character, her tier and its rarity, the lineup), only how she's dressed and named.
+Two packs come with the roster, and are yours from the first time it starts:
 
-- **Use** one, and every card, avatar, gallery and the summon change to it.
-- **Export .zip** saves one.
-- **Remove** deletes one of yours.
+- **Academy**, the student pack, in use until you choose another: every one of the fourteen characters from chibi to
+  middle-schooler, high-schooler and university student, drawn after ZipZipPipe's designs. It is also the bundled
+  pictures (`art/`): what any pack doesn't have comes from them.
+- **Original Students**, an extra: the five students (GPT, Claude, Gemini, DeepSeek and Grok) as ChimeraArchiveHarness
+  first drew them. Her art stages are the tiers (Stage 2, Stage 3, and the awakened Stage 4), and her chibi is the
+  chibi. Her bond pictures (a café, at home, a summer festival) are more cards to choose from on her page, and her mood
+  faces more avatars. The other nine characters wear Academy's pictures. It ships as
+  [`packs/original-students.zip`](packs).
+
+**Switch packs on the go** with the **Art pack** menu on the Roster tab, or start a **New empty pack** there. Every
+card, avatar, gallery and the summon change at once. The **Art packs** tab lists your packs:
+
+- **Use** one.
+- **Export .zip** saves one, with your changes to it (below).
+- **Remove** deletes one. A pack that comes with the roster stays removed until you add it again under **Comes with
+  the roster**. When an update of the roster brings a newer version of it, the button there says **Update**.
 - **Import a .zip or pack.json** adds one.
 - **Fetch** adds one from a link: a GitHub repository (`https://github.com/you/your-pack`), a folder in one
-  (`…/tree/main/packs/knights`), or a link to a .zip.
+  (`…/tree/main/packs/knights`), a .zip on GitHub (`…/blob/main/packs/knights.zip`), or any link to a .zip.
 
 Importing a pack of the same name again replaces it, which is how you update one.
 
-A pack is a folder anyone can make and change with a text editor and some pictures:
+**Your changes.** On a character's page you choose the card and the avatar of a model: any picture of the pack's, or
+one you upload. A pack is never written to once you have it, so it can't be broken. What you choose and upload is
+kept beside it, as your changes to that pack, and worn over it. The pack's card on the Art packs tab says how many
+there are. **Export .zip** writes them into the export:
+
+- its `pack.json` names the pictures you chose for each model,
+- and the .zip holds every picture: the pack's own, the ones you uploaded, and any bundled picture you chose.
+
+So if a pack has ten pictures of DeepSeek and you choose the second for DeepSeek V4 Pro, the exported `pack.json` has
+`"deepseek-v4-pro": { "art": "deepseek/image2.webp" }` and the .zip has all ten. **Discard changes** lets them go,
+and the pack is as it came.
+
+A pack is a folder: a `pack.json` that names every picture by its file, and folders of pictures, one per character.
 
 ```
 knights/
   pack.json
   claude/
-    high.png            her card as a high-schooler (or Knight, as this pack calls the tier)
-    face-high.png       her avatar at that tier
+    knight.png          her card at the high tier (which pack.json says)
+    knight-face.png     her avatar there
     opus.png            any more pictures: more to choose from on her page
-  gpt/
-    university.webp
+    festival.png
+  deepseek/
+    image1.webp … image10.webp
+    face-2.webp
 ```
 
 ```json
 {
   "name": "Knights",
-  "zh": "骑士团",
+  "zh-CN": "骑士团",
+  "version": "1.0.0",
   "author": "you",
   "license": "CC BY 4.0",
+  "description": { "name": "The roster as an order of knights.", "zh-CN": "把名册变成骑士团。" },
   "tiers": {
     "chibi": "Squire",
-    "middle": { "name": "Page", "zh": "见习骑士" },
-    "high": { "name": "Knight", "zh": "骑士" },
-    "university": { "name": "Paladin", "zh": "圣骑士" }
+    "middle": { "name": "Page", "zh-CN": "侍从" },
+    "high": { "name": "Knight", "zh-CN": "骑士" },
+    "university": { "name": "Paladin", "zh-CN": "圣骑士" }
   },
   "characters": {
-    "claude": { "name": "Sir Claude", "zh": "克劳德爵士" }
+    "claude": {
+      "name": "Sir Claude",
+      "zh-CN": "克劳德爵士",
+      "art": { "high": "claude/knight.png" },
+      "face": { "high": "claude/knight-face.png" }
+    }
   },
   "models": {
-    "claude-opus-5-5": "claude/opus"
+    "deepseek-v4-pro": { "art": "deepseek/image2.webp", "face": "deepseek/face-2.webp" },
+    "claude-opus-*": { "art": "claude/opus.png" }
+  },
+  "pictures": {
+    "claude/festival.png": { "name": "Summer festival", "zh-CN": "夏日祭" }
   }
 }
 ```
 
-- **The folders are named after the characters:** `gpt`, `claude`, `gemini`, `deepseek`, `grok`, `kimi`, `glm`,
-  `qwen`, `mistral`, `minimax`, `llama`, `doubao`, `perplexity` and `hunyuan`.
-- **Pictures are found by their file names.** `chibi`, `middle`, `high` and `university` are the tiers' cards.
-  `face-<tier>` is the avatar at a tier, and `face` is a portrait for any tier. They can be `.webp`, `.png`, `.jpg` or
-  `.gif`. Cards look best at 2:3 (the bundled ones are 512 × 768) and avatars square. With no avatar for a card, the
-  card itself is the avatar.
-- **Names** are a plain string, or a `name` with other languages beside it (`"zh"`). The pack's own name is given
-  the same way.
-- **`models`** gives a model its own picture (`"claude-opus-5-5": "claude/opus"`, the extension left off or not).
-  When it points to a tier's card, the model's card becomes that tier.
-- **Anything a pack leaves out comes from the bundled pack:** a tier's name, a character, a picture. So a pack can be
-  as small as a lone `pack.json` that renames the tiers, or as large as a whole new cast.
+- **Every picture is named by its file,** one folder deep (`claude/knight.png`): `.webp`, `.png`, `.jpg` or `.gif`.
+  Or by a pattern, as `ls` takes one: `*` for any run of characters and `?` for one, neither across a `/`; `[abc]`
+  for one of them, `[!abc]` for none of them. It is the first file that matches, in `ls` order (`b10.png` before
+  `b2.png`): the pack's own pictures (and yours) first, else the bundled ones. So `deepseek/image*.webp` is
+  `deepseek/image1.webp`, and `*/opus.png` the first folder's `opus.png`.
+- **`characters`**: each character's name, and her card (`art`) and avatar (`face`) at each tier (`chibi`, `middle`,
+  `high`, `university`).
+- **`models`**: a model's own card and avatar, either or both, by its id (`deepseek-v4-pro`) or by a pattern
+  (`claude-opus-*` is every Opus, the ones still to come included; `*-flash` every Flash; `gpt-6.[01]-*`). The first entry that fits a model, in the order they are written, is its; the
+  pictures you choose come before them all. A model none fits wears its character's at its tier. An id fits as the
+  provider writes it or as the roster matches models (`gpt-6.1-*` and `gpt-6-1-*` are the same).
+- **The pictures in a character's folder are hers to choose** on her page: in her gallery, and first under **Change**
+  for her card and her avatar. A picture whose file name starts with `face` is an avatar; any other is a card. The
+  folders are named after the characters: `gpt`, `claude`, `gemini`, `deepseek`, `grok`, `kimi`, `glm`, `qwen`,
+  `mistral`, `minimax`, `llama`, `doubao`, `perplexity` and `hunyuan`.
+- **`pictures`** names a picture, by its file; else it is called by its file's name (`image2.webp` is Image2).
+- **Names** are a plain string, or a `name` with other languages beside it by their language codes: `zh-CN`, `zh-TW`,
+  `ja`, … in any case. A page in Chinese takes `zh-CN`, else a plain `zh`, else another Chinese one, else `name`. The
+  pack's own name and its `description` are given the same way.
+- **`version`** is the pack's own, shown beside its name; for a pack that comes with the roster, it is how the roster
+  tells that an update brought a newer one. `roster` is the roster's version it was exported from, written in on
+  export.
+- **Nothing has to be there.** A tier's name, a character's name or picture the pack doesn't have comes from the
+  bundled pictures (Academy). A new empty pack wears them all until you choose.
+- **A mistake is said, not hidden.** A file that is not there, a pattern no file matches, or something that is no
+  picture's file at all is listed on the pack's card on the Art packs tab (`models.gpt-6-astra.art: "claude/zzz*.png"
+  matches no picture`), and that line is worn as if it were not written.
 
-The easiest start is to export *Academy*, change what you like, zip it again and import it. To share a pack, put its
-folder on GitHub; anyone can fetch it by its link. A pack you imported is kept in `~/.dsh/llm-roster/packs/<name>/`
-(the tab shows where), and you can also edit its files there. The roster shows the change the next time it opens.
+**Picture sizes.** Any size works: a picture is scaled and cropped to fill its place. These keep the crop where you
+want it:
+
+| Picture | Ratio | Suggested size | What shows |
+| --- | --- | --- | --- |
+| A card | 2:3, portrait | 768 × 1152 (sharp on high-DPI screens), or 512 × 768 as the bundled ones | The whole card on her page. On the roster's cards the rarity sits top left and her name over the bottom quarter, so keep her face in the upper third. Another ratio is cropped to 2:3, keeping the top. |
+| A chibi card | 2:3, transparent background | 512 × 768 | The figure standing in the lower half, as the bundled chibis do. |
+| An avatar | 1:1, square | 256 × 256 (192 × 192 at least) | A circle. Keep the face centred, with a little room around it; another ratio is cropped around a point 30% from the top. |
+
+`.webp` keeps packs smallest (the bundled cards are about 40–80 KB each); `.png`, `.jpg` and `.gif` work too. A
+picture in a .zip is at most 16 MB, and one you upload at most 4 MB.
+
+To make a pack by hand, export one (or start a new empty one, choose pictures and export it), change what you like,
+zip it again and import it. To share a pack, put its folder on GitHub; anyone can fetch it by its link. Your packs are
+kept in `~/.dsh/llm-roster/packs/<name>/` and your changes in `~/.dsh/llm-roster/changes/<name>/`; a pack's files can
+be edited there too, and the roster shows them the next time it opens.
+
+**A new character.** A pack dresses the characters the roster knows; it can't add one. Who the characters are, which
+models are each one's and at which tier, is the roster's own list, [`plugin/models.json`](plugin/models.json), and you
+can add to it yourself. Add her under `characters`, with her home provider, the patterns of her model ids and her
+providers, and put her models in `lineup` by tier:
+
+```json
+"characters": {
+  "phi": { "home": "openrouter", "vendor": "microsoft", "match": ["^phi"], "providers": ["azure"] }
+},
+"lineup": {
+  "phi-5": "phi/high"
+}
+```
+
+Then give her pictures and a name in a pack (`"characters": { "phi": { "name": "Phi", "art": { "high": "phi/high.webp" } } }`).
+Until a pack draws her, her cards show her initials. The file is the installed plugin's
+(`~/.dsh/profiles/web/node_modules/dsh-llm-roster/plugin/models.json`), and an update of the roster replaces it, so
+keep a copy of your changes, or send them as a pull request.
 
 Models & keys, Rankings and Art packs are also on DSH's Plugins page, under **dsh-llm-roster**.
 
@@ -304,9 +392,9 @@ The roster keeps its own files in `$DSH_HOME/llm-roster/` (`~/.dsh/llm-roster/`)
 
 | File | What it holds |
 | --- | --- |
-| `roster.json` | your art and avatar picks (`provider/model` → `gpt/high`, `gpt/face-high` or `custom:<id>`), your uploads' names, the provider each character goes through, the providers you set aside with Ignore all (as they were in DSH's settings), the art pack in use, and the variable your Artificial Analysis key is in, if you named one |
-| `art/<id>.<ext>` | the pictures you uploaded |
-| `packs/<name>/` | the art packs you imported or fetched, each as its folder: `pack.json` and a folder of pictures per character |
+| `roster.json` | the art pack in use, the provider each character goes through, the providers you set aside with Ignore all (as they were in DSH's settings), the packs that came with the roster already added once, and the variable your Artificial Analysis key is in, if you named one |
+| `packs/<name>/` | your art packs, each as its folder (`pack.json` and folders of pictures), as you got them: the ones that came with the roster, new empty ones, and the ones you imported or fetched |
+| `changes/<name>/` | your changes to a pack: the pictures you chose for models (a `pack.json` of `models`) and the ones you uploaded |
 | `aa.json` | the rankings, once fetched again |
 | `openrouter.json` | the release dates from OpenRouter, once fetched again |
 | `seen.json` | the day each model with no published release date was first seen (let go once one is published) |
@@ -321,14 +409,15 @@ its own album.
 | [`plugin/client.js`](plugin/client.js) | The web half (React from DSH). It puts the avatar in the `conversation.input.right` slot and renders the roster dialog and the Plugins page. It switches models through `modelDirectories.directoryFor(session).select()`. It writes model lists and `apiKeyEnv` with `remote.settings.mutate`, stores keys with `remote.credentials.set`, and reads catalogs with `remote.llm.discoverModels`. |
 | [`plugin/index.js`](plugin/index.js) | The DSH plugin (`llm-roster`). It mounts the routes on DSH's API and resolves keys through DSH's credential store, then the environment. |
 | [`plugin/server.js`](plugin/server.js) | The routes, below. |
-| [`plugin/roster.js`](plugin/roster.js) | Which character and tier each model is, the lineup, your picks of art and avatar, your uploads, set-aside providers, and the provider each character goes through. |
+| [`plugin/roster.js`](plugin/roster.js) | Which character and tier each model is, the lineup, the picture and avatar each one wears, the pack in use, set-aside providers, and the provider each character goes through. |
 | [`plugin/models.json`](plugin/models.json) | Who each model is: each character's ids, providers and home provider, the lineup by tier, the words that tell a tier, and the release dates of lineup models no list has. |
-| [`plugin/packs.js`](plugin/packs.js) | Art packs: reading one (its names and pictures, over the bundled one), keeping one from a .zip or a GitHub link, and exporting one. |
+| [`plugin/packs.js`](plugin/packs.js) | Art packs: reading one (its names and pictures by file, with your changes over it, over the bundled pictures), keeping one from a .zip or a GitHub link, adding the ones that come with the roster, making an empty one, your changes, and exporting a pack with them. |
 | [`plugin/zip.js`](plugin/zip.js) | .zip files, read and written with Node's own zlib: no file outside the archive, no encrypted or ZIP64 entries, and size limits. |
 | [`plugin/rankings.js`](plugin/rankings.js) | The Artificial Analysis list: matching a model to its slug, ranks, the leaderboard, and fetching the list again (the Pro list with a Pro key). |
 | [`plugin/providers.js`](plugin/providers.js) | Each provider's balance and live-list endpoints, at fixed official addresses, and the key check built on them. |
 | [`art/`](art) | The bundled art pack, *Academy*: [`pack.json`](art/pack.json) and a folder of pictures per character. Credits are in [`art/CREDITS.md`](art/CREDITS.md). |
-| [`tools/`](tools) | [`import-art.py`](tools/import-art.py) brings in the five ChimeraArchiveHarness characters. [`draw-art.py`](tools/draw-art.py) draws the others from [`characters.yml`](tools/characters.yml) with OpenAI's image model. [`aa-snapshot.mjs`](tools/aa-snapshot.mjs) refreshes the rankings and release-date snapshots. |
+| [`packs/`](packs) | The packs that come with the roster, as .zip files: [`original-students.zip`](packs/original-students.zip), made by [`students-pack.py`](tools/students-pack.py). Its credits are in the .zip (`CREDITS.md`). |
+| [`tools/`](tools) | [`import-art.py`](tools/import-art.py) brings in the five ChimeraArchiveHarness characters. [`draw-art.py`](tools/draw-art.py) draws the others from [`characters.yml`](tools/characters.yml) with OpenAI's image model. [`students-pack.py`](tools/students-pack.py) makes the Original Students pack. [`aa-snapshot.mjs`](tools/aa-snapshot.mjs) refreshes the rankings and release-date snapshots. |
 | [`data/`](data) | The shipped snapshots: Artificial Analysis's rankings, and OpenRouter's release dates. |
 
 Keys never reach the page. A key check, a balance or a live list is asked by the server, using the key DSH resolves
@@ -341,17 +430,17 @@ The routes are on DSH's API, behind its sign-in and for its owner only:
 | --- | --- |
 | `GET /api/llm-roster.state` | the tiers and characters as the art pack in use names and pictures them, the pack, the lineup, your uploads, set-aside providers, the rankings' date and key names, what each provider offers |
 | `POST /api/llm-roster.resolve` | `{models: [{provider, id}]}` → each one's art, avatar, character, tier, name and rankings |
-| `POST /api/llm-roster.pick` | `{model: 'provider/model', art?: 'gpt/high' \| 'custom:<id>' \| null, face?: 'gpt/face-high' \| 'custom:<id>' \| null}` |
-| `POST /api/llm-roster.upload?name=` | the picture as the body → `{id}` |
-| `POST /api/llm-roster.forget` | `{upload: id}` |
+| `POST /api/llm-roster.pick` | `{model: 'provider/model', art?: 'deepseek/image2.webp' \| null, face?: 'deepseek/face-2.webp' \| null}`: a change to the pack in use |
+| `POST /api/llm-roster.upload?name=&character=` | the picture as the body → `{file}`, added to the pack in use as a change |
+| `POST /api/llm-roster.forget` | `{file}`: a picture you added, taken back |
 | `POST /api/llm-roster.settings` | `{aaKeyEnv: '<variable>' \| null}`: where your Artificial Analysis key is |
 | `POST /api/llm-roster.park` / `unpark` | `{provider, ns, path, profile}` / `{provider}`: a provider set aside by Ignore all, and put back |
 | `POST /api/llm-roster.route` | `{character, provider \| null}`: the provider a character's lineup goes through |
-| `GET /api/llm-roster.image` | `?art=<character>/<picture>` (the art pack's: `claude/high`, `claude/face-high`; `&pack=<id>` for another pack's) or `?upload=<id>` |
-| `GET /api/llm-roster.packs` | the art packs, and the one in use |
-| `POST /api/llm-roster.packs` | `{use: id \| null}`, `{remove: id}`, or `{fetch: '<GitHub or .zip link>'}` |
+| `GET /api/llm-roster.image` | `?art=<folder>/<file>` (a picture of the pack in use, `deepseek/high.webp`; `&pack=<id>` for another pack's) |
+| `GET /api/llm-roster.packs` | the art packs you have, the one in use, and the ones that come with the roster |
+| `POST /api/llm-roster.packs` | `{use: id}`, `{create: name}`, `{remove: id}`, `{discard: id}` (your changes to it), `{fetch: '<GitHub or .zip link>'}`, or `{add: 'academy' \| '<file>'}` for one that comes with the roster |
 | `POST /api/llm-roster.pack-import?name=` | a pack's .zip, or a lone `pack.json`, as the body |
-| `GET /api/llm-roster.pack-export?id=` | the pack as a .zip |
+| `GET /api/llm-roster.pack-export?id=` | the pack as a .zip, with your changes to it |
 | `GET /api/llm-roster.released` | every release date known, by model slug (Artificial Analysis's over OpenRouter's), and the days models were first seen |
 | `POST /api/llm-roster.released` | `{ids}` → `{dates: {id: {date, seen}}}`: the release dates of a list of models, a model of no published date stamped as first seen today |
 | `GET/POST /api/llm-roster.rankings` | the leaderboard (`?top=`, `&sort=released` for the newest, `&efforts=1` for every effort), or fetch the release dates and the rankings again |
@@ -367,6 +456,7 @@ python3 tools/import-art.py ~/Projects/DiscordStudyBot  # art/ again from a Chim
 python3 tools/draw-art.py --dry-run                   # the other characters' tiers: what it would draw
 python3 tools/draw-art.py --env-file .env             # draw what is missing (OPENAI_API_KEY; needs openai, pillow, pyyaml)
 python3 tools/draw-art.py --faces-only                # crop the avatars again after tuning `faces` in characters.yml
+python3 tools/students-pack.py ~/Projects/DiscordStudyBot  # packs/original-students.zip again (needs pillow)
 AA_API_TOKEN=... node tools/aa-snapshot.mjs           # new snapshots in data/ (release dates even with no key)
 ```
 
@@ -380,7 +470,7 @@ For a local checkout, `dsh plugin --profile web add link:/path/to/dsh-llm-roster
 ## License
 
 - **Code:** [MIT](LICENSE).
-- **Art (`art/`):** CC BY-NC-SA 4.0, so non-commercial only. These are AI-generated adaptations of character
+- **Art (`art/` and the packs in `packs/`):** CC BY-NC-SA 4.0, so non-commercial only. These are AI-generated adaptations of character
   designs by [ZipZipPipe](https://space.bilibili.com/4168597/). DeepSeek-chan, the original character, is by
   [上善无形](https://space.bilibili.com/4456176). See [`art/CREDITS.md`](art/CREDITS.md).
 - **Data (`data/`):** the rankings are Artificial Analysis's, used under their terms with credit to them; the release

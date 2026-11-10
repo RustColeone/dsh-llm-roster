@@ -14,8 +14,10 @@
 //   - Rankings: Artificial Analysis's leaderboard, as of the date shown (each model, or every effort, sorted by any
 //     column: the index, the cost of an index task, with a Pro key its time and tokens, speed, price, release), fetched
 //     again with your own key.
-//   - Art packs: how the characters look and what they and their tiers are called. The bundled pack, and yours: used,
-//     exported as a .zip, imported from one (or a lone pack.json), or fetched from a GitHub link.
+//   - Art packs: how the characters look and what they and their tiers are called. Your packs (the two that come with
+//     the roster, new empty ones, and ones imported from a .zip or a lone pack.json or fetched from a GitHub link),
+//     switched on the go; the pictures you choose and upload are changes kept beside the pack in use, written into it
+//     when you export it as a .zip.
 //   - Summon: a gacha of the roster's own cards, for fun (free ✦, nothing bought, no model called), at the usual
 //     mobile-gacha rates, with a pickup banner, the ×10's floor, the 330th's guarantee and an album kept in the browser.
 //
@@ -232,22 +234,34 @@ window.__ModuleLoader__.load({
       'face.title': 'Avatar for {model}',
       'art.default': 'Default',
       'art.upload': 'Upload a picture…',
-      'art.forget': 'Delete this upload',
+      'art.forget': 'Take this picture back',
       'art.yours': 'Your pictures',
-      'packs.intro': 'An art pack is how the characters look and what they and their tiers are called: a pack.json, and a folder of pictures for each character. Who each model is stays the same. Anything a pack leaves out comes from the bundled one, so a pack can be as small as a pack.json that renames the tiers.',
+      'packs.intro': 'An art pack is how the characters look and what they and their tiers are called: a pack.json that names every picture by its file, and folders of pictures. Who each model is stays the same. The pictures you choose and upload are changes, kept beside the pack in use; exporting it writes them into the .zip, with every picture it uses. Anything a pack does not have comes from the bundled pictures.',
       'packs.inUse': 'In use',
       'packs.use': 'Use',
       'packs.export': 'Export .zip',
       'packs.remove': 'Remove',
       'packs.removeSure': 'Remove it',
-      'packs.bundled': 'Bundled',
       'packs.by': 'by {author}',
       'packs.counts': '{pictures} pictures of {characters} characters',
       'packs.countsOf': '{pictures} pictures of {names}',
-      'packs.countsNone': 'Names only: its pictures are the bundled pack\'s',
-      'packs.folder': 'Kept in {folder}: change its files there, and the roster shows them the next time it opens.',
+      'packs.countsNone': 'No pictures of its own: it wears the bundled ones until you choose',
+      'packs.folder': 'Kept in {folder}.',
+      'packs.changes': '{count} changes of yours, beside the pack: exporting it writes them in.',
+      'packs.discard': 'Discard changes',
+      'packs.discardSure': 'Discard them',
+      'packs.new': '+ New empty pack…',
+      'packs.newName': 'Name of the new pack',
+      'packs.create': 'Create',
       'packs.unknown': 'Folders that are no character the roster knows, left out: {names}',
       'packs.add': 'Add a pack',
+      'packs.included': 'Comes with the roster',
+      'packs.includedAdd': 'Add',
+      'packs.includedAgain': 'Add again',
+      'packs.includedHave': 'Added: put it back as it came',
+      'packs.includedUpdate': 'Update to v{version}',
+      'packs.switch': 'Art pack',
+      'packs.exportedFrom': 'Exported from the roster {version}',
       'packs.import': 'Import a .zip or pack.json',
       'packs.importing': 'Importing…',
       'packs.link': 'https://github.com/you/your-pack',
@@ -257,10 +271,10 @@ window.__ModuleLoader__.load({
       'packs.added': 'Added {name}: {kept} files.',
       'packs.skipped': ' {count} other files left out ({names}).',
       'packs.how': 'Making a pack',
-      'packs.how1': 'Export a pack (the bundled one is a good start) and unzip it. Its folder holds pack.json and a folder for each character.',
-      'packs.how2': 'Change the names in pack.json with any text editor: the pack\'s own, each tier\'s (\"high\": { \"name\": \"Knight\", \"zh\": \"骑士\" }) and each character\'s.',
-      'packs.how3': 'Replace pictures, keeping their file names: chibi, middle, high and university are the four tiers\' cards, face-chibi … face-university their avatars (.webp, .png, .jpg or .gif). Delete what you do not change: it comes from the bundled pack.',
-      'packs.how4': 'More pictures in a character\'s folder are more to choose from on her page. To give one model its own, name it in pack.json: \"models\": { \"claude-opus-5-5\": \"claude/opus\" }.',
+      'packs.how1': 'Choose pictures on the characters\' pages (or upload your own), then export the pack and unzip it: its pack.json has your choices, and its folders every picture.',
+      'packs.how2': 'Change pack.json with any text editor: the names (the pack\'s, each tier\'s: \"high\": { \"name\": \"Knight\", \"zh-CN\": \"骑士\" }, each character\'s), and which file is which picture. Other languages go beside \"name\" by their codes (zh-CN, zh-TW, ja…).',
+      'packs.how3': 'Each character\'s card and avatar at each tier are files: \"deepseek\": { \"art\": { \"high\": \"deepseek/high.webp\" }, \"face\": { \"high\": \"deepseek/face-high.webp\" } } (.webp, .png, .jpg or .gif), or patterns as ls takes them: \"deepseek/image*.webp\" is the first that matches, in ls order. Cards are 2:3 (768 × 1152, or 512 × 768), with her face in the upper third; avatars are square (256 × 256), the face centred.',
+      'packs.how4': 'Every picture in a character\'s folder is hers to choose on her page (an avatar\'s file name starts with face). A model\'s own picture: \"models\": { \"deepseek-v4-pro\": { \"art\": \"deepseek/image2.webp\", \"face\": \"deepseek/face-2.webp\" } }; with wildcards, \"claude-opus-*\" is every Opus. The first that fits is the one.',
       'packs.how5': 'Zip the folder and import it here, or put it on GitHub and fetch it by its link.',
       'art.portrait': 'Portrait',
       'aa.title': 'Your Artificial Analysis key',
@@ -371,7 +385,7 @@ window.__ModuleLoader__.load({
       'dialog.title': '角色名册',
       'tab.roster': '名册',
       'tab.models': '模型与密钥',
-      lang: 'zh',
+      lang: 'zh-CN',
       'tab.rankings': '排行',
       'tab.packs': '立绘包',
       close: '关闭',
@@ -422,13 +436,13 @@ window.__ModuleLoader__.load({
       'cap.legal': '法律',
       'cap.health': '医疗',
       'cap.strategy': '战略运营',
-      'page.taskCost': '每个 AA 任务的花费',
-      'page.taskTime': '每个 AA 任务的用时',
-      'page.taskTokens': '每个 AA 任务的 token',
+      'page.taskCost': '每个 AA 任务成本',
+      'page.taskTime': '每个 AA 任务耗时',
+      'page.taskTokens': '每个 AA 任务 token 数',
       'page.tokensValue': '输出 {tokens}',
-      'page.latency': '首个回答 token',
+      'page.latency': '首答',
       'page.latencyValue': '{time} 后',
-      'page.indexCost': '跑完整个指数',
+      'page.indexCost': '整个指数',
       'page.rank': '排名',
       'page.price': '价格（输入 / 输出，每百万 $）',
       'page.speed': '速度',
@@ -548,54 +562,66 @@ window.__ModuleLoader__.load({
       'face.title': '{model} 的头像',
       'art.default': '默认',
       'art.upload': '上传图片……',
-      'art.forget': '删除这张上传的图片',
+      'art.forget': '撤下这张图片',
       'art.yours': '你的图片',
-      'packs.intro': '立绘包决定角色的样子，以及角色和各阶段的名字：一个 pack.json，加上每个角色一个图片文件夹。每个模型是谁不变。立绘包没有的内容取自内置的立绘包，所以一个立绘包可以只是一个改了阶段名字的 pack.json。',
+      'packs.intro': '一个立绘包决定角色的外观，以及角色和层级叫什么：其中 pack.json 按文件名给每张图片命名，还有存放图片的文件夹。每个模型是谁保持不变。你选择或上传的图片属于改动，保存在正在使用的立绘包旁边；导出时会把它们写入 .zip，并包含它用到的每张图片。立绘包没有的内容都来自内置立绘包。',
       'packs.inUse': '使用中',
       'packs.use': '使用',
       'packs.export': '导出 .zip',
-      'packs.remove': '删除',
-      'packs.removeSure': '确认删除',
-      'packs.bundled': '内置',
+      'packs.remove': '移除',
+      'packs.removeSure': '移除它',
       'packs.by': '作者：{author}',
       'packs.counts': '{characters} 个角色的 {pictures} 张图片',
       'packs.countsOf': '{names} 的 {pictures} 张图片',
-      'packs.countsNone': '只有名字：图片用内置立绘包的',
-      'packs.folder': '保存在 {folder}：可以直接修改其中的文件，名册下次打开时就会显示。',
-      'packs.unknown': '这些文件夹不是名册认识的角色，已略过：{names}',
+      'packs.countsNone': '它没有自己的图片：在你选择之前，会使用内置立绘包的图片。',
+      'packs.folder': '保存在 {folder}。',
+      'packs.create': '创建',
+      'packs.newName': '新立绘包的名称',
+      'packs.new': '+ 新建空白立绘包……',
+      'packs.discardSure': '放弃这些改动',
+      'packs.discard': '放弃改动',
+      'packs.changes': '你的 {count} 处改动，保存在立绘包旁：导出时会写入其中。',
+      'packs.unknown': '名册不认识的文件夹已忽略：{names}',
       'packs.add': '添加立绘包',
+      'packs.included': '名册自带',
+      'packs.includedAdd': '添加',
+      'packs.includedAgain': '再次添加',
+      'packs.includedHave': '已添加：恢复为自带状态',
+      'packs.includedUpdate': '更新到 v{version}',
+      'packs.switch': '立绘包',
+      'packs.exportedFrom': '从名册 {version} 导出',
       'packs.import': '导入 .zip 或 pack.json',
       'packs.importing': '导入中……',
-      'packs.link': 'https://github.com/你/你的立绘包',
+      'packs.link': 'https://github.com/you/your-pack',
       'packs.fetch': '拉取',
       'packs.fetching': '拉取中……',
-      'packs.linkHint': 'GitHub 仓库、仓库里的文件夹（…/tree/main/packs/knights），或 .zip 的链接。再次导入同名的立绘包会替换它。',
-      'packs.added': '已添加 {name}：{kept} 个文件。',
-      'packs.skipped': '另有 {count} 个文件已略过（{names}）。',
+      'packs.linkHint': '一个 GitHub 仓库、仓库里的某个文件夹（…/tree/main/packs/knights），或者一个 .zip 链接。导入同名立绘包会替换掉原有内容。',
+      'packs.added': '已添加 {name}：保留了 {kept} 个文件。',
+      'packs.skipped': ' {count} 个其他文件被忽略（{names}）。',
       'packs.how': '制作立绘包',
-      'packs.how1': '导出一个立绘包（从内置的开始就很好）并解压。文件夹里有 pack.json 和每个角色的文件夹。',
-      'packs.how2': '用任意文本编辑器修改 pack.json 里的名字：立绘包自己的、每个阶段的（\"high\": { \"name\": \"Knight\", \"zh\": \"骑士\" }）和每个角色的。',
-      'packs.how3': '替换图片，保留文件名：chibi、middle、high、university 是四个阶段的卡面，face-chibi … face-university 是对应的头像（.webp、.png、.jpg 或 .gif）。没改的可以删掉：会取自内置立绘包。',
-      'packs.how4': '角色文件夹里多放的图片，会出现在她的页面上供挑选。要给某个模型专属的图片，在 pack.json 里写上：\"models\": { \"claude-opus-5-5\": \"claude/opus\" }。',
-      'packs.how5': '把文件夹打包成 zip 在这里导入，或者放到 GitHub 上用链接拉取。',
+      'packs.how1': '在角色页面上挑选图片（或上传自己的图片），然后导出立绘包并解压：其中的 pack.json 记录了你的选择，文件夹里是每张图片。',
+      'packs.how2': '用任意文本编辑器修改 pack.json：名称（立绘包的、每个层级的："high": { "name": "Knight", "zh-CN": "骑士" }，以及每个角色的），以及哪个文件对应哪张图片。其他语言写在 "name" 旁边，用语言代码（zh-CN、zh-TW、ja……）。',
+      'packs.how3': '每个角色在每个层级的卡面和头像都是文件："deepseek": { "art": { "high": "deepseek/high.webp" }, "face": { "high": "deepseek/face-high.webp" } }（.webp、.png、.jpg 或 .gif），也可以是 ls 命令可接受的模式：例如 "deepseek/image*.webp" 会按 ls 顺序取第一个匹配的文件。卡面为 2:3（768 × 1152，或 512 × 768），她的脸部位于上三分之一；头像为正方形（256 × 256），脸部居中。',
+      'packs.how4': '角色文件夹里的每张图片都可以在她的页面上选用（头像文件名以 face 开头）。模型专属的立绘："models": { "deepseek-v4-pro": { "art": "deepseek/image2.webp", "face": "deepseek/face-2.webp" } }；用通配符时，"claude-opus-*" 表示每个 Opus。以第一个匹配的为准。',
+      'packs.how5': '把文件夹压缩后导入这里，或放到 GitHub 上用链接拉取。',
       'art.portrait': '肖像',
       'aa.title': '你的 Artificial Analysis 密钥',
       'aa.hint': '在 artificialanalysis.ai 免费获取（登录后进入 API keys）。只有重新拉取排行时才需要。',
       'aa.envHint': '读取的变量（否则依次读取 {names}）',
       'rankings.intro': 'Artificial Analysis 排行榜：智能指数 v{version}，截至 {date}。',
-      'rankings.count': '{count} 个模型，各取最佳思考强度',
-      'rankings.countEfforts': '{count} 条，每个测评过的思考强度',
+      'rankings.count': '{count} 个模型，各取其最佳思考强度',
+      'rankings.countEfforts': '{count} 条记录，包含所有已测评的思考强度',
       'rankings.filter': '查找模型或厂商',
       'rankings.mine': '在你的名册中',
-      'rankings.efforts': '每个思考强度',
+      'rankings.efforts': '所有思考强度',
       'rankings.none': '没有匹配的模型。',
       'rankings.taskCost': '$ / 任务',
-      'rankings.taskTime': '用时 / 任务',
+      'rankings.taskTime': '时间 / 任务',
       'rankings.taskTokens': 'Token / 任务',
       'rankings.speed': 'Token/秒',
-      'rankings.released': '发布',
-      'rankings.sortBy': '按{column}排序',
-      'rankings.taskNote': '每个任务：跑智能指数时一个任务的花费（免费列表就有）。一个任务的用时和 token 数在他们的 Pro 列表里：用 Pro 密钥拉取后，这里也会显示。',
+      'rankings.released': '发布时间',
+      'rankings.sortBy': '按 {column} 排序',
+      'rankings.taskNote': '按任务计算：智能指数中一个任务的费用（他们的免费榜单里有）。一次任务所需的时间和 token 在 Pro 榜单中：用 Pro 密钥拉取后也会显示在这里。',
       'rankings.refresh': '重新拉取',
       'rankings.refreshing': '拉取中……',
       'rankings.needKey': '拉取需要 artificialanalysis.ai 的免费密钥：在上方粘贴，或填写保存它的环境变量名。',
@@ -712,28 +738,36 @@ window.__ModuleLoader__.load({
     // Artificial Analysis's capability indexes, as the server names them
     const CAPABILITIES = ['engineering', 'finance', 'economics', 'legal', 'health', 'strategy']
     /** A picture's address: an upload's, or the art pack in use's (`pack`: another pack's, for its preview); the pack's
-     * version in it, so a changed pack is not shown from the browser's cache. */
-    const pictureUrl = (picture, pack = null) => !picture ? null : picture.startsWith('custom:')
-      ? `${API.image}?upload=${encodeURIComponent(picture.slice(7))}`
-      : `${API.image}?art=${encodeURIComponent(picture)}${pack ? `&pack=${encodeURIComponent(pack.id)}&v=${pack.version}`
-        : shared.state?.pack?.version ? `&v=${shared.state.pack.version}` : ''}`
-    /** A name as the art pack gives it ({ name, names: { zh } }), in the page's language. */
-    const named = (about, t) => about ? (about.names?.[t('lang')] ?? about.name) : null
+     * stamp in it (what its files are now), so a changed pack is not shown from the browser's cache. */
+    const pictureUrl = (picture, pack = null) => !picture ? null
+      : `${API.image}?art=${encodeURIComponent(picture)}${pack ? `&pack=${encodeURIComponent(pack.id)}&v=${pack.stamp}`
+        : shared.state?.pack?.stamp ? `&v=${shared.state.pack.stamp}` : ''}`
+    /** A name as the art pack gives it ({ name, names: { 'zh-cn': … } }), in the page's language: its own code
+     * (zh-CN), else the language's (zh), else another of the language's (zh-TW), else `name`. */
+    const named = (about, t) => {
+      if (!about) return null
+      const lang = String(t('lang')).toLowerCase(), base = lang.split('-')[0], names = about.names ?? {}
+      return names[lang] ?? names[base] ?? Object.entries(names).find(([key]) => key.split('-')[0] === base)?.[1] ?? about.name
+    }
     const tierName = (state, tier, t) => named(state?.tiers?.[tier], t) ?? t(`tier.${tier}`)
     const characterName = (state, character, t) => named(state?.characters?.[character], t) ?? character
-    /** A picture's label: its tier's name, Portrait, or its own (`claude/opus`: Opus). */
+    /** A picture's label (by its file, `claude/festival.webp`): the name its pack gives it, else Portrait, else its
+     * tier's name, else its file's (Festival). */
     const pictureLabel = (state, picture, t) => {
-      if (String(picture).startsWith('custom:')) return t('tier.custom')
-      const name = String(picture).split('/')[1] ?? ''
-      const plain = name.replace(/^face-?/, '')
-      if (!plain) return t('art.portrait')
-      return TIER_ORDER.includes(plain) ? tierName(state, plain, t) : plain.replace(/-/g, ' ').replace(/^./, letter => letter.toUpperCase())
+      const file = String(picture ?? '')
+      const label = state?.pack?.labels?.[file]
+      if (label) return named(label, t)
+      const stem = file.split('/').pop().replace(/\.[^.]*$/, '')
+      if (/^face$/i.test(stem)) return t('art.portrait')
+      const about = state?.characters?.[file.split('/')[0]]
+      const tier = TIER_ORDER.find(found => about?.art?.[found] === file) ?? TIER_ORDER.find(found => about?.face?.[found] === file)
+      if (tier) return tierName(state, tier, t)
+      const plain = stem.replace(/^face[-_ ]?/i, '').replace(/[-_]+/g, ' ').trim()
+      return plain ? plain[0].toUpperCase() + plain.slice(1) : stem
     }
-    /** The avatar a character wears at a tier, as the art pack has it. */
-    const tierFace = (state, character, tier) => {
-      const face = state?.characters?.[character]?.tierFaces?.[tier]
-      return face ? `${character}/${face.split('/').pop()}` : `${character}/face-${tier}`
-    }
+    /** The card and the avatar a character wears at a tier, as the art pack has them. */
+    const tierArt = (state, character, tier) => state?.characters?.[character]?.art?.[tier] ?? null
+    const tierFace = (state, character, tier) => state?.characters?.[character]?.face?.[tier] ?? null
     const initials = text => String(text || '?').replace(/^.*\//, '').split(/[-_.\s]+/).filter(Boolean).slice(0, 2)
       .map(word => word[0].toUpperCase()).join('')
     const errorText = error => String(error?.message ?? error)
@@ -762,7 +796,7 @@ window.__ModuleLoader__.load({
     // resolved: `provider/model` → the server's word on it (art, face, character, tier, name, rankings)
     // state: the server's state; providers: DSH's settings and provider directory; checks: provider → its key's check
     const resolved = new Map()
-    let shared = { version: 0, generation: 0, state: null, providers: null, checks: {}, routeModels: {}, released: null }
+    let shared = { version: 0, generation: 0, state: null, providers: null, checks: {}, routeModels: {}, released: null, packs: null }
     const listeners = new Set()
     const bump = (changes = {}) => { shared = { ...shared, ...changes, version: shared.version + 1 }; for (const listener of listeners) listener() }
     const sharedStore = { subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
@@ -784,6 +818,15 @@ window.__ModuleLoader__.load({
       }
     }
     async function loadState () { bump({ state: await get(API.state) }); return shared.state }
+    /** The art packs you have, the one in use, and the ones that come with the roster. */
+    async function loadPacks () { bump({ packs: await get(API.packs) }); return shared.packs }
+    function usePacks () {
+      const { packs } = useShared()
+      useEffect(() => { if (!packs) loadPacks().catch(() => {}) }, [])
+      return packs
+    }
+    /** After a change of art pack: the packs, the state, and every card's picture and name again. */
+    async function packsChanged () { await Promise.all([loadPacks(), loadState()]); forgetResolved() }
     function forgetResolved () { resolved.clear(); datesById.clear(); bump({ generation: shared.generation + 1 }) }
 
     /** The server's word on these models (re-rendering as it arrives). */
@@ -1059,10 +1102,10 @@ window.__ModuleLoader__.load({
         ? h('img', { className, src: url, alt: '', loading: 'lazy', draggable: false, onError: () => setBroken(true) })
         : h('span', { className: `lr-card-blank ${className}` }, initials(label))
     }
-    const rarityOf = (found, state) => found?.tier ? state?.tiers?.[found.tier]?.rarity ?? 'R' : (found?.own && found.art?.startsWith('custom:') ? 'SSR' : 'R')
+    const rarityOf = (found, state) => found?.tier ? state?.tiers?.[found.tier]?.rarity ?? 'R' : 'R'
     const whoOf = (found, state, t) => found?.character
       ? `${characterName(state, found.character, t)} · ${tierName(state, found.tier, t)}`
-      : found?.art?.startsWith('custom:') ? t('tier.custom') : null
+      : found?.own ? t('tier.custom') : null
 
     function Card ({ card, found, state, current, busy, onPick, onMore, sort, index = 0, t }) {
       const rarity = rarityOf(found, state)
@@ -1149,7 +1192,8 @@ window.__ModuleLoader__.load({
           h('div', { className: 'lr-chips' },
             ['provider', 'rank', 'released'].map(id => h('button', {
               key: id, type: 'button', className: `lr-chip${sort === id ? ' lr-on' : ''}`, onClick: () => setSort(id)
-            }, t(`roster.sort.${id}`))))),
+            }, t(`roster.sort.${id}`)))),
+          h(PackSwitch, { t })),
         failure ? h('div', { className: 'lr-error', role: 'alert' }, failure) : null,
         h('div', { className: 'lr-grid' },
           shown.map((card, index) => h(Card, {
@@ -1168,32 +1212,35 @@ window.__ModuleLoader__.load({
     }
 
     // ---- pictures: choosing a card picture or an avatar ----
-    /** Tiles of every picture of a kind (`art`: each character's tiers; `face`: each one's portrait and tier faces) and
-     * your uploads; `value` is the chosen one (null: the default). */
-    function PictureTiles ({ kind, value, onChoose, t, defaultLabel, defaultValue = null }) {
+    /** Tiles of every picture of a kind (`art`: each character's cards; `face`: her avatars), hers (`first`) first;
+     * `value` is the chosen one (null: the default). A picture uploaded goes into her folder of the pack in use, as a
+     * change to it; one you added can be taken back. */
+    function PictureTiles ({ kind, value, onChoose, t, defaultLabel, defaultValue = null, first = null }) {
       const state = useRosterState()
       const [failure, setFailure] = useState(null)
       const input = useRef(null)
       const upload = async file => {
         if (!file) return
         try {
-          const { id } = await post(`${API.upload}?name=${encodeURIComponent(file.name)}`, file, { raw: true, type: file.type })
-          await loadState(); onChoose(`custom:${id}`)
+          const added = await post(`${API.upload}?name=${encodeURIComponent(file.name)}${first ? `&character=${encodeURIComponent(first)}` : ''}`, file, { raw: true, type: file.type })
+          await loadState(); onChoose(added.file)
         } catch (error) { setFailure(t('failed', { error: errorText(error) })) }
       }
-      const forget = async id => {
-        try { await post(API.forget, { upload: id }); await loadState(); forgetResolved() } catch (error) {
+      const forget = async file => {
+        try { await post(API.forget, { file }); await loadState(); forgetResolved() } catch (error) {
           setFailure(t('failed', { error: errorText(error) }))
         }
       }
-      const characters = state ? Object.keys(state.characters) : []
-      // every picture the art pack has of each: her cards, or her avatars
-      const kinds = name => (kind === 'art' ? state.characters[name].pictures : state.characters[name].faces) ??
-        (kind === 'art' ? TIER_ORDER : ['face', ...TIER_ORDER.map(tier => `face-${tier}`)])
-      const labelOf = (name, part) => `${characterName(state, name, t)} · ${pictureLabel(state, `${name}/${part}`, t)}`
-      const tile = (picture, label, extra = null) => h('div', { key: picture, className: 'lr-tile-holder' },
+      const added = new Set(state?.pack?.added ?? [])
+      const characters = state ? Object.keys(state.characters).sort((one, other) => (other === first) - (one === first)) : []
+      const pictures = name => (kind === 'art' ? state.characters[name].pictures : state.characters[name].faces) ?? []
+      const tile = (picture, label) => h('div', { key: picture, className: 'lr-tile-holder' },
         h('button', { type: 'button', className: `lr-tile lr-tile-${kind}${value === picture ? ' lr-on' : ''}`, title: label,
-          'aria-label': label, onClick: () => onChoose(picture) }, h('img', { src: pictureUrl(picture), alt: '', loading: 'lazy' })), extra)
+          'aria-label': label, onClick: () => onChoose(picture) }, h('img', { src: pictureUrl(picture), alt: '', loading: 'lazy' })),
+        added.has(picture) ? h('button', { type: 'button', className: 'lr-tile-forget', title: t('art.forget'), 'aria-label': t('art.forget'),
+          onClick: () => forget(picture) }, '×') : null)
+      const group = (key, label, files) => files.length ? h('div', { key, className: 'lr-art-group' }, h('div', { className: 'lr-label' }, label),
+        h('div', { className: `lr-tiles lr-tiles-${kind}` }, files.map(picture => tile(picture, `${label} · ${pictureLabel(state, picture, t)}`)))) : null
       return h('div', { className: 'lr-pictures' },
         failure ? h('div', { className: 'lr-error' }, failure) : null,
         h('div', { className: 'lr-row' },
@@ -1201,14 +1248,9 @@ window.__ModuleLoader__.load({
             defaultLabel ?? t('art.default')),
           h('button', { type: 'button', className: 'lr-button lr-primary', onClick: () => input.current?.click() }, t('art.upload')),
           h('input', { ref: input, type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif', hidden: true,
-            onChange: event => upload(event.target.files?.[0]) })),
-        state?.uploads?.length ? h('div', { className: 'lr-art-group' }, h('div', { className: 'lr-label' }, t('art.yours')),
-          h('div', { className: `lr-tiles lr-tiles-${kind}` }, state.uploads.map(found => tile(`custom:${found.id}`, found.name || found.id,
-            h('button', { type: 'button', className: 'lr-tile-forget', title: t('art.forget'), 'aria-label': t('art.forget'),
-              onClick: () => forget(found.id) }, '×'))))) : null,
-        characters.map(name => h('div', { key: name, className: 'lr-art-group' },
-          h('div', { className: 'lr-label' }, characterName(state, name, t)),
-          h('div', { className: `lr-tiles lr-tiles-${kind}` }, kinds(name).map(part => tile(`${name}/${part}`, labelOf(name, part)))))))
+            onChange: event => { upload(event.target.files?.[0]); event.target.value = '' } })),
+        group('uploads', t('art.yours'), state?.pack?.uploads ?? []),
+        characters.map(name => group(name, characterName(state, name, t), pictures(name))))
     }
 
     function PicturePicker ({ kind, model, onClose, t }) {
@@ -1223,7 +1265,7 @@ window.__ModuleLoader__.load({
       }
       return h(Modal, { title: t(kind === 'art' ? 'art.title' : 'face.title', { model: model.name ?? model.id }), onClose, t, small: true },
         failure ? h('div', { className: 'lr-error' }, failure) : null,
-        h(PictureTiles, { kind, value: found?.own || kind === 'face' ? found?.[kind] : null, onChoose: choose, t }))
+        h(PictureTiles, { kind, value: found?.own || kind === 'face' ? found?.[kind] : null, onChoose: choose, t, first: found?.character ?? model.character ?? null }))
     }
 
     // ---- a provider's key: status, paste, variable, test, balance ----
@@ -1375,8 +1417,8 @@ window.__ModuleLoader__.load({
         onBack()
       })
       const equip = art => run(async () => { await post(API.pick, { model: `${card.provider}/${card.id}`, art }); forgetResolved() })
-      const gallery = found?.character ? (state?.characters?.[found.character]?.pictures ?? TIER_ORDER).map(name => `${found.character}/${name}`) : []
-      if (found?.art?.startsWith('custom:')) gallery.push(found.art)
+      const gallery = found?.character ? [...(state?.characters?.[found.character]?.pictures ?? [])] : []
+      if (found?.art && !gallery.includes(found.art)) gallery.push(found.art)
       const canUse = card.status === 'ready' || card.status === 'unused'
 
       return h('div', { className: 'lr-page-character', 'data-rarity': rarity },
@@ -2033,21 +2075,53 @@ window.__ModuleLoader__.load({
     }
 
     // ---- art packs ----
-    /** The art packs: the bundled one and yours, the one in use, and a pack's way in (a .zip, a lone pack.json, a link to
-     * GitHub or to a .zip) and out (a .zip). */
+    /** The art pack in use, switched on the go: every pack you have (the bundled one, the ones that come with the
+     * roster, yours). */
+    function PackSwitch ({ t }) {
+      const list = usePacks()
+      const [busy, setBusy] = useState(false)
+      const [failure, setFailure] = useState(null)
+      const [naming, setNaming] = useState(null) // the new pack's name, while it is being named
+      if (!list) return null
+      const run = async work => {
+        setBusy(true); setFailure(null)
+        try { await work(); await packsChanged() } catch (error) { setFailure(t('failed', { error: errorText(error) })) } finally { setBusy(false) }
+      }
+      const choose = id => id === NEW_PACK ? setNaming('') : run(() => post(API.packs, { use: id }))
+      const create = () => naming.trim() && run(async () => { await post(API.packs, { create: naming.trim() }); setNaming(null) })
+      return h('div', { className: 'lr-pack-switch' },
+        h('span', { className: 'lr-label' }, t('packs.switch')),
+        naming === null
+          ? h('select', { className: 'lr-input lr-select', value: list.active ?? '', disabled: busy, 'aria-label': t('packs.switch'),
+            onChange: event => choose(event.target.value) },
+          list.active ? null : h('option', { value: '' }, '—'),
+          list.packs.map(pack => h('option', { key: pack.id, value: pack.id }, named(pack, t) ?? pack.id)),
+          h('option', { value: NEW_PACK }, t('packs.new')))
+          : h(React.Fragment, null,
+            h('input', { className: 'lr-input lr-pack-name', autoFocus: true, placeholder: t('packs.newName'), 'aria-label': t('packs.newName'),
+              value: naming, disabled: busy, onChange: event => setNaming(event.target.value),
+              onKeyDown: event => { if (event.key === 'Enter') create(); if (event.key === 'Escape') setNaming(null) } }),
+            h('button', { type: 'button', className: 'lr-button lr-primary lr-small', disabled: busy || !naming.trim(), onClick: create }, t('packs.create')),
+            h('button', { type: 'button', className: 'lr-button lr-small', disabled: busy, onClick: () => setNaming(null) }, t('cancel'))),
+        failure ? h('span', { className: 'lr-error', role: 'alert' }, failure) : null)
+    }
+    const NEW_PACK = '+new'
+
+    /** Your art packs, the one in use, your changes to each (written in only when you export it), and a pack's way in
+     * (the ones that come with the roster, a new empty one, a .zip, a lone pack.json, a link to GitHub or to a .zip) and
+     * out (a .zip). */
     function PacksTab ({ t }) {
       const state = useRosterState()
-      const [list, setList] = useState(null)
+      const list = usePacks()
       const [busy, setBusy] = useState(null) // what is being done
       const [note, setNote] = useState(null)
       const [failure, setFailure] = useState(null)
       const [link, setLink] = useState('')
       const [removing, setRemoving] = useState(null)
+      const [discarding, setDiscarding] = useState(null)
       const input = useRef(null)
-      const load = async () => { try { setList(await get(API.packs)) } catch (error) { setFailure(t('failed', { error: errorText(error) })) } }
-      useEffect(() => { load() }, [])
-      // a change of pack: every picture and name again
-      const after = async () => { await Promise.all([load(), loadState()]); forgetResolved() }
+      useEffect(() => { loadPacks().catch(error => setFailure(t('failed', { error: errorText(error) }))) }, [])
+      const after = packsChanged
       const run = async (what, work) => {
         setBusy(what); setFailure(null); setNote(null)
         try { await work() } catch (error) { setFailure(t('failed', { error: errorText(error) })) } finally { setBusy(null) }
@@ -2056,14 +2130,18 @@ window.__ModuleLoader__.load({
         ? t('packs.skipped', { count: kept.skippedCount, names: kept.skipped.slice(0, 4).join(', ') }) : ''}`)
       const use = id => run(`use:${id}`, async () => { await post(API.packs, { use: id }); await after() })
       const remove = id => run(`remove:${id}`, async () => { await post(API.packs, { remove: id }); setRemoving(null); await after() })
+      const discard = id => run(`discard:${id}`, async () => { await post(API.packs, { discard: id }); setDiscarding(null); await after() })
       const importFile = file => file && run('import', async () => {
         added(await post(`${API.packImport}?name=${encodeURIComponent(file.name)}`, file, { raw: true, type: file.type || 'application/zip' }))
         await after()
       })
+      const addIncluded = file => run(`add:${file}`, async () => { added(await post(API.packs, { add: file })); await after() })
       const fetchLink = () => link.trim() && run('fetch', async () => {
         added(await post(API.packs, { fetch: link.trim() })); setLink(''); await after()
       })
       const packName = pack => named(pack, t) ?? pack.id
+      // (a pack that comes with the roster, in a newer version than the one you have)
+      const newer = pack => Boolean(pack.added && pack.version && pack.addedVersion !== pack.version)
       return h('div', { className: 'lr-packs' },
         h('p', { className: 'lr-dim lr-packs-intro' }, t('packs.intro')),
         failure ? h('div', { className: 'lr-error', role: 'alert' }, failure) : null,
@@ -2073,8 +2151,9 @@ window.__ModuleLoader__.load({
           h('div', { className: 'lr-pack-text' },
             h('div', { className: 'lr-pack-title' },
               h('strong', null, packName(pack)),
-              pack.bundled ? h('span', { className: 'lr-tag' }, t('packs.bundled')) : null,
+              pack.version ? h('span', { className: 'lr-dim', title: pack.roster ? t('packs.exportedFrom', { version: pack.roster }) : undefined }, `v${pack.version}`) : null,
               pack.active ? h('span', { className: 'lr-tag lr-tag-on' }, t('packs.inUse')) : null),
+            pack.description ? h('span', { className: 'lr-pack-about' }, named(pack.description, t)) : null,
             pack.author || pack.license ? h('span', { className: 'lr-dim' },
               [pack.author ? t('packs.by', { author: pack.author }) : null, pack.license].filter(Boolean).join(' · ')) : null,
             h('span', { className: 'lr-pills' }, TIER_ORDER.map(tier => h('span', { key: tier, className: 'lr-effort' }, named(pack.tiers?.[tier], t) ?? tier))),
@@ -2083,11 +2162,18 @@ window.__ModuleLoader__.load({
               : t('packs.counts', { pictures: pack.pictures, characters: pack.characters.length })),
             pack.unknown?.length ? h('span', { className: 'lr-dim' }, t('packs.unknown', { names: pack.unknown.join(', ') })) : null,
             pack.problems?.length ? h('div', { className: 'lr-error' }, pack.problems.join(' ')) : null,
-            !pack.bundled ? h('span', { className: 'lr-dim lr-pack-folder' }, t('packs.folder', { folder: pack.folder })) : null,
+            pack.changes ? h('div', { className: 'lr-pack-changes' },
+              h('span', null, t('packs.changes', { count: pack.changes })),
+              discarding === pack.id
+                ? h(React.Fragment, null,
+                  h('button', { type: 'button', className: 'lr-button lr-small lr-danger', disabled: Boolean(busy), onClick: () => discard(pack.id) }, t('packs.discardSure')),
+                  h('button', { type: 'button', className: 'lr-button lr-small', onClick: () => setDiscarding(null) }, t('cancel')))
+                : h('button', { type: 'button', className: 'lr-button lr-small', disabled: Boolean(busy), onClick: () => setDiscarding(pack.id) }, t('packs.discard'))) : null,
+            h('span', { className: 'lr-dim lr-pack-folder' }, t('packs.folder', { folder: pack.folder })),
             h('div', { className: 'lr-row' },
               !pack.active ? h('button', { type: 'button', className: 'lr-button lr-primary', disabled: Boolean(busy), onClick: () => use(pack.id) }, t('packs.use')) : null,
               h('a', { className: 'lr-button', href: `${API.packExport}?id=${encodeURIComponent(pack.id)}`, download: `${pack.id}.zip` }, t('packs.export')),
-              pack.bundled ? null : removing === pack.id
+              removing === pack.id
                 ? h(React.Fragment, null,
                   h('button', { type: 'button', className: 'lr-button lr-danger', disabled: Boolean(busy), onClick: () => remove(pack.id) }, t('packs.removeSure')),
                   h('button', { type: 'button', className: 'lr-button', onClick: () => setRemoving(null) }, t('cancel')))
@@ -2095,6 +2181,17 @@ window.__ModuleLoader__.load({
         ) : h('div', { className: 'lr-empty' }, t('roster.loading')),
         h('section', { className: 'lr-section lr-pack-add' },
           h('h3', null, t('packs.add')),
+          list?.included?.length ? h('div', { className: 'lr-included' },
+            h('span', { className: 'lr-label' }, t('packs.included')),
+            list.included.map(pack => h('div', { key: pack.file, className: 'lr-included-pack' },
+              h('div', { className: 'lr-pack-text' },
+                h('strong', null, named(pack, t)),
+                pack.description ? h('span', { className: 'lr-dim' }, named(pack.description, t)) : null,
+                pack.license ? h('span', { className: 'lr-dim' }, pack.license) : null),
+              h('button', { type: 'button', className: `lr-button${!pack.added || newer(pack) ? ' lr-primary' : ''}`, disabled: Boolean(busy),
+                title: pack.added ? t('packs.includedHave') : undefined, onClick: () => addIncluded(pack.file) },
+              busy === `add:${pack.file}` ? t('packs.importing') : !pack.added ? t('packs.includedAdd')
+                : newer(pack) ? t('packs.includedUpdate', { version: pack.version }) : t('packs.includedAgain'))))) : null,
           h('div', { className: 'lr-row' },
             h('button', { type: 'button', className: 'lr-button lr-primary', disabled: Boolean(busy), onClick: () => input.current?.click() },
               busy === 'import' ? t('packs.importing') : t('packs.import')),
@@ -2128,13 +2225,14 @@ window.__ModuleLoader__.load({
       ['sysprompt', 4, 'deepseek/middle'], ['temp0', 4, 'gemini/middle'], ['retry', 3, 'grok/chibi'], ['maxtokens', 3, 'grok/middle'],
       ['timeout', 3, 'glm/middle'], ['emdash', 3, 'minimax/middle'], ['apology', 3, 'llama/middle'], ['lgtm', 3, 'claude/chibi'],
       ['hello', 3, 'qwen/chibi'], ['delve', 3, 'gpt/chibi']]
-      .map(([id, stars, art]) => ({ kind: 'equipment', key: `e:${id}`, id, stars, art, character: art.split('/')[0] }))
+      .map(([id, stars, slot]) => ({ kind: 'equipment', key: `e:${id}`, id, stars, character: slot.split('/')[0], tier: slot.split('/')[1] }))
 
-    /** What a summon can deal: the lineup's models as characters (★ by tier), and the equipment. */
-    const summonPool = (lineup = []) => [...lineup.map(item => ({ kind: 'character', key: `c:${item.id}`, id: item.id, name: item.name ?? item.id,
-      provider: item.provider, character: item.character, tier: item.tier, stars: STARS[item.tier] ?? 3, art: item.art ?? `${item.character}/${item.tier}`,
-      face: item.face ?? null })),
-    ...EQUIPMENT]
+    /** What a summon can deal: the lineup's models as characters (★ by tier), and the equipment, each pictured as the
+     * art pack has it (`tierArt`: a character's card at a tier). */
+    const summonPool = (lineup = [], tierArt = (character, tier) => `${character}/${tier}.webp`) => [...lineup.map(item => ({ kind: 'character',
+      key: `c:${item.id}`, id: item.id, name: item.name ?? item.id, provider: item.provider, character: item.character, tier: item.tier,
+      stars: STARS[item.tier] ?? 3, art: item.art ?? tierArt(item.character, item.tier), face: item.face ?? null })),
+    ...EQUIPMENT.map(card => ({ ...card, art: tierArt(card.character, card.tier) }))]
 
     /** `count` summons from `pool` on `banner` ({ pickup5, pickup4: card keys; summons: how many so far; got: whether its
      * pickup ★5 came }), `random` in [0, 1): the cards dealt and the banner after. */
@@ -2284,7 +2382,7 @@ window.__ModuleLoader__.load({
     function SummonTab ({ onOpen, t }) {
       const state = useRosterState()
       const lineup = state?.lineup ?? []
-      const pool = useMemo(() => summonPool(lineup), [lineup])
+      const pool = useMemo(() => summonPool(lineup, (character, tier) => tierArt(state, character, tier)), [lineup, state?.pack?.stamp])
       const dateOf = useReleasedDates(lineup.map(item => item.id))
       const [saved, setSaved] = useState(readSummons)
       const [round, setRound] = useState(null) // on stage: { id, count, cards, phase: 'charge' | 'reveal', instant }
@@ -2457,8 +2555,8 @@ window.__ModuleLoader__.load({
       useEffect(() => { directory.load().catch(() => {}); loadProviders(remote).catch(() => {}) }, [directory])
       // the state again as the roster opens: an art pack changed in place shows (its cards are asked again only then)
       useEffect(() => {
-        const before = shared.state?.pack?.version
-        loadState().then(state => { if (before && state?.pack?.version !== before) forgetResolved() }).catch(() => {})
+        const before = shared.state?.pack?.stamp
+        loadState().then(state => { if (before && state?.pack?.stamp !== before) forgetResolved() }).catch(() => {})
       }, [])
       const close = useCallback(() => (page ? setPage(null) : onClose()), [page, onClose])
       const tabs = h('nav', { className: 'lr-tabs' }, ['roster', 'summon', 'models', 'rankings', 'packs'].map(id => h('button', {
@@ -2830,6 +2928,15 @@ window.__ModuleLoader__.load({
 .lr-pack-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: 12.5px }
 .lr-pack-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 14px }
 .lr-pack-folder { overflow-wrap: anywhere; font-size: 11.5px }
+.lr-pack-about { line-height: 1.45 }
+.lr-included { display: flex; flex-direction: column; gap: 6px; padding-bottom: 6px;
+  border-bottom: .5px solid var(--dsw-alias-border-l1, rgba(128,128,128,.18)) }
+.lr-included-pack { display: flex; align-items: center; justify-content: space-between; gap: 12px }
+.lr-pack-switch { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap }
+.lr-pack-switch .lr-select { flex: 0 1 auto; width: auto; min-width: 9em; max-width: 16em; height: 28px }
+.lr-pack-switch .lr-pack-name { flex: 0 1 14em; height: 28px }
+.lr-pack-changes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; font-size: 12px;
+  background: var(--dsw-alias-state-business-secondary, rgba(77,107,254,.08)) }
 .lr-tag { padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: var(--dsw-alias-bg-layer-3, rgba(128,128,128,.14)) }
 .lr-tag-on { color: #fff; background: var(--dsw-alias-state-business-primary, #4d6bfe) }
 a.lr-button { display: inline-flex; align-items: center; text-decoration: none; box-sizing: border-box }

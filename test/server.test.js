@@ -8,7 +8,8 @@ import { afterEach, beforeEach, describe, test } from 'node:test'
 import { dshHome } from '../plugin/index.js'
 import { balance, check, keyFor, liveModels } from '../plugin/providers.js'
 import { compact, dateInId, formsOf, load, loadReleased, releasedDates, slugOf, split } from '../plugin/rankings.js'
-import { defaultArt, CHARACTERS, characterOf, lineup, Roster, tierOf, validArt, validFace } from '../plugin/roster.js'
+import { pictureFile } from '../plugin/packs.js'
+import { defaultArt, CHARACTERS, characterOf, lineup, Roster, tierOf } from '../plugin/roster.js'
 import { createRoster, ROUTES, serve, spelled } from '../plugin/server.js'
 
 let folder
@@ -53,13 +54,12 @@ describe('who a model is', () => {
     assert.equal(tierOf('claude-opus-5-5'), 'high')
     assert.equal(tierOf('approver-1'), 'middle') // "pro" inside a word is not "pro"
   })
-  test('what a picture may be', () => {
-    assert.ok(validArt('gpt/high'))
-    assert.ok(validArt('custom:0123456789ab'))
-    for (const bad of ['gpt/face', 'nobody/high', '../x', 'custom:../../x', 7, null]) assert.ok(!validArt(bad), String(bad))
-    assert.ok(validArt('gpt/opus-special')) // any picture a pack has (whether it has it is asked of the pack in use)
-    assert.ok(validFace('gpt/face-high') && validFace('claude/face') && validFace('custom:0123456789ab'))
-    assert.ok(!validFace('gpt/high') && !validFace('nobody/face') && !validFace('gpt/Face'))
+  test('what a picture may be: a file one folder deep, of a picture\'s type', () => {
+    for (const good of ['gpt/high.webp', 'deepseek/Image 2.PNG', 'uploads/我的.jpg']) assert.equal(pictureFile(good), good)
+    assert.equal(pictureFile('gpt\\high.webp'), 'gpt/high.webp')
+    for (const bad of ['gpt/high', 'high.webp', '../x.png', 'a/../x.png', 'a/b/c.png', '.hidden/x.png', 'gpt/x.svg', 'gpt/', 7, null]) {
+      assert.equal(pictureFile(bad), null, String(bad))
+    }
   })
   test('the lineup: the mainstream models, each from its character\'s home provider', () => {
     const found = lineup()
@@ -108,56 +108,84 @@ describe('who a model is', () => {
   })
 })
 
-describe('the roster file', () => {
-  test('picks and uploads are kept, and an upload is forgotten with its picks', () => {
-    const roster = new Roster(folder)
-    roster.pick('openai/gpt-6-luna', { art: 'grok/university' })
-    const id = roster.upload(PNG, 'image/png', 'mine.png')
-    roster.pick('anthropic/claude-haiku-5-5', { art: `custom:${id}` })
-    roster.pick('openai/gpt-6.1-sol', { face: 'claude/face-chibi' })
+describe('the roster file, and your changes to the pack in use', () => {
+  /** A roster with the packs that come with it, as it starts. */
+  const started = () => { const roster = new Roster(folder); roster.seedPacks(); return roster }
+  test('a model\'s card and avatar, chosen and uploaded: changes beside the pack, the pack itself untouched', () => {
+    const roster = started()
+    assert.equal(roster.active, 'academy') // the student pack, every character chibi to university student, until you choose another
+    const packFile = path.join(folder, 'packs', 'academy', 'pack.json')
+    const before = fs.readFileSync(packFile, 'utf8')
+    roster.pick('openai/gpt-6-luna', { art: 'grok/university.webp' })
+    const file = roster.upload(PNG, 'image/png', 'mine.png', 'claude')
+    assert.equal(file, 'claude/mine.png')
+    roster.pick('anthropic/claude-haiku-5-5', { art: file })
+    roster.pick('openai/gpt-6.1-sol', { face: 'claude/face-chibi.webp' })
     const again = new Roster(folder)
-    assert.deepEqual(again.artOf('openai', 'gpt-6-luna'), { art: 'grok/university', own: true })
-    assert.equal(again.faceOf('openai', 'gpt-6-luna'), 'grok/face-university') // the avatar follows the art's tier
-    assert.deepEqual(again.artOf('anthropic', 'claude-haiku-5-5'), { art: `custom:${id}`, own: true })
-    assert.equal(again.faceOf('anthropic', 'claude-haiku-5-5'), `custom:${id}`) // your picture is its own avatar
-    assert.equal(again.faceOf('openai', 'gpt-6.1-sol'), 'claude/face-chibi') // an avatar picked apart from the art
-    assert.equal(again.faceOf('openai', 'gpt-6-astra'), 'gpt/face-university')
-    assert.equal(again.image({ upload: id }).type, 'image/png')
-    again.forget(id)
-    assert.deepEqual(new Roster(folder).artOf('anthropic', 'claude-haiku-5-5'), { art: 'claude/chibi', own: false })
-    assert.equal(fs.readdirSync(path.join(folder, 'art')).length, 0)
+    assert.deepEqual(again.artOf('openai', 'gpt-6-luna'), { art: 'grok/university.webp', own: true })
+    assert.equal(again.faceOf('openai', 'gpt-6-luna'), 'gpt/face-chibi.webp') // her avatar stays her tier's
+    assert.deepEqual(again.whoOf('openai', 'gpt-6-luna'), { character: 'gpt', tier: 'chibi' }) // and so does who she is
+    assert.deepEqual(again.artOf('anthropic', 'claude-haiku-5-5'), { art: 'claude/mine.png', own: true })
+    assert.equal(again.faceOf('openai', 'gpt-6.1-sol'), 'claude/face-chibi.webp') // an avatar chosen apart from the card
+    assert.equal(again.faceOf('openai', 'gpt-6-astra'), 'gpt/face-university.webp')
+    assert.equal(again.image({ art: file }).type, 'image/png')
+    assert.equal(fs.readFileSync(packFile, 'utf8'), before, 'the pack itself is never written to')
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(folder, 'changes', 'academy', 'pack.json'))).models,
+      { 'gpt-6-luna': { art: 'grok/university.webp' }, 'claude-haiku-5-5': { art: 'claude/mine.png' }, 'gpt-6.1-sol': { face: 'claude/face-chibi.webp' } })
+    // taken back, and back to the pack's
+    again.forget(file)
+    assert.deepEqual(new Roster(folder).artOf('anthropic', 'claude-haiku-5-5'), { art: 'claude/chibi.webp', own: false })
     roster.pick('openai/gpt-6-luna', { art: null })
     assert.equal(new Roster(folder).artOf('openai', 'gpt-6-luna').own, false)
     roster.pick('openai/gpt-6.1-sol', { face: null })
-    assert.equal(new Roster(folder).faceOf('openai', 'gpt-6.1-sol'), 'gpt/face-high')
+    assert.equal(new Roster(folder).faceOf('openai', 'gpt-6.1-sol'), 'gpt/face-high.webp')
+    // a model of no character wears what you give it, as its avatar too
+    const phi = roster.upload(PNG, 'image/png', 'phi.png')
+    roster.pick('my-gateway/phi-5', { art: phi })
+    assert.deepEqual([phi, roster.artOf('my-gateway', 'phi-5').art, roster.faceOf('my-gateway', 'phi-5')], ['uploads/phi.png', 'uploads/phi.png', 'uploads/phi.png'])
   })
   test('refusals', () => {
-    const roster = new Roster(folder)
-    assert.throws(() => roster.pick('no-slash', { art: 'gpt/high' }), RangeError)
-    assert.throws(() => roster.pick('openai/x', { art: 'custom:0123456789ab' }), /no such upload/)
-    assert.throws(() => roster.pick('openai/x', { face: 'gpt/high' }), /not an avatar/)
-    assert.throws(() => roster.pick('openai/x', { art: 'gpt/nope' }), /the art pack has no gpt\/nope/)
-    assert.throws(() => roster.pick('openai/x', { face: 'doubao/face' }), /the art pack has no/) // (she has only her tiers' faces)
+    const roster = started()
+    assert.throws(() => roster.pick('no-slash', { art: 'gpt/high.webp' }), RangeError)
+    assert.throws(() => roster.pick('openai/x', { art: 'gpt/nope.webp' }), /no such picture/)
+    assert.throws(() => roster.pick('openai/x', { art: '../x.png' }), /no such picture/)
+    assert.throws(() => roster.forget('gpt/high.webp'), /not a picture you added/)
     assert.throws(() => roster.park('openai', { ns: 'llm-pi-ai', path: [] }), RangeError)
     assert.throws(() => roster.upload(Buffer.from('<svg/>'), 'image/svg+xml'), RangeError)
     assert.throws(() => roster.upload(Buffer.alloc(0), 'image/png'), /empty/)
     assert.throws(() => roster.upload(Buffer.alloc(4 * 1024 * 1024 + 1), 'image/png'), /at most/)
+    // with no pack at all, there is nothing to change
+    const bare = new Roster(fs.mkdtempSync(path.join(folder, 'none-')))
+    assert.equal(bare.active, null)
+    assert.throws(() => bare.pick('openai/x', { art: 'gpt/high.webp' }), /choose a pack/)
+    assert.equal(bare.artOf('openai', 'gpt-6.1-sol').art, 'gpt/high.webp') // (the bundled pictures, still)
   })
-  test('pictures are only ever from the art folder or the uploads', () => {
-    const roster = new Roster(folder)
-    assert.ok(fs.existsSync(roster.image({ art: 'gpt/face' }).file))
-    for (const art of TIERS_OF('claude')) assert.ok(fs.existsSync(roster.image({ art }).file), art)
+  test('pictures are only ever the packs\' files', () => {
+    const roster = started()
     for (const character of CHARACTERS) {
       for (const tier of ['chibi', 'middle', 'high', 'university']) {
-        assert.ok(fs.existsSync(roster.image({ art: `${character}/${tier}` }).file), `${character}/${tier}`)
-        assert.ok(fs.existsSync(roster.image({ art: `${character}/face-${tier}` }).file), `${character}/face-${tier}`)
+        assert.ok(fs.existsSync(roster.image({ art: roster.look().tierArt(character, tier) }).file), `${character}/${tier}`)
+        assert.ok(fs.existsSync(roster.image({ art: roster.look().tierFace(character, tier) }).file), `${character}/face ${tier}`)
       }
     }
     assert.equal(roster.image({ art: '../../etc/passwd' }), null)
-    assert.equal(roster.image({ upload: '../roster' }), null)
+    assert.equal(roster.image({ art: 'gpt/../../roster.json' }), null)
+    assert.equal(roster.image({ art: 'gpt/nope.webp' }), null)
+  })
+  test('the picks of a roster before 0.5.2 become your changes to the pack in use, once', () => {
+    fs.mkdirSync(path.join(folder, 'art'), { recursive: true })
+    fs.writeFileSync(path.join(folder, 'art', '0123456789ab.png'), PNG)
+    fs.writeFileSync(path.join(folder, 'roster.json'), JSON.stringify({ version: 2, routes: { kimi: 'openrouter' },
+      art: { 'openai/gpt-6-luna': 'grok/university', 'anthropic/claude-haiku-5-5': 'custom:0123456789ab', 'openai/x': 'nobody/high' },
+      faces: { 'openai/gpt-6.1-sol': 'claude/face-chibi' }, uploads: { '0123456789ab': { type: 'image/png', name: 'mine.png' } } }))
+    const work = createRoster(folder)
+    const [luna, haiku, sol] = work.resolve([{ provider: 'openai', id: 'gpt-6-luna' }, { provider: 'anthropic', id: 'claude-haiku-5-5' },
+      { provider: 'openai', id: 'gpt-6.1-sol' }])
+    assert.deepEqual([luna.art, haiku.art, sol.face], ['grok/university.webp', 'claude/mine.png', 'claude/face-chibi.webp'])
+    const kept = JSON.parse(fs.readFileSync(path.join(folder, 'roster.json')))
+    assert.deepEqual([kept.art, kept.routes], [undefined, { kimi: 'openrouter' }])
   })
 })
-const TIERS_OF = character => ['chibi', 'middle', 'high', 'university'].map(tier => `${character}/${tier}`)
 
 describe('rankings', () => {
   test('the shipped snapshot: each model once, at its best, with its efforts', () => {
@@ -382,25 +410,25 @@ describe('the routes', () => {
       'https://api.deepseek.com/models': { data: [{ id: 'deepseek-flash' }, { id: 'deepseek-v4-pro' }] } })
     const call = connect(createRoster(folder, { fetch, resolve: async name => name === 'DEEPSEEK_API_KEY' ? 'k' : undefined }))
     const json = async response => ({ status: response.status, body: await response.json() })
-    assert.deepEqual(Object.keys((await json(await call('GET', ROUTES.state))).body).sort(), ['characters', 'lineup', 'pack', 'parked', 'providers', 'rankings', 'routes', 'tiers', 'uploads'])
+    assert.deepEqual(Object.keys((await json(await call('GET', ROUTES.state))).body).sort(), ['characters', 'lineup', 'pack', 'parked', 'providers', 'rankings', 'routes', 'tiers'])
     // the provider a character's lineup goes through
     assert.deepEqual((await json(await call('POST', ROUTES.route, { body: { character: 'gpt', provider: 'openrouter' } }))).body.routes, { gpt: 'openrouter' })
     assert.deepEqual((await json(await call('POST', ROUTES.route, { body: { character: 'gpt', provider: 'openai' } }))).body.routes, {}) // her own again
     assert.equal((await call('POST', ROUTES.route, { body: { character: 'nobody', provider: 'openrouter' } })).status, 400)
     assert.equal((await call('POST', ROUTES.route, { body: { character: 'kimi', provider: 'Not A Route' } })).status, 400)
     const resolved = await json(await call('POST', ROUTES.resolve, { body: { models: [{ provider: 'openai', id: 'gpt-6.1-sol' }] } }))
-    assert.equal(resolved.body.models[0].art, 'gpt/high')
+    assert.equal(resolved.body.models[0].art, 'gpt/high.webp')
     assert.equal(resolved.body.models[0].aa.rank > 0, true)
-    const uploaded = await json(await call('POST', `${ROUTES.upload}?name=a.png`, { body: PNG, type: 'image/png' }))
-    assert.match(uploaded.body.id, /^[a-f0-9]{12}$/)
-    assert.equal((await call('POST', ROUTES.pick, { body: { model: 'openai/gpt-6.1-sol', art: `custom:${uploaded.body.id}` } })).status, 200)
-    assert.equal((await json(await call('POST', ROUTES.resolve, { body: { models: [{ provider: 'openai', id: 'gpt-6.1-sol' }] } }))).body.models[0].face, `custom:${uploaded.body.id}`)
-    const image = await call('GET', `${ROUTES.image}?upload=${uploaded.body.id}`)
+    const uploaded = await json(await call('POST', `${ROUTES.upload}?name=a.png&character=gpt`, { body: PNG, type: 'image/png' }))
+    assert.equal(uploaded.body.file, 'gpt/a.png')
+    assert.equal((await call('POST', ROUTES.pick, { body: { model: 'openai/gpt-6.1-sol', art: uploaded.body.file } })).status, 200)
+    assert.equal((await json(await call('POST', ROUTES.resolve, { body: { models: [{ provider: 'openai', id: 'gpt-6.1-sol' }] } }))).body.models[0].art, 'gpt/a.png')
+    const image = await call('GET', `${ROUTES.image}?art=${encodeURIComponent(uploaded.body.file)}`)
     assert.equal(image.headers.get('content-type'), 'image/png')
     assert.equal(Buffer.from(await image.arrayBuffer()).equals(PNG), true)
-    assert.equal((await call('GET', `${ROUTES.image}?art=gpt/face`)).headers.get('content-type'), 'image/webp')
+    assert.equal((await call('GET', `${ROUTES.image}?art=gpt/face.webp`)).headers.get('content-type'), 'image/webp')
     assert.equal((await call('GET', `${ROUTES.image}?art=../x`)).status, 404)
-    assert.equal((await call('POST', ROUTES.pick, { body: { model: 'x', art: 'gpt/high' } })).status, 400)
+    assert.equal((await call('POST', ROUTES.pick, { body: { model: 'x', art: 'gpt/high.webp' } })).status, 400)
     assert.equal((await call('POST', ROUTES.resolve, { body: 'not json', type: 'text/plain' })).status, 400)
     assert.equal((await json(await call('GET', `${ROUTES.balance}?provider=deepseek-official&ref=DEEPSEEK_API_KEY`))).body.balances[0].amount, 1.5)
     assert.equal((await json(await call('GET', `${ROUTES.balance}?provider=openai&ref=OPENAI_API_KEY`))).body.missing, true)
@@ -415,13 +443,13 @@ describe('the routes', () => {
     assert.deepEqual((await json(await call('POST', ROUTES.released, { body: { ids: ['openai/gpt-6.1-sol'] } }))).body.dates['openai/gpt-6.1-sol'],
       { date: '2026-09-29', seen: false })
     assert.equal((await call('POST', ROUTES.released, { body: { ids: 'nope' } })).status, 400)
-    assert.equal((await call('POST', ROUTES.forget, { body: { upload: uploaded.body.id } })).status, 200)
+    assert.equal((await call('POST', ROUTES.forget, { body: { file: uploaded.body.file } })).status, 200)
     assert.equal((await json(await call('POST', ROUTES.settings, { body: { aaKeyEnv: 'MY_AA' } }))).body.keys[0], 'MY_AA')
     const state = (await json(await call('GET', ROUTES.state))).body
     assert.ok(state.lineup.find(item => item.id === 'gpt-6.1-sol').name.startsWith('GPT-6.1 Sol'))
-    assert.equal((await call('POST', ROUTES.pick, { body: { model: 'openai/gpt-6.1-sol', face: 'grok/face-chibi' } })).status, 200)
-    assert.equal((await json(await call('POST', ROUTES.resolve, { body: { models: [{ provider: 'openai', id: 'gpt-6.1-sol' }] } }))).body.models[0].face, 'grok/face-chibi')
-    assert.equal((await call('GET', `${ROUTES.image}?art=gemini/face-middle`)).headers.get('content-type'), 'image/webp')
+    assert.equal((await call('POST', ROUTES.pick, { body: { model: 'openai/gpt-6.1-sol', face: 'grok/face-chibi.webp' } })).status, 200)
+    assert.equal((await json(await call('POST', ROUTES.resolve, { body: { models: [{ provider: 'openai', id: 'gpt-6.1-sol' }] } }))).body.models[0].face, 'grok/face-chibi.webp')
+    assert.equal((await call('GET', `${ROUTES.image}?art=gemini/face-middle.webp`)).headers.get('content-type'), 'image/webp') // (the bundled pack's)
     // a key's check: kept for a while, asked again when fresh
     const first = (await json(await call('GET', `${ROUTES.check}?provider=deepseek-official&ref=DEEPSEEK_API_KEY`))).body
     assert.equal(first.status, 'ok'); assert.equal(first.key, 'DEEPSEEK_API_KEY')
