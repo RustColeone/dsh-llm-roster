@@ -1,0 +1,43 @@
+{
+  "_": "Which character and tier each model is. Tiers go weakest to strongest; each has one card picture per character (art/<character>/<tier>.webp) and a rarity. A model in `models` is that exact pick; any other is matched by `match` (its id, without any 'vendor/' prefix) or by its provider, and its tier by the words in its id (`words`, first hit wins; else `fallback`). Your own picks in the roster's settings win over all of this.",
+  "tiers": {
+    "chibi": { "name": "Chibi", "zh": "Q版", "rarity": "R" },
+    "middle": { "name": "Middle-schooler", "zh": "初中生", "rarity": "SR" },
+    "high": { "name": "High-schooler", "zh": "高中生", "rarity": "SSR" },
+    "university": { "name": "University student", "zh": "大学生", "rarity": "UR" }
+  },
+  "characters": {
+    "gpt": { "name": "GPT", "match": ["^gpt", "^o\\d", "^chatgpt", "^codex", "^openai"], "providers": ["openai", "openai-codex", "azure"] },
+    "claude": { "name": "Claude", "match": ["^claude", "^anthropic"], "providers": ["anthropic"] },
+    "gemini": { "name": "Gemini", "match": ["^gemini", "^gemma", "^google"], "providers": ["google", "google-vertex"] },
+    "deepseek": { "name": "DeepSeek", "match": ["^deepseek"], "providers": ["deepseek", "deepseek-official", "deepseek-account"] },
+    "grok": { "name": "Grok", "match": ["^grok", "^x-ai", "^xai"], "providers": ["xai"] }
+  },
+  "models": {
+    "gpt-6-luna": "gpt/chibi",
+    "gpt-6.1-terra": "gpt/middle",
+    "gpt-6.1-sol": "gpt/high",
+    "gpt-6-astra": "gpt/university",
+    "claude-haiku-5-5": "claude/chibi",
+    "claude-sonnet-5-5": "claude/middle",
+    "claude-opus-5-5": "claude/high",
+    "claude-fable-5-1": "claude/university",
+    "claude-fable-5-2": "claude/university",
+    "deepseek-flash": "deepseek/chibi",
+    "deepseek-v4-flash": "deepseek/chibi",
+    "deepseek-v4-pro": "deepseek/high",
+    "gemini-3.8-flash": "gemini/chibi",
+    "gemini-3.1-pro-preview": "gemini/high",
+    "gemini-4-argon": "gemini/high",
+    "gemini-4-carbon": "gemini/university",
+    "grok-4-fast": "grok/chibi",
+    "grok-4.7": "grok/high"
+  },
+  "words": {
+    "chibi": ["flash", "mini", "nano", "haiku", "fast", "lite", "luna", "small", "air", "tiny"],
+    "university": ["fable", "astra", "ultra", "carbon", "deep-think", "heavy"],
+    "high": ["pro", "opus", "sol", "max", "plus", "large", "reasoner", "argon"],
+    "middle": ["sonnet", "terra", "medium", "chat", "base"]
+  },
+  "fallback": "middle"
+}

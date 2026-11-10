@@ -1,0 +1,45 @@
+{
+  "name": "dsh-llm-roster",
+  "version": "0.1.0",
+  "description": "A gacha-style character roster for DeepSeek Harness: an avatar beside the model picker, and a roster of your models as characters, with their art, Artificial Analysis rankings, keys, balance and which models are in use.",
+  "type": "module",
+  "license": "MIT AND CC-BY-NC-SA-4.0",
+  "author": "RustColeone",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "main": "plugin/index.js",
+  "exports": {
+    ".": "./plugin/index.js",
+    "./client": "./plugin/client.js",
+    "./server": "./plugin/server.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "plugin",
+    "art",
+    "data",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "deepseek-harness",
+    "dsh-plugin",
+    "model picker",
+    "gacha",
+    "roster"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
+    }
+  }
+}
