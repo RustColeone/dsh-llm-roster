@@ -31,15 +31,15 @@ window.__ModuleLoader__.load({
     const API = {
       state: 'api/llm-roster.state', resolve: 'api/llm-roster.resolve', pick: 'api/llm-roster.pick',
       upload: 'api/llm-roster.upload', forget: 'api/llm-roster.forget', settings: 'api/llm-roster.settings',
-      park: 'api/llm-roster.park', unpark: 'api/llm-roster.unpark', image: 'api/llm-roster.image',
+      park: 'api/llm-roster.park', unpark: 'api/llm-roster.unpark', route: 'api/llm-roster.route', image: 'api/llm-roster.image',
       rankings: 'api/llm-roster.rankings', check: 'api/llm-roster.check', balance: 'api/llm-roster.balance',
       live: 'api/llm-roster.live'
     }
     const RARITY = { R: 1, SR: 2, SSR: 3, UR: 4 }
     const TIER_ORDER = ['chibi', 'middle', 'high', 'university']
-    const CHARACTER_ORDER = ['gpt', 'claude', 'gemini', 'deepseek', 'grok']
-    const STATUS_ORDER = { ready: 0, unused: 1, checking: 2, error: 3, rejected: 4, nokey: 5 }
+    const STATUS_ORDER = { ready: 0, unused: 1, checking: 2, error: 3, rejected: 4, nokey: 5, absent: 6 }
     const ACCOUNT = 'deepseek-account'
+    const COMPATIBLE = '#openai-compatible' // the choice of a new OpenAI-compatible endpoint, among the providers
     const DEEPSEEK_ROUTES = [ACCOUNT, 'deepseek-official'] // one model reached two ways: one card
 
     const EN = {
@@ -123,6 +123,28 @@ window.__ModuleLoader__.load({
       'add.save': 'Add to the roster',
       'add.saving': 'Adding…',
       'add.needModel': 'Enter the model\'s id.',
+      'add.compatible': 'OpenAI-compatible endpoint (new)…',
+      'roster.hidden': '{count} more models from {provider}\'s whole catalog are in DSH\'s picker: choose the ones you use under Models & keys.',
+      'status.absent': 'Not offered there',
+      'status.absentHint': '{provider} does not offer it: choose another way on its page',
+      'page.through': 'Served through',
+      'page.throughHint': 'Which provider and key serve {name}: her own, OpenRouter, or an OpenAI-compatible endpoint of yours. Her models are matched by name among the ones it offers.',
+      'page.throughOwn': '{provider} (her own)',
+      'page.addCompatible': '+ OpenAI-compatible endpoint',
+      'compat.title': 'A new OpenAI-compatible endpoint',
+      'compat.hint': 'Any service that speaks OpenAI\'s Chat Completions API: a relay like OpenRouter, a gateway, or a server of your own.',
+      'compat.name': 'Name',
+      'compat.baseURL': 'Base URL',
+      'compat.key': 'API key',
+      'compat.env': 'or the variable holding it',
+      'compat.find': 'Find its models',
+      'compat.found': '{count} models found: click the ones to use.',
+      'compat.models': 'Model ids (separated by commas)',
+      'compat.pick': 'Choose at least one model.',
+      'compat.add': 'Add the endpoint',
+      'compat.badURL': 'The base URL is an http or https address.',
+      'compat.needName': 'Give it a name.',
+      'compat.taken': 'A provider of that name exists already.',
       'models.intro': 'Each provider\'s key, balance and models. Used models are the ones DSH\'s model picker offers; a click moves a model between Used and Ignored.',
       'models.loading': 'Reading the providers…',
       'models.readOnly': 'This DSH\'s settings cannot be changed from the page.',
@@ -285,6 +307,28 @@ window.__ModuleLoader__.load({
       'add.save': '加入名册',
       'add.saving': '添加中……',
       'add.needModel': '请输入模型 ID。',
+      'add.compatible': 'OpenAI 兼容接口（新建）……',
+      'roster.hidden': '{provider} 的完整目录里还有 {count} 个模型在 DSH 的模型选择器中：可以在「模型与密钥」里挑选要用的。',
+      'status.absent': '这里没有',
+      'status.absentHint': '{provider} 没有提供它：请在详情页换一种方式',
+      'page.through': '通过',
+      'page.throughHint': '由哪个服务商和密钥为 {name} 提供服务：她自己的、OpenRouter，或你的 OpenAI 兼容接口。她的模型会按名称在其中匹配。',
+      'page.throughOwn': '{provider}（她自己的）',
+      'page.addCompatible': '+ OpenAI 兼容接口',
+      'compat.title': '新建 OpenAI 兼容接口',
+      'compat.hint': '任何支持 OpenAI Chat Completions API 的服务：OpenRouter 这样的中转、网关，或你自己的服务器。',
+      'compat.name': '名称',
+      'compat.baseURL': 'Base URL',
+      'compat.key': 'API 密钥',
+      'compat.env': '或保存它的环境变量',
+      'compat.find': '查找它的模型',
+      'compat.found': '找到 {count} 个模型：点击选择要用的。',
+      'compat.models': '模型 ID（用逗号分隔）',
+      'compat.pick': '至少选择一个模型。',
+      'compat.add': '添加接口',
+      'compat.badURL': 'Base URL 必须是 http 或 https 地址。',
+      'compat.needName': '请填写名称。',
+      'compat.taken': '已有同名的服务商。',
       'models.intro': '每个服务商的密钥、余额和模型。「使用中」的模型就是 DSH 模型选择器里列出的模型；点击即可在「使用中」和「忽略」之间移动。',
       'models.loading': '正在读取服务商……',
       'models.readOnly': '这个 DSH 的设置不能在网页上修改。',
@@ -412,7 +456,7 @@ window.__ModuleLoader__.load({
     // resolved: `provider/model` → the server's word on it (art, face, character, tier, name, rankings)
     // state: the server's state; providers: DSH's settings and provider directory; checks: provider → its key's check
     const resolved = new Map()
-    let shared = { version: 0, generation: 0, state: null, providers: null, checks: {} }
+    let shared = { version: 0, generation: 0, state: null, providers: null, checks: {}, routeModels: {} }
     const listeners = new Set()
     const bump = (changes = {}) => { shared = { ...shared, ...changes, version: shared.version + 1 }; for (const listener of listeners) listener() }
     const sharedStore = { subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
@@ -494,18 +538,47 @@ window.__ModuleLoader__.load({
       }
     }
 
-    /** Ask whether a provider's key works (the server asks the provider for its usage; a check stands a while). */
-    async function checkKey (provider, ref, fresh = false) {
+    /** Ask whether a provider's key works: the server asks the provider for its usage (a check stands a while); an
+     * OpenAI-compatible endpoint of yours is asked by DSH itself, for its models, with the key it keeps. */
+    async function checkKey (provider, ref, fresh = false, remote = null) {
       bump({ checks: { ...shared.checks, [provider]: { ...(shared.checks[provider] ?? {}), pending: true } } })
+      let found
       try {
-        const found = await get(`${API.check}?provider=${encodeURIComponent(provider)}&ref=${encodeURIComponent(ref ?? '')}${fresh ? '&fresh=1' : ''}`)
-        bump({ checks: { ...shared.checks, [provider]: found } })
-        return found
-      } catch (error) {
-        const found = { status: 'error', detail: errorText(error) }
-        bump({ checks: { ...shared.checks, [provider]: found } })
-        return found
+        const info = providerInfo(shared.providers, provider)
+        if (info.entry?.declared && remote) {
+          try {
+            const models = unwrap(await remote.llm.discoverModels(info.entry.settingsNs, { provider }))
+            found = { status: 'ok', models: models.length }
+          } catch (error) {
+            const said = errorText(error)
+            found = { status: /missing|no credential/i.test(said) ? 'missing' : /401|403|unauthori|forbidden|invalid.*key/i.test(said) ? 'rejected' : 'error', detail: said }
+          }
+        } else {
+          found = await get(`${API.check}?provider=${encodeURIComponent(provider)}&ref=${encodeURIComponent(ref ?? '')}${fresh ? '&fresh=1' : ''}`)
+        }
+      } catch (error) { found = { status: 'error', detail: errorText(error) } }
+      bump({ checks: { ...shared.checks, [provider]: found } })
+      return found
+    }
+
+    /** A model id as it is matched across providers: no vendor, lowercase, words joined by dashes (OpenRouter's
+     * `anthropic/claude-opus-5.5` is Anthropic's `claude-opus-5-5`). */
+    const slugOf = id => bare(id).replace(/[^a-z0-9]+/g, '-')
+    /** The models a provider a character goes through offers: DSH's catalog for it (or, for an endpoint of yours, what
+     * DSH reads from it with the key it keeps), and for OpenRouter its live list too. */
+    async function loadRouteModels (remote, provider) {
+      if (shared.routeModels?.[provider]?.status === 'loading') return
+      bump({ routeModels: { ...shared.routeModels, [provider]: { status: 'loading', ids: [] } } })
+      const ids = new Set()
+      let failed = null
+      const info = providerInfo(shared.providers ?? await loadProviders(remote), provider)
+      if (info.entry) {
+        try { for (const model of unwrap(await remote.llm.discoverModels(info.entry.settingsNs, { provider }))) ids.add(model.id) } catch (error) { failed = errorText(error) }
       }
+      if (shared.state?.providers?.[provider]?.models) {
+        try { for (const model of (await get(`${API.live}?provider=${encodeURIComponent(provider)}&ref=${encodeURIComponent(info.ref)}`)).models) ids.add(model.id) } catch (error) { failed ??= errorText(error) }
+      }
+      bump({ routeModels: { ...shared.routeModels, [provider]: { status: ids.size || !failed ? 'ready' : 'error', ids: [...ids], error: failed } } })
     }
 
     /** Add a model to a provider's Used models (setting the provider up, or putting it back, first if it must be). */
@@ -544,15 +617,23 @@ window.__ModuleLoader__.load({
       const snapshot = useDirectory(directory)
       const state = useRosterState()
       const providers = useProviders(remote)
-      const { checks } = useShared()
+      const { checks, routeModels } = useShared()
       const catalog = useMemo(() => catalogOf(snapshot), [snapshot.groups])
       const current = snapshot.pending ?? snapshot.current
-      const cards = useMemo(() => {
+      const routes = state?.routes ?? {}
+      const { cards, hidden } = useMemo(() => {
+        // A provider serving its whole catalog of many models (OpenRouter with no list) shows only the models the roster
+        // knows as characters; the rest stay in DSH's picker, counted.
+        const known = new Set((state?.lineup ?? []).map(item => slugOf(item.id)))
+        const big = new Set((snapshot.groups ?? []).filter(group => (group.models?.length ?? 0) > 40 &&
+          !providerInfo(providers, group.id).used).map(group => group.id))
+        const hidden = {}
         // DeepSeek's account and its API key reach the same models: one card each, through the account unless the session
         // already uses the key (its page chooses)
         const merged = [], deepseek = new Map()
         for (const model of catalog) {
           const card = { ...model, source: 'catalog' }
+          if (big.has(model.provider) && !known.has(slugOf(model.id))) { hidden[model.provider] = (hidden[model.provider] ?? 0) + 1; continue }
           if (!DEEPSEEK_ROUTES.includes(model.provider)) { merged.push(card); continue }
           const found = deepseek.get(bare(model.id))
           if (found) { found.routes.push(card); continue }
@@ -564,29 +645,49 @@ window.__ModuleLoader__.load({
             entry.routes.find(route => route.provider === ACCOUNT) ?? entry.routes[0]
           Object.assign(entry, { provider: preferred.provider, providerName: preferred.providerName, id: preferred.id, name: preferred.name })
         }
-        const have = new Set(catalog.map(model => bare(model.id)))
-        const lineup = (state?.lineup ?? []).filter(item => !have.has(bare(item.id))).map(item => ({
-          provider: item.provider, providerName: providerName(item.provider, snapshot, providers), id: item.id, name: item.name,
-          source: 'lineup' }))
-        return [...merged, ...lineup]
-      }, [catalog, state?.lineup, providers, current?.provider, current?.model])
-      // ask once about each provider whose key the roster can test
+        // the lineup models DSH does not offer yet, each through the provider its character goes through: her own, or
+        // OpenRouter or an endpoint of yours, where it is matched by name among the models that provider offers
+        const have = new Set(catalog.map(model => slugOf(model.id)))
+        const lineup = []
+        for (const item of state?.lineup ?? []) {
+          const via = routes[item.character] ?? item.provider
+          const card = { provider: via, id: item.id, name: item.name, source: 'lineup', lineupId: item.id, character: item.character }
+          if (via !== item.provider) {
+            const offered = routeModels[via]
+            if (!offered || offered.status === 'loading') card.pendingRoute = true
+            else {
+              const match = offered.ids.find(id => slugOf(id) === slugOf(item.id))
+              if (match) card.id = match; else card.absent = true
+            }
+          }
+          if (have.has(slugOf(card.id))) continue
+          lineup.push({ ...card, providerName: providerName(via, snapshot, providers) })
+        }
+        return { cards: [...merged, ...lineup], hidden }
+      }, [catalog, state?.lineup, providers, current?.provider, current?.model, JSON.stringify(routes), routeModels])
+      // the models of the providers characters go through, and once each, whether the keys work
+      const through = [...new Set(Object.values(routes))]
+      useEffect(() => {
+        if (!state || !remote || !providers) return
+        for (const provider of through) if (!shared.routeModels[provider]) loadRouteModels(remote, provider).catch(() => {})
+      }, [through.join(), Boolean(state), Boolean(providers)])
       const offered = state?.providers ?? {}
       const toCheck = [...new Set(cards.filter(card => card.provider !== ACCOUNT && (card.source === 'lineup' || offered[card.provider]))
         .map(card => card.provider))]
       useEffect(() => {
         if (!state || (remote && !providers)) return
         for (const provider of toCheck) {
-          if (!shared.checks[provider]) checkKey(provider, providerInfo(providers, provider).ref).catch(() => {})
+          if (!shared.checks[provider]) checkKey(provider, providerInfo(providers, provider).ref, false, remote).catch(() => {})
         }
       }, [toCheck.join(), Boolean(state), Boolean(providers), checks])
       const statusOf = card => {
         const found = checks[card.provider]
         if (card.source === 'catalog') return found?.status === 'rejected' ? 'rejected' : 'ready'
-        if (!found?.status) return 'checking'
+        if (card.absent) return 'absent'
+        if (card.pendingRoute || !found?.status) return 'checking'
         return { missing: 'nokey', rejected: 'rejected', error: 'error' }[found.status] ?? 'unused'
       }
-      return { snapshot, state, providers, catalog, cards: cards.map(card => ({ ...card, status: statusOf(card) })) }
+      return { snapshot, state, providers, catalog, hidden, cards: cards.map(card => ({ ...card, status: statusOf(card) })) }
     }
 
     // ---- pieces ----
@@ -617,7 +718,7 @@ window.__ModuleLoader__.load({
       const name = card.source === 'catalog' ? card.name : (found?.name ?? card.name ?? card.id)
       const blocked = card.status !== 'ready'
       const hint = { unused: t('status.unusedHint'), nokey: card.provider.startsWith('deepseek') ? t('status.nokeyDeepseek') : t('status.nokeyHint'),
-        rejected: t('status.rejectedHint') }[card.status]
+        rejected: t('status.rejectedHint'), absent: t('status.absentHint', { provider: card.providerName }) }[card.status]
       return h('div', { className: 'lr-card', 'data-rarity': rarity, 'data-current': current ? '' : undefined,
         'data-status': card.status },
       h('button', { type: 'button', className: 'lr-card-main', disabled: busy, title: `${card.providerName} · ${card.id}`,
@@ -644,8 +745,8 @@ window.__ModuleLoader__.load({
         h('a', { href: 'https://artificialanalysis.ai', target: '_blank', rel: 'noreferrer' }, 'artificialanalysis.ai'))
     }
 
-    function RosterTab ({ remote, directory, available, onPicked, onPage, t }) {
-      const { snapshot, state, cards } = useCards(directory, remote)
+    function RosterTab ({ remote, directory, available, onPicked, onPage, onTab, t }) {
+      const { snapshot, state, cards, hidden } = useCards(directory, remote)
       const lookup = useResolved(cards)
       const [filter, setFilter] = useState('all')
       const [sort, setSort] = useState('provider')
@@ -698,6 +799,9 @@ window.__ModuleLoader__.load({
           })),
           h('button', { type: 'button', className: 'lr-card lr-add-card', onClick: () => onPage({ kind: 'add' }) },
             h('span', { className: 'lr-plus' }, '+'), h('strong', null, t('roster.add')), h('span', null, t('roster.addHint')))),
+        Object.entries(hidden).map(([provider, count]) => h('div', { key: provider, className: 'lr-note lr-row lr-between' },
+          h('span', null, t('roster.hidden', { count, provider: providerName(provider, snapshot, null) })),
+          onTab ? h('button', { type: 'button', className: 'lr-button lr-small', onClick: () => onTab('models') }, t('tab.models')) : null)),
         h('div', { className: 'lr-foot' }, h('span', null, busy ? t('roster.switching') : t('roster.hint')), h(Credit, { state, t })))
     }
 
@@ -720,7 +824,7 @@ window.__ModuleLoader__.load({
           setFailure(t('failed', { error: errorText(error) }))
         }
       }
-      const characters = state ? CHARACTER_ORDER.filter(name => state.characters[name]) : []
+      const characters = state ? Object.keys(state.characters) : []
       const kinds = kind === 'art' ? TIER_ORDER : ['face', ...TIER_ORDER.map(tier => `face-${tier}`)]
       const labelOf = (name, part) => `${state.characters[name].name} · ${part === 'face' ? t('art.portrait') : t(`tier.${part.replace(/^face-/, '')}`)}`
       const tile = (picture, label, extra = null) => h('div', { key: picture, className: 'lr-tile-holder' },
@@ -794,7 +898,7 @@ window.__ModuleLoader__.load({
         }
         unwrap(await remote.credentials.set(info.ref, value))
         setKeyDraft(''); setNote(t('key.saved'))
-        await describe(); await checkKey(info.provider, info.ref, true)
+        await describe(); await checkKey(info.provider, info.ref, true, remote)
       })
       const saveEnv = () => run(async () => {
         const name = envDraft.trim()
@@ -803,9 +907,9 @@ window.__ModuleLoader__.load({
         const ops = info.configured ? [name ? { op: 'set', path, value: name } : { op: 'unset', path }] : [{ op: 'set', path, value: { apiKeyEnv: name } }]
         await writeSettings(remote, info.entry.settingsNs, ops)
         setNote(name ? t('key.envSaved', { name }) : null)
-        await checkKey(info.provider, name || info.ref, true)
+        await checkKey(info.provider, name || info.ref, true, remote)
       })
-      const test = () => run(async () => { await checkKey(info.provider, info.ref, true) })
+      const test = () => run(async () => { await checkKey(info.provider, info.ref, true, remote) })
       const askBalance = () => run(async () => {
         setBalance(await get(`${API.balance}?provider=${encodeURIComponent(info.provider)}&ref=${encodeURIComponent(info.ref)}`))
       })
@@ -830,7 +934,7 @@ window.__ModuleLoader__.load({
             onKeyDown: event => { if (event.key === 'Enter') saveEnv() } }),
           h('button', { type: 'button', className: 'lr-button', disabled: busy || !editable || envDraft.trim() === (info.named ?? ''), onClick: saveEnv }, t('key.envSave'))),
         h('div', { className: 'lr-row' },
-          offered ? h('button', { type: 'button', className: 'lr-button', disabled: busy || found?.pending, onClick: test },
+          offered || info.entry?.declared ? h('button', { type: 'button', className: 'lr-button', disabled: busy || found?.pending, onClick: test },
             found?.pending ? t('key.testing') : t('key.test')) : null,
           offered?.balance ? h('button', { type: 'button', className: 'lr-button', disabled: busy, onClick: askBalance }, t('balance.button')) : null),
         balance ? h('div', { className: 'lr-balance' },
@@ -863,7 +967,8 @@ window.__ModuleLoader__.load({
 
     function CharacterPage ({ remote, directory, available, card: initial, onBack, onPicked, t }) {
       const { snapshot, state, providers, catalog, cards } = useCards(directory, remote)
-      const listed = cards.find(item => (item.routes ?? [item]).some(route => route.provider === initial.provider && route.id === initial.id))
+      const listed = (initial.lineupId && cards.find(item => item.lineupId === initial.lineupId)) ??
+        cards.find(item => (item.routes ?? [item]).some(route => route.provider === initial.provider && route.id === initial.id))
       const [routeChoice, setRouteChoice] = useState(null)
       const routes = listed?.routes ?? null
       const chosen = routes?.find(route => route.provider === routeChoice) ?? null
@@ -975,11 +1080,127 @@ window.__ModuleLoader__.load({
                   h('span', null, card.source === 'catalog' ? t('page.rosterUsed') : t('page.rosterIgnored')),
                   card.source === 'catalog' && info.entry && card.provider !== ACCOUNT
                     ? h('button', { type: 'button', className: 'lr-button lr-small', disabled: busy || !info.writable, onClick: ignore }, t('page.ignore')) : null))),
+            card.source === 'lineup' && card.character ? h(Through, { remote, state, providers, snapshot, character: card.character, t }) : null,
             h('section', { className: 'lr-section' },
               h('h3', null, `${t('page.provider')}: ${card.providerName}`),
               card.provider.startsWith('deepseek') ? h(AccountNote, { snapshot, t }) : null,
               card.provider !== ACCOUNT && info.entry ? h(KeySection, { remote, info, t }) : null))),
         picker ? h(PicturePicker, { kind: picker, model: { provider: card.provider, id: card.id, name }, onClose: () => setPicker(null), t }) : null)
+    }
+
+    // ---- which provider a character's lineup goes through ----
+    /** The providers a character can go through: her own, the native ones DSH can route, OpenRouter, and the
+     * OpenAI-compatible endpoints you added. */
+    function throughOptions (state, providers, character) {
+      const about = state?.characters?.[character]
+      if (!about) return []
+      const entries = providers?.entries ?? []
+      const can = provider => entries.some(entry => entry.provider === provider)
+      const compatible = entries.filter(entry => entry.declared && /^openai-/.test(String(providerInfo(providers, entry.provider).profile.api ?? '')))
+        .map(entry => entry.provider)
+      return [...new Set([about.home, ...(about.providers ?? []).filter(can), ...(can('openrouter') ? ['openrouter'] : []), ...compatible])]
+    }
+
+    function Through ({ remote, state, providers, snapshot, character, t }) {
+      const [adding, setAdding] = useState(false)
+      const [failure, setFailure] = useState(null)
+      const about = state?.characters?.[character]
+      const via = state?.routes?.[character] ?? about?.home
+      const choose = async provider => {
+        setFailure(null)
+        try {
+          await post(API.route, { character, provider })
+          await loadState()
+          if (provider !== about.home) await loadRouteModels(remote, provider)
+        } catch (error) { setFailure(t('failed', { error: errorText(error) })) }
+      }
+      const proposals = (state?.lineup ?? []).filter(item => item.character === character).map(item => bare(item.id))
+      return h('section', { className: 'lr-section' },
+        h('h3', null, t('page.through')),
+        h('span', { className: 'lr-dim' }, t('page.throughHint', { name: about?.name ?? character })),
+        h('div', { className: 'lr-chips' },
+          throughOptions(state, providers, character).map(provider => h('button', { key: provider, type: 'button',
+            className: `lr-chip${provider === via ? ' lr-on' : ''}`, onClick: () => choose(provider) },
+          provider === about?.home ? t('page.throughOwn', { provider: providerName(provider, snapshot, providers) }) : providerName(provider, snapshot, providers))),
+          h('button', { type: 'button', className: `lr-chip${adding ? ' lr-on' : ''}`, onClick: () => setAdding(!adding) }, t('page.addCompatible'))),
+        failure ? h('div', { className: 'lr-error' }, failure) : null,
+        adding ? h(CompatibleForm, { remote, t, proposals, onCancel: () => setAdding(false),
+          onCreated: async provider => { setAdding(false); await choose(provider) } }) : null)
+    }
+
+    /** A new OpenAI-compatible endpoint (a relay, a gateway, a server of yours): a pi-ai route speaking OpenAI Chat
+     * Completions, its key stored write-only (or the variable holding it named), and the models you choose of what DSH
+     * finds there (`proposals` chosen first), or typed. */
+    function CompatibleForm ({ remote, t, proposals = [], onCreated, onCancel }) {
+      const providers = useProviders(remote)
+      const [name, setName] = useState('')
+      const [baseURL, setBaseURL] = useState('')
+      const [key, setKey] = useState('')
+      const [env, setEnv] = useState('')
+      const [found, setFound] = useState(null)
+      const [chosen, setChosen] = useState(() => new Set())
+      const [typed, setTyped] = useState(proposals.join(', '))
+      const [busy, setBusy] = useState(false)
+      const [failure, setFailure] = useState(null)
+      const id = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 63)
+      const validURL = /^https?:\/\/\S+$/i.test(baseURL.trim())
+      const run = async work => {
+        setBusy(true); setFailure(null)
+        try { await work() } catch (error) { setFailure(t('failed', { error: errorText(error) })) } finally { setBusy(false) }
+      }
+      const find = () => run(async () => {
+        if (!validURL) throw new Error(t('compat.badURL'))
+        const models = unwrap(await remote.llm.discoverModels('llm-pi-ai', { baseURL: baseURL.trim(), api: 'openai-completions',
+          ...(key.trim() ? { apiKey: key.trim() } : {}) }))
+        setFound(models)
+        const wanted = new Set(proposals.map(slugOf))
+        setChosen(new Set(models.filter(model => wanted.has(slugOf(model.id))).map(model => model.id)))
+      })
+      const toggle = model => setChosen(previous => {
+        const next = new Set(previous)
+        if (next.has(model)) next.delete(model); else next.add(model)
+        return next
+      })
+      const save = () => run(async () => {
+        if (!id) throw new Error(t('compat.needName'))
+        if (!validURL) throw new Error(t('compat.badURL'))
+        if (providers?.entries?.some(entry => entry.provider === id)) throw new Error(t('compat.taken'))
+        if (env.trim() && !REF.test(env.trim())) throw new Error(t('key.envBad'))
+        const ids = found ? [...chosen] : typed.split(/[\s,]+/).map(item => item.trim()).filter(Boolean)
+        if (!ids.length) throw new Error(t('compat.pick'))
+        const ref = env.trim() || deriveKeyRef(id)
+        const models = ids.map(model => {
+          const about = found?.find(item => item.id === model) ?? {}
+          return Object.fromEntries(Object.entries({ id: model, name: about.name, contextWindow: about.contextWindow, maxTokens: about.maxTokens })
+            .filter(([, value]) => value !== undefined && value !== null && value !== ''))
+        })
+        await writeSettings(remote, 'llm-pi-ai', [{ op: 'set', path: ['providers', id], value: { displayName: name.trim(),
+          api: 'openai-completions', baseURL: baseURL.trim(), apiKeyEnv: ref, models } }])
+        if (key.trim()) unwrap(await remote.credentials.set(ref, key.trim()))
+        await onCreated?.(id)
+      })
+      return h('div', { className: 'lr-compat' },
+        h('strong', null, t('compat.title')),
+        h('span', { className: 'lr-dim' }, t('compat.hint')),
+        h('label', { className: 'lr-field' }, h('span', { className: 'lr-label' }, t('compat.name')),
+          h('input', { className: 'lr-input', value: name, placeholder: 'My gateway', onChange: event => setName(event.target.value) })),
+        h('label', { className: 'lr-field' }, h('span', { className: 'lr-label' }, t('compat.baseURL')),
+          h('input', { className: 'lr-input lr-mono', value: baseURL, placeholder: 'https://gateway.example/v1', onChange: event => setBaseURL(event.target.value) })),
+        h('div', { className: 'lr-row' },
+          h('input', { className: 'lr-input', type: 'password', autoComplete: 'new-password', placeholder: t('compat.key'), value: key,
+            onChange: event => setKey(event.target.value) }),
+          h('input', { className: 'lr-input lr-mono', placeholder: t('compat.env'), value: env, onChange: event => setEnv(event.target.value) })),
+        h('div', { className: 'lr-row' },
+          h('button', { type: 'button', className: 'lr-button lr-small', disabled: busy || !validURL, onClick: find }, t('compat.find')),
+          found ? h('span', { className: 'lr-dim' }, t('compat.found', { count: found.length })) : null),
+        found ? h('div', { className: 'lr-pills' }, found.slice(0, 200).map(model => h('button', { key: model.id, type: 'button',
+          className: `lr-pill ${chosen.has(model.id) ? 'lr-used lr-static' : 'lr-ignored'}`, onClick: () => toggle(model.id) }, model.id)))
+          : h('label', { className: 'lr-field' }, h('span', { className: 'lr-label' }, t('compat.models')),
+            h('input', { className: 'lr-input lr-mono', value: typed, onChange: event => setTyped(event.target.value) })),
+        failure ? h('div', { className: 'lr-error', role: 'alert' }, failure) : null,
+        h('div', { className: 'lr-row' },
+          h('button', { type: 'button', className: 'lr-button lr-primary', disabled: busy || !id || !validURL, onClick: save }, t('compat.add')),
+          onCancel ? h('button', { type: 'button', className: 'lr-button', onClick: onCancel }, t('cancel')) : null))
     }
 
     // ---- adding a model the lineup does not have ----
@@ -1033,8 +1254,11 @@ window.__ModuleLoader__.load({
             h('span', { className: 'lr-label' }, t('add.provider')),
             h('select', { className: 'lr-input lr-select', value: provider, onChange: event => { setProvider(event.target.value); setFound([]) } },
               options.map(entry => h('option', { key: entry.provider, value: entry.provider },
-                configured(entry) ? (entry.displayName || entry.provider) : t('add.newProvider', { name: entry.displayName || entry.provider }))))),
-          provider ? h('div', { className: 'lr-field' },
+                configured(entry) ? (entry.displayName || entry.provider) : t('add.newProvider', { name: entry.displayName || entry.provider }))),
+              h('option', { value: COMPATIBLE }, t('add.compatible')))),
+          provider === COMPATIBLE ? h(CompatibleForm, { remote, t, proposals: model.trim() ? [model.trim()] : [],
+            onCreated: async id => { setProvider(id); setFound([]) } }) : null,
+          provider && provider !== COMPATIBLE ? h('div', { className: 'lr-field' },
             h('span', { className: 'lr-label' }, t('add.model')),
             h('div', { className: 'lr-row' },
               h('input', { className: 'lr-input lr-mono', list: 'lr-add-models', placeholder: t('add.modelHint'), value: model,
@@ -1047,7 +1271,7 @@ window.__ModuleLoader__.load({
           h('label', { className: 'lr-field' },
             h('span', { className: 'lr-label' }, t('add.name')),
             h('input', { className: 'lr-input', value: name, onChange: event => setName(event.target.value) })),
-          provider && !info.configured && info.entry ? h('div', { className: 'lr-section' }, h(KeySection, { remote, info, t })) : null,
+          provider && provider !== COMPATIBLE && !info.configured && info.entry ? h('div', { className: 'lr-section' }, h(KeySection, { remote, info, t })) : null,
           h('div', { className: 'lr-add-pictures' },
             h('div', { className: 'lr-field' }, h('span', { className: 'lr-label' }, t('add.art')),
               h(PictureTiles, { kind: 'art', value: art, onChoose: setArt, t, defaultLabel: t('add.auto') })),
@@ -1055,7 +1279,7 @@ window.__ModuleLoader__.load({
               h(PictureTiles, { kind: 'face', value: face, onChoose: setFace, t, defaultLabel: t('add.sameAsArt') }))),
           failure ? h('div', { className: 'lr-error', role: 'alert' }, failure) : null,
           h('div', { className: 'lr-row lr-sticky' },
-            h('button', { type: 'button', className: 'lr-button lr-primary lr-big', disabled: busy || !provider || !model.trim(), onClick: save },
+            h('button', { type: 'button', className: 'lr-button lr-primary lr-big', disabled: busy || !provider || provider === COMPATIBLE || !model.trim(), onClick: save },
               busy ? t('add.saving') : t('add.save')))))
     }
 
@@ -1215,6 +1439,7 @@ window.__ModuleLoader__.load({
       const providers = useProviders(remote)
       const snapshot = useDirectory(directory)
       const [adding, setAdding] = useState(false)
+      const [compatible, setCompatible] = useState(false)
       const [failure, setFailure] = useState(null)
       useEffect(() => { directory.load().catch(() => {}) }, [directory])
       if (providers?.error && !providers.view) return h('div', { className: 'lr-error' }, t('failed', { error: providers.error }))
@@ -1227,6 +1452,7 @@ window.__ModuleLoader__.load({
       const account = providers.entries.find(entry => entry.provider === ACCOUNT)
       const writable = providers.view.writable !== false
       const add = async provider => {
+        if (provider === COMPATIBLE) return setCompatible(true)
         const info = addable.find(item => item.provider === provider)
         if (!info) return
         setAdding(true); setFailure(null)
@@ -1247,10 +1473,13 @@ window.__ModuleLoader__.load({
         configured.map(info => h(ProviderCard, { key: `${info.entry.settingsNs}:${info.provider}`, remote, info, snapshot,
           catalogNames: snapshot.groups.find(group => group.id === info.provider)?.models ?? null, t })),
         Object.entries(parked).map(([provider, about]) => h(ParkedCard, { key: `parked:${provider}`, remote, provider, parked: about, providers, t })),
-        writable && addable.length ? h('select', { className: 'lr-input lr-add', value: '', disabled: adding,
+        writable && (addable.length || providers.namespaces.has('llm-pi-ai')) ? h('select', { className: 'lr-input lr-add', value: '', disabled: adding,
           onChange: event => add(event.target.value) },
         h('option', { value: '' }, adding ? t('models.adding') : t('models.add')),
-        addable.map(info => h('option', { key: info.provider, value: info.provider }, info.entry.displayName || info.provider))) : null)
+        providers.namespaces.has('llm-pi-ai') ? h('option', { value: COMPATIBLE }, t('add.compatible')) : null,
+        addable.map(info => h('option', { key: info.provider, value: info.provider }, info.entry.displayName || info.provider))) : null,
+        compatible ? h('section', { className: 'lr-provider' }, h(CompatibleForm, { remote, t, onCancel: () => setCompatible(false),
+          onCreated: async () => setCompatible(false) })) : null)
     }
 
     // ---- Rankings ----
@@ -1385,7 +1614,7 @@ window.__ModuleLoader__.load({
           : page?.kind === 'character' ? h(CharacterPage, { remote, directory, available, card: page.card, onBack: () => setPage(null), onPicked: onClose, t })
             : page?.kind === 'add' ? h(AddPage, { remote, directory, onBack: () => setPage(null), t,
               onDone: card => setPage({ kind: 'character', card: { ...card, source: 'catalog', status: 'ready' } }) })
-              : h(RosterTab, { remote, directory, available, onPicked: onClose, onPage: setPage, t })
+              : h(RosterTab, { remote, directory, available, onPicked: onClose, onPage: setPage, onTab: setTab, t })
       return h(Modal, { title: t('dialog.title'), onClose: close, t, tabs }, body)
     }
 
@@ -1590,6 +1819,8 @@ window.__ModuleLoader__.load({
 .lr-parked { opacity: .85; border-style: dashed }
 .lr-provider-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap }
 .lr-provider-name { font-weight: 700; font-size: 14px }
+.lr-compat { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 10px;
+  background: var(--dsw-alias-bg-module-platform, rgba(128,128,128,.06)) }
 .lr-confirm { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 10px;
   background: var(--dsw-alias-interactive-bg-hover-danger, rgba(217,48,37,.08)) }
 .lr-check-row { display: flex; gap: 6px; align-items: center; font-size: 12px }

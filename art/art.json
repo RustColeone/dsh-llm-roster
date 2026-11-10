@@ -86,7 +86,25 @@
       "providers": [
         "xai"
       ]
-    }
+    },
+    "kimi": { "name": "Kimi", "home": "openrouter", "vendor": "moonshotai", "match": ["^kimi", "^moonshot"],
+      "providers": ["moonshotai", "moonshotai-cn", "kimi-coding"] },
+    "glm": { "name": "GLM", "home": "openrouter", "vendor": "z-ai", "match": ["^glm", "^chatglm", "^zhipu"],
+      "providers": ["zai", "zai-coding-cn"] },
+    "qwen": { "name": "Qwen", "home": "openrouter", "vendor": "qwen", "match": ["^qwen", "^qwq"],
+      "providers": ["qwen-token-plan", "qwen-token-plan-cn", "qwen-token-plan-individual"] },
+    "mistral": { "name": "Mistral", "home": "openrouter", "vendor": "mistralai",
+      "match": ["^mistral", "^ministral", "^magistral", "^devstral", "^codestral", "^pixtral"], "providers": ["mistral"] },
+    "minimax": { "name": "MiniMax", "home": "openrouter", "vendor": "minimax", "match": ["^minimax", "^abab"],
+      "providers": ["minimax", "minimax-cn"] },
+    "llama": { "name": "Llama", "home": "openrouter", "vendor": "meta-llama", "match": ["^llama", "^meta-llama"],
+      "providers": ["meta"] },
+    "doubao": { "name": "Doubao", "home": "openrouter", "vendor": "bytedance-seed", "match": ["^seed-", "^doubao"],
+      "providers": [] },
+    "perplexity": { "name": "Perplexity", "home": "openrouter", "vendor": "perplexity", "match": ["^sonar", "^perplexity"],
+      "providers": [] },
+    "hunyuan": { "name": "Hunyuan", "home": "openrouter", "vendor": "tencent", "match": ["^hunyuan", "^hy\\d"],
+      "providers": [] }
   },
   "models": {
     "gpt-6-luna": "gpt/chibi",
@@ -103,7 +121,34 @@
     "gemini-3.8-flash": "gemini/chibi",
     "gemini-3.1-pro-preview": "gemini/high",
     "gemini-4-argon": "gemini/high",
-    "grok-4.7": "grok/high"
+    "grok-4.7": "grok/high",
+    "kimi-k2.6": "kimi/chibi",
+    "kimi-k3": "kimi/middle",
+    "kimi-k3.1-pro": "kimi/high",
+    "glm-5.3-flash": "glm/chibi",
+    "glm-5.3": "glm/high",
+    "glm-5.3-prime": "glm/university",
+    "qwen3.8-flash": "qwen/chibi",
+    "qwen3.7-plus": "qwen/middle",
+    "qwen3.8-max-0902": "qwen/high",
+    "qwen3.8-max-prime": "qwen/university",
+    "mistral-small-2603": "mistral/chibi",
+    "mistral-medium-3-5": "mistral/middle",
+    "mistral-large-4-0": "mistral/high",
+    "minimax-m3.1-flash": "minimax/chibi",
+    "minimax-m3": "minimax/high",
+    "llama-4-scout": "llama/chibi",
+    "llama-4-maverick": "llama/high",
+    "seed-2.0-mini": "doubao/chibi",
+    "seed-2.0-lite": "doubao/middle",
+    "seed-2-1-turbo": "doubao/high",
+    "sonar": "perplexity/chibi",
+    "sonar-pro": "perplexity/middle",
+    "sonar-reasoning-pro": "perplexity/high",
+    "sonar-deep-research": "perplexity/university",
+    "hunyuan-a13b-instruct": "hunyuan/chibi",
+    "hy3": "hunyuan/middle",
+    "hy4": "hunyuan/high"
   },
   "words": {
     "chibi": [
@@ -124,7 +169,9 @@
       "ultra",
       "carbon",
       "deep-think",
-      "heavy"
+      "heavy",
+      "prime",
+      "deep-research"
     ],
     "high": [
       "pro",

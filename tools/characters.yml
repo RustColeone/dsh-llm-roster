@@ -1,0 +1,146 @@
+# The characters this project draws itself (tools/draw-art.py), besides the five that come from ChimeraArchiveHarness
+# (tools/import-art.py). Each is drawn from her standing art by ZipZipPipe, as kept in the AI-girl fan archive
+# 蓝色大肥鱼.com (`sheet`, the works page; `image`, its original), in the same style and tiers as the others: the style,
+# then the tier's own words, with `{name}`, `{look}`, `{motif}` and `{role}` filled in from her entry.
+#
+# `faces`: where her face is on each tier's card (centre x, centre y, side, on the 512 x 768 card), for her avatar;
+# a tier left out uses `face_defaults`. Check a new drawing's crop (--faces-only redoes them without drawing).
+model: gpt-image-2.5-sunburst
+chibi_reference: https://raw.githubusercontent.com/lmy414/ai-girl-stickers/main/dist/submissions/originals/deepseek/c5bc5f353c0173d1.png
+style: >-
+  Japanese anime gacha-game character art of the girl in the reference picture: her standing art shows her whole look
+  (hair, ears, horns, wings, tail, eyes, outfit colours and ornaments). Keep every feature that makes her her ({look})
+  exactly as in it. Wholesome and modest: she is fully and neatly dressed, nothing revealing, no fan service. Clean
+  lineart, soft cel shading, bright appealing colours, no text, no watermark, no logo.
+
+tiers:
+  chibi:
+    size: 1024x1024
+    quality: medium
+    background: transparent
+    chibi_reference: true
+    prompt: >-
+      A Q版 chibi of {name}, {role}, drawn exactly in the style of the chibi reference picture (the first one: copy its
+      style and proportions only, not its character): about two heads tall, a big round head with huge glossy eyes, a
+      tiny soft body, standing facing forward, in her own outfit from her standing art with her ears, horns, wings or
+      tail as she has them, simple clean flat colours. Full body, on a transparent background with nothing else in the
+      picture.
+  middle:
+    size: 1024x1536
+    quality: medium
+    prompt: >-
+      {name} drawn as a middle-school girl: younger proportions, a sailor-style middle-school uniform, a slightly shy
+      eager expression, a simple classroom background, waist-up.
+  high:
+    size: 1024x1536
+    quality: medium
+    prompt: >-
+      {name} drawn as a high-school girl: a smart blazer uniform with a ribbon, a confident capable expression, a school
+      hallway in soft light, waist-up.
+  university:
+    size: 1024x1536
+    quality: medium
+    prompt: >-
+      {name} drawn as a university student: stylish grown-up casual clothes, a mature composed expression, books under
+      her arm, a sunny campus courtyard, waist-up.
+
+face_defaults:
+  chibi: [256, 392, 230]
+  middle: [256, 200, 236]
+  high: [256, 196, 236]
+  university: [256, 190, 236]
+
+characters:
+  kimi:
+    name: Kimi
+    sheet: https://蓝色大肥鱼.com/works/kimi202610170001.html
+    image: https://raw.githubusercontent.com/lmy414/ai-girl-stickers/main/dist/submissions/originals/kimi/f6718d162fce6aa5.png
+    look: >-
+      long wavy silver-white hair, a white maid headdress, a hair ornament of a crescent moon and a rainbow triangle,
+      a dark-blue night-sky shawl dress covered in stars, music staves and piano keys over a white frilled blouse, a
+      silver flute with a rainbow stripe at her waist on a chain with a small K tag
+    motif: the starry night sky, music notes and the flute
+    role: the dreamy music-club flautist who plays under the stars
+  glm:
+    name: GLM
+    sheet: https://蓝色大肥鱼.com/works/glm202610170001.html
+    image: https://raw.githubusercontent.com/lmy414/ai-girl-stickers/main/dist/submissions/originals/glm/38a53dbfa1d851dd.png
+    look: >-
+      long straight black hair, large black fox ears, a fluffy black fox tail with a white tip, a black-and-white
+      frilled dress with a blue satin ribbon at the collar, white lace-up ankle boots, a black book with a Z emblem
+    motif: foxes, black books and the letter Z
+    role: the quiet, bookish fox girl of the literature club
+    faces:
+      university: [244, 168, 236]
+  qwen:
+    name: Qwen
+    sheet: https://蓝色大肥鱼.com/works/qwen202610170001.html
+    image: https://raw.githubusercontent.com/lmy414/ai-girl-stickers/main/dist/submissions/originals/qwen/ef613401931a57d8.jpg
+    look: >-
+      long blue-violet hair and blue-violet eyes, a small blue cap with a white flower, a white high-collared long
+      dress under a dark-blue open robe edged with gold key patterns and cloud motifs, blue tassels, a blue folding fan
+      painted with flowers and birds
+    motif: Chinese folding fans, cloud patterns, blue and gold
+    role: the graceful, refined senior of the calligraphy club
+  mistral:
+    name: Mistral
+    sheet: https://蓝色大肥鱼.com/works/mistral202610170001.html
+    image: https://raw.githubusercontent.com/lmy414/ai-girl-stickers/main/dist/submissions/originals/mistral/49239c83fbcccd23.jpg
+    look: >-
+      long orange-red hair, orange fox ears, a red wide-brimmed hat with a white feather, gold lilies and a square M
+      badge, a red-and-white court gown with gold trim and fleur-de-lis embroidery, an M-shaped key on a chain at her
+      waist, a fluffy orange fox tail, a long sword whose blade is a baguette
+    motif: French court elegance, fleur-de-lis and baguettes
+    role: the proud, chivalrous captain of the fencing club
+  minimax:
+    name: MiniMax
+    sheet: https://蓝色大肥鱼.com/works/minimax202610170001.html
+    image: https://raw.githubusercontent.com/lmy414/ai-girl-stickers/main/dist/submissions/originals/minimax/5167f2bbbe9f9ee0.jpg
+    look: >-
+      short orange hair, a white newsboy cap with a pink sound-wave logo, a white shirt under a long cream trench
+      coat, a brown plaid pencil skirt trimmed with film strips, a handheld recorder with a fluffy microphone at her
+      waist, an orange conch shell
+    motif: sound waves, film reels and a conch shell
+    role: the energetic reporter of the school newspaper
+  llama:
+    name: Llama
+    sheet: https://蓝色大肥鱼.com/works/llama202610170001.html
+    image: https://raw.githubusercontent.com/lmy414/ai-girl-stickers/main/dist/submissions/originals/llama/f34ebfb9c35fe764.png
+    look: >-
+      fluffy long creamy-white wavy hair, two fuzzy animal ears, one sleepy half-closed eye, an oversized white hoodie
+      embroidered with a blue infinity symbol and pom-pom drawstrings, a blue ribbon at the waist, a long skirt printed
+      with little alpaca silhouettes, fluffy alpaca slippers, a small fluffy tail
+    motif: alpacas, cosy wool and the infinity symbol
+    role: the sleepy, easygoing girl who naps in the club room
+  doubao:
+    name: Doubao
+    sheet: https://蓝色大肥鱼.com/works/doubao202610170001.html
+    image: https://raw.githubusercontent.com/lmy414/ai-girl-stickers/main/dist/submissions/originals/doubao/81b76f71e19ed9f9.jpg
+    look: >-
+      long purple-to-blue gradient hair in a high ponytail, a white top under a short blue-violet gradient jacket with
+      a SEED name badge, a white pleated skirt, mismatched purple-plaid and white socks, chunky sneakers, a big-headed
+      black-haired Doubao plush doll, a small blue whirlwind
+    motif: tech gadgets, a little blue whirlwind and the Doubao plush
+    role: the cheerful, techy first-year who tries everything new
+  perplexity:
+    name: Perplexity
+    sheet: https://蓝色大肥鱼.com/works/perplexity202610170001.html
+    image: https://raw.githubusercontent.com/lmy414/ai-girl-stickers/main/dist/submissions/originals/perplexity/56408ef72119c0fc.png
+    look: >-
+      long teal hair, round glasses, glowing ear muffs, a P hair clip, a layered teal-and-white long robe with wide
+      sleeves, a leather belt hung with a compass, a book bag and a brass lantern, black long boots, an explorer's
+      staff topped with a geometric star
+    motif: exploration, compasses, lanterns and stars
+    role: the curious explorer of the research club who looks everything up
+  hunyuan:
+    name: Hunyuan
+    sheet: https://蓝色大肥鱼.com/works/hunyuan202610170001.html
+    image: https://raw.githubusercontent.com/lmy414/ai-girl-stickers/main/dist/submissions/originals/hunyuan/57a214f2e04a1c87.png
+    look: >-
+      black hair fading to blue-grey at the tips with a gold hairpin and tassels, a red scarf, a long black coat
+      trimmed with white fur over a light-blue top and a white pleated long skirt woven with key patterns and small
+      flowers, a small abacus, a penguin charm wearing a red scarf and a blue-and-white taiji pendant at her waist
+    motif: penguins, red scarves and traditional Chinese patterns
+    role: the composed, traditional treasurer of the student council
+    faces:
+      university: [256, 160, 236]

@@ -49,12 +49,26 @@ provider or by rank.
 - **Equipment:** the card art and the avatar, each changeable on its own. Pick any character's art or face, or upload
   a picture (PNG, JPEG, WebP or GIF, up to 4 MB).
 - **In the roster:** whether the model is Used or Ignored, with **Move to Ignored**.
+- **Served through** (for a lineup model): which provider and key serve the character. The choices are her own
+  provider, OpenRouter, or an OpenAI-compatible endpoint of yours, and **+ OpenAI-compatible endpoint** adds one.
+  - Her models are matched by name among the ones that provider offers, so OpenRouter's `anthropic/claude-opus-5.5`
+    is Anthropic's `claude-opus-5-5`.
+  - A model it doesn't offer says **Not offered there**.
+  - So with only an OpenRouter key, every character can still be played: GPT, Claude, Kimi, GLM and the rest.
 - **Provider:** the provider's key, with a test and the balance.
 - **Use this model**, or **Add and use this model** for one not in use yet.
 
-**The + card** adds a model the lineup doesn't have. Choose a provider (one you haven't set up is added, with a key
-field), type the model id or pick it from the catalog or the provider's live list, give it a name, and choose its art
-and avatar. It joins the provider's Used models, so DSH's picker offers it too.
+**The + card** adds a model the lineup doesn't have. Choose a provider, or a new OpenAI-compatible endpoint (a
+provider you haven't set up is added, with a key field). Type the model id or pick it from the catalog or the
+provider's live list, give it a name, and choose its art and avatar. It joins the provider's Used models, so DSH's
+picker offers it too.
+
+**An OpenAI-compatible endpoint** is any service that speaks OpenAI's Chat Completions API: a relay, a gateway, or a
+server of your own. Give it a name, its base URL and its key (or the environment variable holding it), let DSH find
+its models, and choose the ones to use. It becomes a provider route in DSH's settings like any other, and its key is
+stored write-only. The roster doesn't try to support every provider's own API itself: DSH already speaks them natively
+(Anthropic Messages for Claude, Google's API for Gemini, Mistral's, OpenAI's Responses, Chat Completions for Kimi, GLM
+and DeepSeek), and anything else can come in as an OpenAI-compatible key.
 
 | Tier | Art | Rarity |
 | --- | --- | --- |
@@ -63,12 +77,20 @@ and avatar. It joins the provider's Used models, so DSH's picker offers it too.
 | High-schooler | high-school blazer | SSR |
 | University student | grown-up, on campus | UR |
 
-Five characters ship: GPT, Claude, Gemini, DeepSeek and Grok, each with a card picture and a face for every tier.
+Fourteen characters ship, each with a card picture and a face for every tier:
+
+- GPT, Claude, Gemini, DeepSeek and Grok, from their own providers;
+- Kimi, GLM, Qwen, Mistral, MiniMax, Llama, Doubao, Perplexity and Hunyuan, through OpenRouter by default.
+
 [`art/art.json`](art/art.json) says which mainstream model is which character and tier (GPT-6 Luna a chibi, GPT-6.1
-Sol a high-schooler, Claude Fable a university student, …), and those models are the roster's lineup. Any other model
-is matched by its id (`gpt…`, `claude…`, `gemini…`, `grok…`, `deepseek…`, also behind OpenRouter's `vendor/` prefix)
-or by its provider, and gets its tier from the words in its id (flash, mini and haiku are chibis; pro and opus are
-high-schoolers; …).
+Sol a high-schooler, Claude Fable a university student, Kimi K3.1 Pro a high-schooler, …), and those models are the
+roster's lineup. Any other model is matched by its id (`gpt…`, `claude…`, `kimi…`, `glm…`, `qwen…`, `sonar…`, …, also
+behind OpenRouter's `vendor/` prefix) or by its provider. It gets its tier from the words in its id: flash, mini and
+haiku are chibis; pro and opus are high-schoolers; prime, fable and deep research are university students; and so on.
+
+A provider that serves its whole catalog (OpenRouter with no model list, which has hundreds) shows only the models the
+roster knows as characters. A note counts the rest, which DSH's picker still offers, and links to Models & keys to
+choose the ones you use.
 
 **Models & keys.** Each provider you have configured in DSH gets a card:
 
@@ -95,7 +117,8 @@ high-schoolers; …).
 
 **DeepSeek account** shows whether you're signed in. Signed in, DeepSeek's models need no API key.
 
-**Add a provider…** adds any provider DSH can route but you haven't set up yet.
+**Add a provider…** adds any provider DSH can route but you haven't set up yet, or a new OpenAI-compatible endpoint.
+An endpoint's key is tested by DSH itself, which lists its models with the key it keeps.
 
 The roster speaks English and Chinese, following DSH's language.
 
@@ -129,7 +152,7 @@ The roster keeps its own files in `$DSH_HOME/llm-roster/` (`~/.dsh/llm-roster/`)
 
 | File | What it holds |
 | --- | --- |
-| `roster.json` | your art and avatar picks (`provider/model` → `gpt/high`, `gpt/face-high` or `custom:<id>`), your uploads' names, the providers you set aside with Ignore all (as they were in DSH's settings), and the variable your Artificial Analysis key is in, if you named one |
+| `roster.json` | your art and avatar picks (`provider/model` → `gpt/high`, `gpt/face-high` or `custom:<id>`), your uploads' names, the provider each character goes through, the providers you set aside with Ignore all (as they were in DSH's settings), and the variable your Artificial Analysis key is in, if you named one |
 | `art/<id>.<ext>` | the pictures you uploaded |
 | `aa.json` | the rankings, once fetched again |
 
@@ -140,15 +163,16 @@ The roster keeps its own files in `$DSH_HOME/llm-roster/` (`~/.dsh/llm-roster/`)
 | [`plugin/client.js`](plugin/client.js) | The web half (React from DSH). It puts the avatar in the `conversation.input.right` slot and renders the roster dialog and the Plugins page. It switches models through `modelDirectories.directoryFor(session).select()`. It writes model lists and `apiKeyEnv` with `remote.settings.mutate`, stores keys with `remote.credentials.set`, and reads catalogs with `remote.llm.discoverModels`. |
 | [`plugin/index.js`](plugin/index.js) | The DSH plugin (`llm-roster`). It mounts the routes on DSH's API and resolves keys through DSH's credential store, then the environment. |
 | [`plugin/server.js`](plugin/server.js) | The routes, below. |
-| [`plugin/roster.js`](plugin/roster.js) | Which character and tier each model is, the lineup, your picks of art and avatar, your uploads, and set-aside providers. |
+| [`plugin/roster.js`](plugin/roster.js) | Which character and tier each model is, the lineup, your picks of art and avatar, your uploads, set-aside providers, and the provider each character goes through. |
 | [`plugin/rankings.js`](plugin/rankings.js) | The Artificial Analysis list: matching a model to its slug, ranks, and fetching the list again. |
 | [`plugin/providers.js`](plugin/providers.js) | Each provider's balance and live-list endpoints, at fixed official addresses, and the key check built on them. |
 | [`art/`](art) | The characters' art and [`art.json`](art/art.json). Credits are in [`art/CREDITS.md`](art/CREDITS.md). |
+| [`tools/`](tools) | [`import-art.py`](tools/import-art.py) brings in the five ChimeraArchiveHarness characters. [`draw-art.py`](tools/draw-art.py) draws the others from [`characters.yml`](tools/characters.yml) with OpenAI's image model. [`aa-snapshot.mjs`](tools/aa-snapshot.mjs) refreshes the rankings snapshot. |
 | [`data/`](data) | The shipped rankings snapshot. |
 
 Keys never reach the page. A key check, a balance or a live list is asked by the server, using the key DSH resolves
 for the provider's credential reference. It is sent only to that provider's official address, never to an address the page
-names.
+names. An OpenAI-compatible endpoint of yours is asked by DSH itself, at the address in its settings.
 
 The routes are on DSH's API, behind its sign-in and for its owner only:
 
@@ -161,6 +185,7 @@ The routes are on DSH's API, behind its sign-in and for its owner only:
 | `POST /api/llm-roster.forget` | `{upload: id}` |
 | `POST /api/llm-roster.settings` | `{aaKeyEnv: '<variable>' \| null}`: where your Artificial Analysis key is |
 | `POST /api/llm-roster.park` / `unpark` | `{provider, ns, path, profile}` / `{provider}`: a provider set aside by Ignore all, and put back |
+| `POST /api/llm-roster.route` | `{character, provider \| null}`: the provider a character's lineup goes through |
 | `GET /api/llm-roster.image` | `?art=<character>/<tier, face or face-tier>` or `?upload=<id>` |
 | `GET/POST /api/llm-roster.rankings` | the top models (`?top=`), or fetch them again |
 | `GET /api/llm-roster.check` | `?provider=<route>&ref=<credential reference>&fresh=1`: does the key work (`ok`, `missing`, `rejected`, `error`, `untested`) |
@@ -172,8 +197,15 @@ The routes are on DSH's API, behind its sign-in and for its owner only:
 ```sh
 npm test                                              # node --test: the server half, no DSH or network needed
 python3 tools/import-art.py ~/Projects/DiscordStudyBot  # art/ again from a ChimeraArchiveHarness checkout
+python3 tools/draw-art.py --dry-run                   # the other characters' tiers: what it would draw
+python3 tools/draw-art.py --env-file .env             # draw what is missing (OPENAI_API_KEY; needs openai, pillow, pyyaml)
+python3 tools/draw-art.py --faces-only                # crop the avatars again after tuning `faces` in characters.yml
 AA_API_TOKEN=... node tools/aa-snapshot.mjs           # a new rankings snapshot in data/
 ```
+
+To add a character, give her an entry in [`tools/characters.yml`](tools/characters.yml) (her standing art, look,
+motif and role). Then add her to [`art/art.json`](art/art.json): her name, home provider, the ids that are hers, and
+her lineup by tier. Draw her with `draw-art.py`, and check her faces.
 
 For a local checkout, `dsh plugin --profile web add link:/path/to/dsh-llm-roster` uses it in place.
 

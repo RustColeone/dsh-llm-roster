@@ -17,6 +17,7 @@ export const TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'w
 export const MAX_UPLOAD = 4 * 1024 * 1024
 export const REF = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/ // a credential reference (an environment variable's name)
 const UPLOAD_ID = /^[a-f0-9]{12}$/
+const PROVIDER = /^[a-z0-9][a-z0-9-]{0,63}$/ // a DSH provider route
 const BUNDLED = /^([a-z]+)\/([a-z-]+)$/
 const FACES = ['face', ...TIERS.map(tier => `face-${tier}`)]
 
@@ -55,18 +56,26 @@ export function tierOf (model) {
   return TABLE.fallback
 }
 
+/** A model id as models are matched across providers: no vendor, words joined by dashes (OpenRouter's
+ * `anthropic/claude-opus-5.5` is Anthropic's `claude-opus-5-5`). */
+export const slug = model => bare(model).replace(/[^a-z0-9]+/g, '-')
+const SLUGGED = new Map(Object.entries(TABLE.models).map(([model, art]) => [slug(model), art]))
+
 /** The bundled pick for a model, `character/tier`, or null for a model of no known character. */
 export function bundledArt (provider, model) {
-  const exact = TABLE.models[bare(model)]
+  const exact = TABLE.models[bare(model)] ?? SLUGGED.get(slug(model))
   if (exact) return exact
   const character = characterOf(provider, model)
   return character ? `${character}/${tierOf(model)}` : null
 }
 
-/** The roster's lineup: the mainstream models of art.json, each from its character's home provider. */
-export const lineup = () => Object.entries(TABLE.models).map(([id, art]) => {
+/** The roster's lineup: the mainstream models of art.json, each from its character's home provider (through OpenRouter,
+ * as `vendor/model`, for a character whose home it is). */
+export const lineup = () => Object.entries(TABLE.models).map(([model, art]) => {
   const [character, tier] = art.split('/')
-  return { id, provider: TABLE.characters[character].home, character, tier }
+  const about = TABLE.characters[character]
+  const id = about.home === 'openrouter' && about.vendor ? `${about.vendor}/${model}` : model
+  return { id, provider: about.home, character, tier }
 })
 
 /** The roster file: your picks of art and avatar for each `provider/model`, your uploads, the providers you set aside,
@@ -76,7 +85,7 @@ export class Roster {
     this.folder = folder
     this.file = path.join(folder, 'roster.json')
     this.uploads = path.join(folder, 'art')
-    this.data = { version: 2, art: {}, faces: {}, uploads: {}, parked: {}, settings: {} }
+    this.data = { version: 2, art: {}, faces: {}, uploads: {}, parked: {}, routes: {}, settings: {} }
     try {
       const read = JSON.parse(fs.readFileSync(this.file, 'utf8'))
       if (read && typeof read === 'object') {
@@ -86,6 +95,8 @@ export class Roster {
           .filter(([id, about]) => UPLOAD_ID.test(id) && about && TYPES[about.type]))
         this.data.parked = Object.fromEntries(Object.entries(read.parked ?? {})
           .filter(([, about]) => about && typeof about.ns === 'string' && Array.isArray(about.path)))
+        this.data.routes = Object.fromEntries(Object.entries(read.routes ?? {})
+          .filter(([character, provider]) => CHARACTERS.includes(character) && PROVIDER.test(String(provider))))
         if (typeof read.settings?.aaKeyEnv === 'string' && REF.test(read.settings.aaKeyEnv)) {
           this.data.settings.aaKeyEnv = read.settings.aaKeyEnv
         }
@@ -140,9 +151,19 @@ export class Roster {
     this.save()
   }
 
+  /** The provider a character's lineup goes through: her own (`provider` null, or her home), OpenRouter, or an
+   * OpenAI-compatible endpoint of yours. */
+  route (character, provider) {
+    if (!CHARACTERS.includes(character)) throw new RangeError(`no such character: ${character}`)
+    if (provider === null || provider === undefined || provider === TABLE.characters[character].home) delete this.data.routes[character]
+    else if (typeof provider === 'string' && PROVIDER.test(provider)) this.data.routes[character] = provider
+    else throw new RangeError('not a provider')
+    this.save()
+  }
+
   /** Set a provider aside whole: its profile as it was in DSH's settings (`ns`, `path`, `profile`), to put back. */
   park (provider, { ns, path: where, profile }) {
-    if (typeof provider !== 'string' || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(provider)) throw new RangeError('not a provider')
+    if (typeof provider !== 'string' || !PROVIDER.test(provider)) throw new RangeError('not a provider')
     if (typeof ns !== 'string' || !Array.isArray(where) || !where.length || where.some(part => typeof part !== 'string')) {
       throw new RangeError('a parked provider needs its settings namespace and path')
     }

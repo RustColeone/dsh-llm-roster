@@ -8,8 +8,8 @@ import { afterEach, beforeEach, describe, test } from 'node:test'
 import { dshHome } from '../plugin/index.js'
 import { balance, check, keyFor, liveModels } from '../plugin/providers.js'
 import { compact, load, slugOf, split } from '../plugin/rankings.js'
-import { bundledArt, characterOf, lineup, Roster, tierOf, validArt, validFace } from '../plugin/roster.js'
-import { createRoster, ROUTES, serve } from '../plugin/server.js'
+import { bundledArt, CHARACTERS, characterOf, lineup, Roster, tierOf, validArt, validFace } from '../plugin/roster.js'
+import { createRoster, ROUTES, serve, spelled } from '../plugin/server.js'
 
 let folder
 beforeEach(() => { folder = fs.mkdtempSync(path.join(os.tmpdir(), 'llm-roster-')) })
@@ -45,7 +45,8 @@ describe('who a model is', () => {
     assert.equal(bundledArt('xai', 'grok-5'), 'grok/middle') // no tier word: the fallback
     assert.equal(characterOf('openai', 'o4-mini'), 'gpt')
     assert.equal(characterOf('xai', 'some-model'), 'grok') // by its provider
-    assert.equal(bundledArt('zai', 'glm-5'), null) // nobody we draw
+    assert.equal(bundledArt('my-gateway', 'phi-5'), null) // nobody we draw
+    assert.equal(bundledArt('zai', 'glm-5'), 'glm/middle')
   })
   test('tier words match whole words', () => {
     assert.equal(tierOf('gemini-3.8-flash-lite'), 'chibi')
@@ -65,6 +66,22 @@ describe('who a model is', () => {
     assert.deepEqual(found.find(item => item.id === 'gpt-6.1-sol'), { id: 'gpt-6.1-sol', provider: 'openai', character: 'gpt', tier: 'high' })
     assert.equal(found.find(item => item.id === 'deepseek-flash').provider, 'deepseek-official')
     assert.equal(found.find(item => item.id === 'gemini-4-argon').provider, 'google')
+    // the characters at home on OpenRouter, by its `vendor/model` ids
+    assert.deepEqual(found.find(item => item.id === 'moonshotai/kimi-k3.1-pro'), { id: 'moonshotai/kimi-k3.1-pro', provider: 'openrouter', character: 'kimi', tier: 'high' })
+    for (const character of ['kimi', 'glm', 'qwen', 'mistral', 'minimax', 'llama', 'doubao', 'perplexity', 'hunyuan']) {
+      assert.ok(found.some(item => item.character === character && item.provider === 'openrouter' && item.id.includes('/')), character)
+    }
+  })
+  test('the newer characters, by their ids', () => {
+    assert.equal(characterOf('openrouter', 'tencent/hy4'), 'hunyuan')
+    assert.equal(characterOf('mistral', 'magistral-medium'), 'mistral')
+    assert.equal(characterOf('zai', 'glm-4.7'), 'glm')
+    assert.equal(characterOf('openrouter', 'perplexity/sonar'), 'perplexity')
+    assert.equal(bundledArt('openrouter', 'z-ai/glm-5.3-prime'), 'glm/university')
+    assert.equal(bundledArt('openrouter', 'qwen/qwen3.5-plus-20260420'), 'qwen/high')
+    assert.equal(spelled('moonshotai/kimi-k2.6'), 'Kimi K2.6')
+    assert.equal(spelled('perplexity/sonar-deep-research'), 'Sonar Deep Research')
+    assert.equal(spelled('z-ai/glm-5.3-prime'), 'GLM 5.3 Prime')
   })
 })
 
@@ -105,7 +122,7 @@ describe('the roster file', () => {
     const roster = new Roster(folder)
     assert.ok(fs.existsSync(roster.image({ art: 'gpt/face' }).file))
     for (const art of TIERS_OF('claude')) assert.ok(fs.existsSync(roster.image({ art }).file), art)
-    for (const character of ['gpt', 'claude', 'gemini', 'deepseek', 'grok']) {
+    for (const character of CHARACTERS) {
       for (const tier of ['chibi', 'middle', 'high', 'university']) {
         assert.ok(fs.existsSync(roster.image({ art: `${character}/${tier}` }).file), `${character}/${tier}`)
         assert.ok(fs.existsSync(roster.image({ art: `${character}/face-${tier}` }).file), `${character}/face-${tier}`)
@@ -231,7 +248,12 @@ describe('the routes', () => {
       'https://api.deepseek.com/models': { data: [{ id: 'deepseek-flash' }, { id: 'deepseek-v4-pro' }] } })
     const call = connect(createRoster(folder, { fetch, resolve: async name => name === 'DEEPSEEK_API_KEY' ? 'k' : undefined }))
     const json = async response => ({ status: response.status, body: await response.json() })
-    assert.deepEqual(Object.keys((await json(await call('GET', ROUTES.state))).body).sort(), ['characters', 'lineup', 'parked', 'providers', 'rankings', 'tiers', 'uploads'])
+    assert.deepEqual(Object.keys((await json(await call('GET', ROUTES.state))).body).sort(), ['characters', 'lineup', 'parked', 'providers', 'rankings', 'routes', 'tiers', 'uploads'])
+    // the provider a character's lineup goes through
+    assert.deepEqual((await json(await call('POST', ROUTES.route, { body: { character: 'gpt', provider: 'openrouter' } }))).body.routes, { gpt: 'openrouter' })
+    assert.deepEqual((await json(await call('POST', ROUTES.route, { body: { character: 'gpt', provider: 'openai' } }))).body.routes, {}) // her own again
+    assert.equal((await call('POST', ROUTES.route, { body: { character: 'nobody', provider: 'openrouter' } })).status, 400)
+    assert.equal((await call('POST', ROUTES.route, { body: { character: 'kimi', provider: 'Not A Route' } })).status, 400)
     const resolved = await json(await call('POST', ROUTES.resolve, { body: { models: [{ provider: 'openai', id: 'gpt-6.1-sol' }] } }))
     assert.equal(resolved.body.models[0].art, 'gpt/high')
     assert.equal(resolved.body.models[0].aa.rank > 0, true)

@@ -14,7 +14,8 @@ const DATA = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data
 // model at its default, which for a reasoning model is its highest.
 const EFFORTS = ['xhigh', 'high', 'medium', 'low', 'minimal', 'non-reasoning', 'reasoning', 'max']
 // Models DSH names other than Artificial Analysis does (your own `aliases` in the plugin's settings win).
-export const ALIASES = { 'deepseek-flash': 'deepseek-v4-1-flash-1017' }
+export const ALIASES = { 'deepseek-flash': 'deepseek-v4-1-flash-1017', 'qwen3.8-max-0902': 'qwen3-8-max',
+  'mistral-large-4-0': 'mistral-large-4', hy4: 'tencent-hy4' }
 const EFFORT_END = new RegExp(`-(${EFFORTS.join('|')})$`)
 
 /** A model id or slug as Artificial Analysis spells slugs: lowercase words joined by dashes. */
@@ -99,7 +100,7 @@ export class Rankings {
   /** The slug a model is measured under: `aliases` first (`provider/model` or `model` → slug), then its own id with
    * dots as dashes, then its id without a date or `-latest` at the end; null when they have not measured it. */
   baseOf (provider, model, aliases = {}) {
-    const alias = aliases[`${provider}/${model}`] ?? aliases[model] ?? ALIASES[String(model).toLowerCase()]
+    const alias = aliases[`${provider}/${model}`] ?? aliases[model] ?? ALIASES[String(model).toLowerCase().split('/').pop()]
     if (alias) return this.models.has(split(slugOf(alias)).base) ? split(slugOf(alias)).base : null
     const slug = slugOf(model)
     const tries = [slug, split(slug).base, slug.replace(/-(\d{8}|\d{4}-\d{2}-\d{2}|latest|preview)$/, '')]
