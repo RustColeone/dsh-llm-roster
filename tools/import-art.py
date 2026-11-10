@@ -7,8 +7,8 @@ For each character (extensions/students/<name>/): avatar.png becomes face.webp (
 card picture (512 x 768): chibi (art/chibi.webp, padded onto a card), middle (model-chuugakusei, else stage-2), high
 (model-koukousei, else stage-3) and university (model-daigakusei, else stage-4); and its own round avatar,
 face-<tier>.webp (192 px), cropped from the card at FACES (centre x, centre y, side, on the 512 x 768 card), so the
-avatar beside DSH's model picker says the tier at a glance. art/art.json is not touched: it says which model is which
-tier.
+avatar beside DSH's model picker says the tier at a glance. art/pack.json and plugin/models.json are not touched: they
+name the characters and tiers, and say which model is which tier.
 """
 import sys
 from pathlib import Path

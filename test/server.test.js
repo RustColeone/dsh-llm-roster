@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, test } from 'node:test'
 import { dshHome } from '../plugin/index.js'
 import { balance, check, keyFor, liveModels } from '../plugin/providers.js'
 import { compact, dateInId, formsOf, load, loadReleased, releasedDates, slugOf, split } from '../plugin/rankings.js'
-import { bundledArt, CHARACTERS, characterOf, lineup, Roster, tierOf, validArt, validFace } from '../plugin/roster.js'
+import { defaultArt, CHARACTERS, characterOf, lineup, Roster, tierOf, validArt, validFace } from '../plugin/roster.js'
 import { createRoster, ROUTES, serve, spelled } from '../plugin/server.js'
 
 let folder
@@ -33,20 +33,20 @@ function fakeFetch (table) {
 
 describe('who a model is', () => {
   test('the bundled ladders', () => {
-    assert.equal(bundledArt('openai', 'gpt-6-luna'), 'gpt/chibi')
-    assert.equal(bundledArt('openai', 'gpt-6.1-sol'), 'gpt/high')
-    assert.equal(bundledArt('anthropic', 'claude-fable-5-1'), 'claude/university')
-    assert.equal(bundledArt('deepseek-official', 'deepseek-v4-pro'), 'deepseek/high')
+    assert.equal(defaultArt('openai', 'gpt-6-luna'), 'gpt/chibi')
+    assert.equal(defaultArt('openai', 'gpt-6.1-sol'), 'gpt/high')
+    assert.equal(defaultArt('anthropic', 'claude-fable-5-1'), 'claude/university')
+    assert.equal(defaultArt('deepseek-official', 'deepseek-v4-pro'), 'deepseek/high')
   })
   test('other models by their id, and through OpenRouter', () => {
-    assert.equal(bundledArt('openai', 'gpt-5-mini'), 'gpt/chibi')
-    assert.equal(bundledArt('openrouter', 'anthropic/claude-sonnet-5'), 'claude/middle')
-    assert.equal(bundledArt('openrouter', 'google/gemini-4-carbon'), 'gemini/university')
-    assert.equal(bundledArt('xai', 'grok-5'), 'grok/middle') // no tier word: the fallback
+    assert.equal(defaultArt('openai', 'gpt-5-mini'), 'gpt/chibi')
+    assert.equal(defaultArt('openrouter', 'anthropic/claude-sonnet-5'), 'claude/middle')
+    assert.equal(defaultArt('openrouter', 'google/gemini-4-carbon'), 'gemini/university')
+    assert.equal(defaultArt('xai', 'grok-5'), 'grok/middle') // no tier word: the fallback
     assert.equal(characterOf('openai', 'o4-mini'), 'gpt')
     assert.equal(characterOf('xai', 'some-model'), 'grok') // by its provider
-    assert.equal(bundledArt('my-gateway', 'phi-5'), null) // nobody we draw
-    assert.equal(bundledArt('zai', 'glm-5'), 'glm/middle')
+    assert.equal(defaultArt('my-gateway', 'phi-5'), null) // nobody we draw
+    assert.equal(defaultArt('zai', 'glm-5'), 'glm/middle')
   })
   test('tier words match whole words', () => {
     assert.equal(tierOf('gemini-3.8-flash-lite'), 'chibi')
@@ -57,8 +57,9 @@ describe('who a model is', () => {
     assert.ok(validArt('gpt/high'))
     assert.ok(validArt('custom:0123456789ab'))
     for (const bad of ['gpt/face', 'nobody/high', '../x', 'custom:../../x', 7, null]) assert.ok(!validArt(bad), String(bad))
+    assert.ok(validArt('gpt/opus-special')) // any picture a pack has (whether it has it is asked of the pack in use)
     assert.ok(validFace('gpt/face-high') && validFace('claude/face') && validFace('custom:0123456789ab'))
-    assert.ok(!validFace('gpt/high') && !validFace('gpt/face-nope'))
+    assert.ok(!validFace('gpt/high') && !validFace('nobody/face') && !validFace('gpt/Face'))
   })
   test('the lineup: the mainstream models, each from its character\'s home provider', () => {
     const found = lineup()
@@ -77,8 +78,8 @@ describe('who a model is', () => {
     assert.equal(characterOf('mistral', 'magistral-medium'), 'mistral')
     assert.equal(characterOf('zai', 'glm-4.7'), 'glm')
     assert.equal(characterOf('openrouter', 'perplexity/sonar'), 'perplexity')
-    assert.equal(bundledArt('openrouter', 'z-ai/glm-5.3-prime'), 'glm/university')
-    assert.equal(bundledArt('openrouter', 'qwen/qwen3.5-plus-20260420'), 'qwen/high')
+    assert.equal(defaultArt('openrouter', 'z-ai/glm-5.3-prime'), 'glm/university')
+    assert.equal(defaultArt('openrouter', 'qwen/qwen3.5-plus-20260420'), 'qwen/high')
     assert.equal(spelled('moonshotai/kimi-k2.6'), 'Kimi K2.6')
     assert.equal(spelled('perplexity/sonar-deep-research'), 'Sonar Deep Research')
     assert.equal(spelled('z-ai/glm-5.3-prime'), 'GLM 5.3 Prime')
@@ -98,12 +99,12 @@ describe('who a model is', () => {
       'bytedance-seed/seed-2-1-turbo high', 'bytedance-seed/seed-2-1-pro high'])
     // Volcengine Ark's ids carry the family's name in front and a build stamp at the end: the same tiers as the lineup's
     assert.deepEqual(formsOf('doubao-seed-2-1-turbo-260628'), ['doubao-seed-2-1-turbo-260628', 'doubao-seed-2-1-turbo', 'seed-2-1-turbo'])
-    assert.equal(bundledArt('volcengine', 'doubao-seed-2-0-lite-260215'), 'doubao/middle') // (not a chibi, for its "lite")
-    assert.equal(bundledArt('volcengine', 'doubao-seed-2-1-turbo-260628'), 'doubao/high')
-    assert.equal(bundledArt('volcengine', 'doubao-seed-2-1-pro-260628'), 'doubao/high')
-    assert.equal(bundledArt('volcengine', 'doubao-seed-2-0-mini-260215'), 'doubao/chibi')
+    assert.equal(defaultArt('volcengine', 'doubao-seed-2-0-lite-260215'), 'doubao/middle') // (not a chibi, for its "lite")
+    assert.equal(defaultArt('volcengine', 'doubao-seed-2-1-turbo-260628'), 'doubao/high')
+    assert.equal(defaultArt('volcengine', 'doubao-seed-2-1-pro-260628'), 'doubao/high')
+    assert.equal(defaultArt('volcengine', 'doubao-seed-2-0-mini-260215'), 'doubao/chibi')
     // and the stripping is only for looking a model up: a plain id keeps its own tier
-    assert.equal(bundledArt('openai', 'gpt-6-luna'), 'gpt/chibi')
+    assert.equal(defaultArt('openai', 'gpt-6-luna'), 'gpt/chibi')
   })
 })
 
@@ -135,6 +136,8 @@ describe('the roster file', () => {
     assert.throws(() => roster.pick('no-slash', { art: 'gpt/high' }), RangeError)
     assert.throws(() => roster.pick('openai/x', { art: 'custom:0123456789ab' }), /no such upload/)
     assert.throws(() => roster.pick('openai/x', { face: 'gpt/high' }), /not an avatar/)
+    assert.throws(() => roster.pick('openai/x', { art: 'gpt/nope' }), /the art pack has no gpt\/nope/)
+    assert.throws(() => roster.pick('openai/x', { face: 'doubao/face' }), /the art pack has no/) // (she has only her tiers' faces)
     assert.throws(() => roster.park('openai', { ns: 'llm-pi-ai', path: [] }), RangeError)
     assert.throws(() => roster.upload(Buffer.from('<svg/>'), 'image/svg+xml'), RangeError)
     assert.throws(() => roster.upload(Buffer.alloc(0), 'image/png'), /empty/)
@@ -159,7 +162,8 @@ const TIERS_OF = character => ['chibi', 'middle', 'high', 'university'].map(tier
 describe('rankings', () => {
   test('the shipped snapshot: each model once, at its best, with its efforts', () => {
     const rankings = load(folder)
-    assert.equal(rankings.about.as_of, '2026-11-09')
+    const shipped = fs.readdirSync(new URL('../data/', import.meta.url)).find(name => name.startsWith('aa-'))
+    assert.equal(rankings.about.as_of, shipped.slice(3, 13))
     const sol = rankings.of('openai', 'gpt-6.1-sol')
     assert.equal(sol.slug, 'gpt-6-1-sol')
     assert.ok(sol.efforts.length > 1 && sol.efforts[0].intelligence === sol.intelligence)
@@ -174,6 +178,35 @@ describe('rankings', () => {
     assert.deepEqual(split('gpt-6-1-sol-xhigh'), { base: 'gpt-6-1-sol', effort: 'xhigh' })
     assert.deepEqual(split('kimi-k3-1-pro'), { base: 'kimi-k3-1-pro', effort: null })
     assert.equal(compact({ slug: 'x', evaluations: { artificial_analysis_intelligence_index: null } }), null)
+  })
+  test('a row: the indexes, and the cost, time and tokens of an index task (time and tokens only in the Pro list)', () => {
+    const item = { slug: 'glm-5-3', name: 'GLM-5.3 (Max)', release_date: '2026-08-18', model_creator: { name: 'Z AI' },
+      evaluations: { artificial_analysis_intelligence_index: 31.7, artificial_analysis_coding_index: null, artificial_analysis_engineering_index: 37.6,
+        artificial_analysis_finance_and_accounting_index: 42.1, artificial_analysis_healthcare_and_medical_index: null },
+      artificial_analysis_intelligence_index_cost: { total_cost: 3495.62, cost_per_task: { total_cost: 5.0093 } },
+      pricing: { price_1m_input_tokens: 1.4, price_1m_output_tokens: 4.4 },
+      performance: { median_output_tokens_per_second: 80.07, median_time_to_first_answer_token_seconds: 27.19 } }
+    const free = compact(item)
+    assert.deepEqual(free.capabilities, { engineering: 37.6, finance: 42.1 })
+    assert.deepEqual([free.taskCost, free.indexCost, free.speed, free.latency, free.taskTime, free.taskTokens], [5.0093, 3495.62, 80, 27.19, null, null])
+    assert.equal('coding' in free, false)
+    // their Pro list breaks a task's cost down, and says how long a task takes
+    const pro = compact({ ...item, artificial_analysis_intelligence_index_cost: { total_cost: 3495.62,
+      cost_per_task: { total_cost: 5.0093, input_cost: 4.4857, reasoning_cost: 0.373, answer_cost: 0.1505 } },
+    performance_v3: { mean_output_tokens_per_second: 62.36, time_per_task_seconds: 1907.94 } })
+    assert.equal(pro.taskTime, 1907.9)
+    assert.equal(pro.taskTokens, Math.round((0.373 + 0.1505) / 4.4 * 1e6)) // what a task writes: 118,977 tokens
+  })
+  test('the leaderboard: every model once, or every effort', () => {
+    const rankings = load(folder)
+    const models = rankings.top(2000)
+    const efforts = rankings.top(2000, 'intelligence', { efforts: true })
+    assert.equal(models.length, rankings.models.size)
+    assert.ok(efforts.length > models.length)
+    assert.ok(efforts.every((row, index) => row.rank === index + 1 && (index === 0 || row.intelligence <= efforts[index - 1].intelligence)))
+    assert.ok(efforts.filter(row => row.base === 'gpt-6-1-sol').length > 1)
+    assert.ok(models.filter(row => row.taskCost !== null).length > models.length / 2, 'the cost of a task, for most')
+    assert.equal(rankings.about.tier, 'free')
   })
   test('fetched again: every page, kept, and newer than the snapshot', async () => {
     const page = (n, more) => ({ intelligence_index_version: 6, pagination: { has_more: more },
@@ -190,6 +223,22 @@ describe('rankings', () => {
     assert.equal(work.top(1).rows[0].slug, 'model-2')
     const none = createRoster(folder, { resolve: async () => undefined })
     await assert.rejects(none.refreshRankings(), /no Artificial Analysis key/)
+  })
+  test('fetched with a Pro key: their full list, which has the time and tokens of a task', async () => {
+    const row = { slug: 'model-9', name: 'Model 9', release_date: '2026-11-10', model_creator: { name: 'Lab' },
+      evaluations: { artificial_analysis_intelligence_index: 80 }, pricing: { price_1m_input_tokens: 1, price_1m_output_tokens: 2 } }
+    const { fetch, asked } = fakeFetch({
+      'https://artificialanalysis.ai/api/v2/language/models/free?page=1': { tier: 'pro', intelligence_index_version: 6, pagination: { has_more: false }, data: [row] },
+      'https://artificialanalysis.ai/api/v2/language/models?page=1': { tier: 'pro', intelligence_index_version: 6, pagination: { has_more: false },
+        data: [{ ...row, performance_v3: { time_per_task_seconds: 600 },
+          artificial_analysis_intelligence_index_cost: { total_cost: 100, cost_per_task: { total_cost: 0.5, reasoning_cost: 0.3, answer_cost: 0.1 } } }] }
+    })
+    const work = createRoster(folder, { fetch, resolve: async name => name === 'AA_API_TOKEN' ? 'aa-key' : undefined })
+    assert.equal((await work.refreshRankings()).tier, 'pro')
+    assert.deepEqual(asked.filter(call => call.url.startsWith('https://artificialanalysis.ai/')).map(call => call.url.split('/v2/')[1]),
+      ['language/models/free?page=1', 'language/models?page=1'])
+    const [top] = work.top(1).rows
+    assert.deepEqual([top.slug, top.taskTime, top.taskTokens, top.taskCost], ['model-9', 600, 200000, 0.5])
   })
   test('release dates: Artificial Analysis\'s, else when OpenRouter listed the model', async () => {
     const at = date => Date.parse(`${date}T12:00:00Z`) / 1000
@@ -220,7 +269,7 @@ describe('rankings', () => {
     assert.deepEqual(doubao, { 'bytedance-seed/seed-2.0-mini': undefined, 'bytedance-seed/seed-2.0-lite': undefined,
       'bytedance-seed/seed-2.0-code': undefined, 'bytedance-seed/seed-2-1-turbo': undefined, 'bytedance-seed/seed-2-1-pro': false })
     assert.equal(work.state().lineup.filter(item => item.listed === false).length, 1, 'every other OpenRouter lineup model is listed')
-    // …with the date art.json gives it (not "first seen today"), while a Volcengine build of it keeps its own stamp
+    // …with the date models.json gives it (not "first seen today"), while a Volcengine build of it keeps its own stamp
     const [pro, build] = work.resolve([{ provider: 'openrouter', id: 'bytedance-seed/seed-2-1-pro' }, { provider: 'volcengine', id: 'doubao-seed-2-1-pro-260815' }])
     assert.deepEqual([pro.released, pro.releasedSeen, build.released, build.releasedSeen], ['2026-06-23', false, '2026-08-15', false])
     // fetched again, even without an Artificial Analysis key
@@ -333,7 +382,7 @@ describe('the routes', () => {
       'https://api.deepseek.com/models': { data: [{ id: 'deepseek-flash' }, { id: 'deepseek-v4-pro' }] } })
     const call = connect(createRoster(folder, { fetch, resolve: async name => name === 'DEEPSEEK_API_KEY' ? 'k' : undefined }))
     const json = async response => ({ status: response.status, body: await response.json() })
-    assert.deepEqual(Object.keys((await json(await call('GET', ROUTES.state))).body).sort(), ['characters', 'lineup', 'parked', 'providers', 'rankings', 'routes', 'tiers', 'uploads'])
+    assert.deepEqual(Object.keys((await json(await call('GET', ROUTES.state))).body).sort(), ['characters', 'lineup', 'pack', 'parked', 'providers', 'rankings', 'routes', 'tiers', 'uploads'])
     // the provider a character's lineup goes through
     assert.deepEqual((await json(await call('POST', ROUTES.route, { body: { character: 'gpt', provider: 'openrouter' } }))).body.routes, { gpt: 'openrouter' })
     assert.deepEqual((await json(await call('POST', ROUTES.route, { body: { character: 'gpt', provider: 'openai' } }))).body.routes, {}) // her own again
@@ -358,6 +407,8 @@ describe('the routes', () => {
     assert.equal((await json(await call('GET', `${ROUTES.live}?provider=deepseek-official`))).body.models.length, 2)
     assert.equal((await call('GET', `${ROUTES.live}?provider=openai`)).status, 400)
     assert.equal((await json(await call('GET', `${ROUTES.rankings}?top=5`))).body.rows.length, 5)
+    assert.ok((await json(await call('GET', `${ROUTES.rankings}?top=2000&efforts=1`))).body.rows.length >
+      (await json(await call('GET', `${ROUTES.rankings}?top=2000`))).body.rows.length)
     const newest = (await json(await call('GET', `${ROUTES.rankings}?top=3&sort=released`))).body.rows
     assert.ok(newest[0].released >= newest[1].released && newest[1].released >= newest[2].released)
     assert.equal((await json(await call('GET', ROUTES.released))).body.dates['gpt-6-1-sol'], '2026-09-29')

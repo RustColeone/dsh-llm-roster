@@ -4,8 +4,9 @@
 //
 // Routes, on DSH's own API (behind its sign-in, for its owner only):
 //
-//     GET  /api/llm-roster.state      tiers, characters, the lineup, your uploads, parked providers, the rankings' date
-//                                     and where your Artificial Analysis key is, what each provider offers
+//     GET  /api/llm-roster.state      tiers and characters (as the art pack in use names and pictures them), the pack,
+//                                     the lineup, your uploads, parked providers, the rankings' date and where your
+//                                     Artificial Analysis key is, what each provider offers
 //     POST /api/llm-roster.resolve    { models: [{ provider, id }] } → each one's character, tier, picture, avatar, name
 //                                     and rankings
 //     POST /api/llm-roster.pick       { model: 'provider/model', art?: 'gpt/high' | 'custom:<id>' | null,
@@ -16,8 +17,14 @@
 //     POST /api/llm-roster.park       { provider, ns, path, profile }: a provider set aside whole ("Ignore all")
 //     POST /api/llm-roster.unpark     { provider } → what was kept of it
 //     POST /api/llm-roster.route      { character, provider | null }: the provider her lineup goes through
-//     GET  /api/llm-roster.image      ?art=<character>/<tier, face or face-tier>, or ?upload=<id>
-//     GET  /api/llm-roster.rankings   ?top=20&sort=released: the best models, each once (or the newest)
+//     GET  /api/llm-roster.image      ?art=<character>/<picture> (the art pack's: `claude/high`, `claude/face-high`; or
+//                                     the pack `&pack=<id>`'s), or ?upload=<id>
+//     GET  /api/llm-roster.packs      the art packs: the bundled one and yours, and which is in use
+//     POST /api/llm-roster.packs      { use: '<id>' | null } | { remove: '<id>' } | { fetch: '<GitHub or .zip link>' }
+//     POST /api/llm-roster.pack-import  ?name=<file name>, a .zip of a pack (or a lone pack.json) as the body
+//     GET  /api/llm-roster.pack-export  ?id=<pack>: the pack as a .zip
+//     GET  /api/llm-roster.rankings   ?top=20&sort=released&efforts=1: the leaderboard, the best models each once (or
+//                                     the newest; or every effort each was measured at)
 //     POST /api/llm-roster.rankings   fetch the release dates again (OpenRouter, public) and the rankings (needs a free
 //                                     Artificial Analysis key)
 //     GET  /api/llm-roster.released   every release date known, by model slug, and the days models were first seen
@@ -30,15 +37,18 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { balance, check, keyFor, liveModels, offered } from './providers.js'
 import { ALIASES, dateInId, fetchRankings, fetchReleased, formsOf, load, loadReleased, Seen, slugOf, undated } from './rankings.js'
-import { CHARACTERS, lineup, releasedInLineup, Roster, TABLE, TIERS } from './roster.js'
+import { BUNDLED, fetchPack, filesOf } from './packs.js'
+import { CHARACTERS, lineup, MODELS, RARITY, releasedInLineup, Roster, TIERS } from './roster.js'
 
 export const ROUTES = {
   state: '/api/llm-roster.state', resolve: '/api/llm-roster.resolve', pick: '/api/llm-roster.pick',
   upload: '/api/llm-roster.upload', forget: '/api/llm-roster.forget', settings: '/api/llm-roster.settings',
   park: '/api/llm-roster.park', unpark: '/api/llm-roster.unpark', route: '/api/llm-roster.route', image: '/api/llm-roster.image',
   rankings: '/api/llm-roster.rankings', check: '/api/llm-roster.check', balance: '/api/llm-roster.balance',
-  live: '/api/llm-roster.live', released: '/api/llm-roster.released'
+  live: '/api/llm-roster.live', released: '/api/llm-roster.released', packs: '/api/llm-roster.packs',
+  packImport: '/api/llm-roster.pack-import', packExport: '/api/llm-roster.pack-export'
 }
+const MAX_PACK = 128 * 1024 * 1024 // a pack's .zip, at most
 const AA_KEYS = ['ARTIFICIAL_ANALYSIS_API_KEY', 'AA_API_TOKEN']
 const CHECKED_FOR = 10 * 60 * 1000 // how long a key's check stands (a fresh one is asked for after a change)
 
@@ -64,9 +74,15 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
   let rankings = load(folder)
   let released = loadReleased(folder)
   const options = fetch ? { fetch } : {}
-  const tiers = Object.fromEntries(TIERS.map(tier => [tier, { rarity: TABLE.tiers[tier].rarity }]))
-  const characters = Object.fromEntries(CHARACTERS.map(found => [found, { name: TABLE.characters[found].name,
-    home: TABLE.characters[found].home, providers: TABLE.characters[found].providers }]))
+  // the tiers and characters, as the art pack in use names and pictures them (read again as the page asks: a pack you
+  // change in place shows as it is now)
+  const dressed = (look = roster.look(true)) => ({
+    tiers: Object.fromEntries(TIERS.map(tier => [tier, { rarity: RARITY[tier], ...look.tier(tier) }])),
+    characters: Object.fromEntries(CHARACTERS.map(found => [found, { ...look.character(found), home: MODELS.characters[found].home,
+      providers: MODELS.characters[found].providers, pictures: look.cards(found), faces: look.faces(found),
+      tierFaces: Object.fromEntries(TIERS.map(tier => [tier, look.faceOf(`${found}/${tier}`, tier)])) }])),
+    pack: { id: look.id, name: look.about.name, names: look.about.names, version: look.version }
+  })
   // Where your Artificial Analysis key is, in lookup order: the variable named on the page, then in the plugin's
   // settings, then the usual names. A key pasted on the page is stored under the first.
   const aaKeys = () => [...new Set([roster.data.settings.aaKeyEnv, aaKeyEnv, ...AA_KEYS].filter(Boolean))]
@@ -78,7 +94,7 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
 
   // A model's release date: Artificial Analysis's; else the day OpenRouter listed it (the id as it is, without a date
   // or build stamp at its end, or without its family's name in front); else, for a lineup model neither lists, the
-  // date art.json gives it; else the date the id carries; else the day it was first seen here (`seen`), which stands
+  // date models.json gives it; else the date the id carries; else the day it was first seen here (`seen`), which stands
   // until one of them gives a date.
   const seen = new Seen(folder)
   const today = () => {
@@ -101,9 +117,10 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
   return {
     roster,
     state: () => ({
-      tiers, characters,
+      ...dressed(),
+      // (each with its picture and avatar as its card shows them: the pack's, or your pick)
       lineup: lineup().map(item => ({ ...item, name: nameOf(item.id, rankings.of(item.provider, item.id, aliases)),
-        ...(onOpenRouter(item) ? {} : { listed: false }) })),
+        art: roster.artOf(item.provider, item.id).art, face: roster.faceOf(item.provider, item.id), ...(onOpenRouter(item) ? {} : { listed: false }) })),
       uploads: Object.entries(roster.data.uploads).map(([id, about]) => ({ id, name: about.name, at: about.at })),
       parked: roster.data.parked,
       routes: roster.data.routes,
@@ -115,7 +132,7 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
       const found = models.slice(0, 500).map(({ provider, id }) => {
         provider = String(provider ?? ''); id = String(id ?? '')
         const { art, own } = roster.artOf(provider, id)
-        const [character, tier] = art && !art.startsWith('custom:') ? art.split('/') : [null, null]
+        const { character, tier } = roster.whoOf(provider, id, art)
         const aa = rankings.of(provider, id, aliases)
         return { provider, id, art, own, face: roster.faceOf(provider, id, art), character, tier, name: nameOf(id, aa), aa }
       })
@@ -138,7 +155,31 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
     unpark: provider => ({ kept: roster.unpark(provider), parked: roster.data.parked }),
     route: (character, provider) => { roster.route(character, provider); return { routes: roster.data.routes } },
     image: query => roster.image(query),
-    top: (count, sort) => ({ ...rankings.about, rows: rankings.top(count, sort) }),
+    top: (count, sort, efforts) => ({ ...rankings.about, rows: rankings.top(count, sort, { efforts }) }),
+    // ---- art packs ----
+    packs: () => ({ active: roster.look(true).id, packs: roster.packs.list(roster.data.settings.pack) }),
+    usePack: id => { roster.usePack(id); return { ...dressed(), active: roster.look().id } },
+    removePack: id => {
+      roster.packs.remove(id)
+      if (roster.data.settings.pack === id) roster.usePack(null)
+      return { active: roster.look(true).id }
+    },
+    /** Keep a pack from a .zip or a lone pack.json (`bytes`), named by `fileName` when its pack.json does not. */
+    importPack: (bytes, fileName = '') => {
+      if (!bytes.length) throw new RangeError('the file is empty')
+      if (bytes.length > MAX_PACK) throw new RangeError(`a pack is at most ${MAX_PACK / 1024 / 1024} MB`)
+      const kept = roster.packs.install(filesOf(bytes), { hint: String(fileName).replace(/\.(zip|json)$/i, '') })
+      roster.look(true)
+      return kept
+    },
+    /** Fetch a pack from GitHub (a repository, or a folder in one) or a link to a .zip, and keep it. */
+    async fetchPack (link) {
+      const fetched = await fetchPack(link, options)
+      const kept = roster.packs.install(fetched.files, { hint: fetched.hint, within: fetched.within })
+      roster.look(true)
+      return kept
+    },
+    exportPack: id => roster.packs.zip(String(id ?? BUNDLED)),
     /** Every release date known, by slug, for lists of models the page sorts itself: OpenRouter's, with Artificial
      * Analysis's over them (and their names for the models DSH calls otherwise). */
     releasedDates () {
@@ -234,14 +275,30 @@ export function serve (connection, work) {
     return answer({ ok: true })
   })
   route(ROUTES.image, ['GET'], (request, query) => {
-    const found = work.image(query.has('upload') ? { upload: query.get('upload') } : { art: query.get('art') })
+    const found = work.image(query.has('upload') ? { upload: query.get('upload') } : { art: query.get('art'), pack: query.get('pack') ?? undefined })
     if (!found || !fs.existsSync(found.file)) return answer({ error: 'no such picture' }, 404)
     return new Response(fs.readFileSync(found.file), { headers: { 'content-type': found.type,
       'cache-control': 'private, max-age=86400', 'x-content-type-options': 'nosniff' } })
   })
   route(ROUTES.rankings, ['GET', 'POST'], async (request, query) => request.method === 'POST'
     ? answer(await work.refreshRankings())
-    : answer(work.top(Math.min(100, Math.max(1, Number(query.get('top')) || 20)), query.get('sort') === 'released' ? 'released' : 'intelligence')))
+    : answer(work.top(Math.min(2000, Math.max(1, Number(query.get('top')) || 20)), query.get('sort') === 'released' ? 'released' : 'intelligence',
+      query.get('efforts') === '1')))
+  route(ROUTES.packs, ['GET', 'POST'], async request => {
+    if (request.method === 'GET') return answer(work.packs())
+    const body = await json(request)
+    if ('use' in body) return answer(work.usePack(body.use === null ? null : String(body.use)))
+    if ('remove' in body) return answer(work.removePack(String(body.remove)))
+    if ('fetch' in body) return answer(await work.fetchPack(String(body.fetch)))
+    throw new RangeError('say { use }, { remove } or { fetch }')
+  })
+  route(ROUTES.packImport, ['POST'], async (request, query) =>
+    answer(work.importPack(Buffer.from(await request.arrayBuffer()), query.get('name') ?? '')))
+  route(ROUTES.packExport, ['GET'], (request, query) => {
+    const { name, bytes } = work.exportPack(query.get('id') ?? BUNDLED)
+    return new Response(bytes, { headers: { 'content-type': 'application/zip', 'cache-control': 'no-store',
+      'content-disposition': `attachment; filename="${name}"`, 'x-content-type-options': 'nosniff' } })
+  })
   route(ROUTES.released, ['GET', 'POST'], async request => request.method === 'POST'
     ? answer(work.datesFor((await json(request)).ids))
     : answer(work.releasedDates()))

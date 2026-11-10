@@ -1,0 +1,33 @@
+{
+  "_": "An art pack: what the roster's characters look like and what they and their tiers are called. Each character's pictures are the files in her folder (claude/high.webp): a card picture per tier (chibi, middle, high, university) and an avatar for each (face-high.webp), any of .webp .png .jpg .gif. More pictures in a folder are more to choose from. Anything a pack leaves out comes from the bundled pack. See the README's 'Art packs'.",
+  "name": "Academy",
+  "zh": "学园",
+  "author": "ZipZipPipe (designs), 上善无形 (DeepSeek-chan)",
+  "license": "CC BY-NC-SA 4.0",
+  "url": "https://github.com/RustColeone/dsh-llm-roster",
+  "tiers": {
+    "chibi": { "name": "Chibi", "zh": "Q版" },
+    "middle": { "name": "Middle-schooler", "zh": "初中生" },
+    "high": { "name": "High-schooler", "zh": "高中生" },
+    "university": { "name": "University student", "zh": "大学生" }
+  },
+  "characters": {
+    "gpt": { "name": "GPT" },
+    "claude": { "name": "Claude" },
+    "gemini": { "name": "Gemini" },
+    "deepseek": { "name": "DeepSeek" },
+    "grok": { "name": "Grok" },
+    "kimi": { "name": "Kimi" },
+    "glm": { "name": "GLM" },
+    "qwen": { "name": "Qwen" },
+    "mistral": { "name": "Mistral" },
+    "minimax": { "name": "MiniMax" },
+    "llama": { "name": "Llama" },
+    "doubao": { "name": "Doubao" },
+    "perplexity": { "name": "Perplexity" },
+    "hunyuan": { "name": "Hunyuan" }
+  },
+  "models": {
+    "_": "A model's own picture, when it should not wear its tier's: \"claude-opus-5-5\": \"claude/opus\" shows claude/opus.png (or .webp, .jpg, .gif). A tier's picture works too (\"gpt-6-luna\": \"gpt/high\"), and then the card is that tier."
+  }
+}

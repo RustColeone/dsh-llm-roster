@@ -1,14 +1,17 @@
-// Artificial Analysis's rankings: their free models list (intelligence, coding and agentic indexes, prices, speed), as
-// a snapshot shipped with the plugin (data/aa-<date>.json) or fetched again with your own free key from
-// artificialanalysis.ai, kept in DSH's home (llm-roster/aa.json). Their terms ask that the source be credited wherever
-// the data is shown; the roster does.
+// Artificial Analysis's rankings: their models list (the Intelligence Index and the six capability indexes, the cost,
+// time and tokens an index task takes, prices, speed), as a snapshot shipped with the plugin (data/aa-<date>.json) or
+// fetched again with your own key from artificialanalysis.ai, kept in DSH's home (llm-roster/aa.json). A free key reads
+// their free list (cost per task, but not the time or tokens a task takes); a Pro key, their full one. Their terms ask
+// that the source be credited wherever the data is shown; the roster does.
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const SOURCE = 'https://artificialanalysis.ai/api/v2/language/models/free'
+export const SOURCE_PRO = 'https://artificialanalysis.ai/api/v2/language/models'
 export const ATTRIBUTION = { name: 'Artificial Analysis', url: 'https://artificialanalysis.ai' }
 const DATA = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data')
+const FORMAT = 2 // the rows' shape: 2 has the capability indexes and the cost, time and tokens per task
 
 // The effort a row was measured at, as the end of its slug says it (`gpt-6-1-sol-xhigh`); a slug with none is the
 // model at its default, which for a reasoning model is its highest.
@@ -17,27 +20,46 @@ const EFFORTS = ['xhigh', 'high', 'medium', 'low', 'minimal', 'non-reasoning', '
 export const ALIASES = { 'deepseek-flash': 'deepseek-v4-1-flash-1017', 'qwen3.8-max-0902': 'qwen3-8-max',
   'mistral-large-4-0': 'mistral-large-4', hy4: 'tencent-hy4' }
 const EFFORT_END = new RegExp(`-(${EFFORTS.join('|')})$`)
+// Their six capability indexes, as the roster names them
+export const CAPABILITIES = { engineering: 'engineering', finance: 'finance_and_accounting', economics: 'economics', legal: 'legal',
+  health: 'healthcare_and_medical', strategy: 'strategy_and_ops' }
 
 /** A model id or slug as Artificial Analysis spells slugs: lowercase words joined by dashes. */
 export const slugOf = text => String(text ?? '').toLowerCase().split('/').pop().replace(/[^a-z0-9]+/g, '-')
   .replace(/^-|-$/g, '')
 
-/** One row of their list, kept small; null for a model they have not measured. */
+/** One row of their list, kept small; null for a model they have not measured. (Their Coding and Agentic indexes are
+ * no more: they publish the six capability indexes instead.) */
 export function compact (item) {
-  const index = item?.evaluations?.artificial_analysis_intelligence_index
+  const evaluations = item?.evaluations ?? {}
+  const index = evaluations.artificial_analysis_intelligence_index
   if (typeof index !== 'number') return null
-  const round = (value, digits = 2) => typeof value === 'number' ? Math.round(value * 10 ** digits) / 10 ** digits : null
+  const number = value => typeof value === 'number' && Number.isFinite(value) ? value : null
+  const round = (value, digits = 2) => number(value) === null ? null : Math.round(value * 10 ** digits) / 10 ** digits
+  const cost = item.artificial_analysis_intelligence_index_cost ?? null
+  const perTask = cost?.cost_per_task ?? null
+  const output = number(item.pricing?.price_1m_output_tokens)
+  // the tokens a task takes, written out (reasoning and answer): what they cost a task, at the price of an output token
+  // (only in their Pro list, which breaks a task's cost down)
+  const written = number(perTask?.reasoning_cost) !== null && number(perTask?.answer_cost) !== null && output > 0
+    ? Math.round((perTask.reasoning_cost + perTask.answer_cost) / output * 1e6) : null
+  const capabilities = Object.fromEntries(Object.entries(CAPABILITIES)
+    .map(([name, key]) => [name, round(evaluations[`artificial_analysis_${key}_index`], 1)]).filter(([, value]) => value !== null))
   return {
     slug: String(item.slug ?? ''),
     name: String(item.name ?? ''),
     creator: String(item.model_creator?.name ?? ''),
     released: String(item.release_date ?? ''),
     intelligence: round(index, 1),
-    coding: round(item.evaluations.artificial_analysis_coding_index, 1),
-    agentic: round(item.evaluations.artificial_analysis_agentic_index, 1),
+    ...(Object.keys(capabilities).length ? { capabilities } : {}),
     input: round(item.pricing?.price_1m_input_tokens, 3),
-    output: round(item.pricing?.price_1m_output_tokens, 3),
-    speed: round(item.performance?.median_output_tokens_per_second, 0)
+    output: round(output, 3),
+    speed: round(item.performance?.median_output_tokens_per_second, 0),
+    latency: round(item.performance?.median_time_to_first_answer_token_seconds, 2),
+    taskCost: round(perTask?.total_cost, 4),
+    indexCost: round(cost?.total_cost, 2),
+    taskTime: round(item.performance_v3?.time_per_task_seconds, 1),
+    taskTokens: written
   }
 }
 
@@ -146,30 +168,43 @@ export function load (folder) {
   const shipped = fs.readdirSync(DATA).filter(name => /^aa-\d{4}-\d{2}-\d{2}\.json$/.test(name)).sort().pop()
   const candidates = [shipped && path.join(DATA, shipped), folder && path.join(folder, 'aa.json')].filter(Boolean)
   let best = null
+  // the newest; on the same day, the one of more data (fetched by a newer roster, or with a Pro key)
+  const worth = read => `${read.as_of}|${read.format ?? 1}|${read.tier === 'free' || !read.tier ? 0 : 1}`
   for (const file of candidates) {
     try {
       const read = JSON.parse(fs.readFileSync(file, 'utf8'))
-      if (Array.isArray(read.rows) && (!best || String(read.as_of) >= String(best.as_of))) best = read
+      if (Array.isArray(read.rows) && (!best || worth(read) >= worth(best))) best = read
     } catch { /* not there, or unreadable: the other */ }
   }
   return new Rankings(best ?? { as_of: null, version: null, rows: [] })
 }
 
-/** Fetch every page of their free list with `key`; the rankings as of today. */
+/** Fetch every page of their list with `key`: the free list, and with a Pro (or Commercial) key their full one, which
+ * has the time and tokens a task takes; the rankings as of today. */
 export async function fetchRankings (key, { fetch = globalThis.fetch, today = new Date() } = {}) {
-  const rows = []
-  let version = null
-  for (let page = 1; page <= 50; page++) {
-    const response = await fetch(`${SOURCE}?page=${page}`, { headers: { 'x-api-key': key, accept: 'application/json' },
-      signal: AbortSignal.timeout(30000) })
-    if (!response.ok) throw new Error(`Artificial Analysis answered HTTP ${response.status}`)
-    const body = await response.json()
-    version ??= body.intelligence_index_version ?? null
-    rows.push(...(body.data ?? []).map(compact).filter(Boolean))
-    if (!body.pagination?.has_more) break
+  const pages = async source => {
+    const rows = []
+    let version = null, tier = null
+    for (let page = 1; page <= 50; page++) {
+      const response = await fetch(`${source}?page=${page}`, { headers: { 'x-api-key': key, accept: 'application/json' },
+        signal: AbortSignal.timeout(30000) })
+      if (!response.ok) throw new Error(`Artificial Analysis answered HTTP ${response.status}`)
+      const body = await response.json()
+      version ??= body.intelligence_index_version ?? null
+      tier ??= body.tier ?? null
+      rows.push(...(body.data ?? []).map(compact).filter(Boolean))
+      if (!body.pagination?.has_more) break
+    }
+    return { rows, version, tier }
   }
-  if (!rows.length) throw new Error('Artificial Analysis sent an empty list')
-  return { as_of: today.toISOString().slice(0, 10), version, source: SOURCE, attribution: ATTRIBUTION, rows }
+  let found = await pages(SOURCE)
+  // (their free list says which tier the key is: a paying one reads the full list instead)
+  if (found.tier && found.tier !== 'free') {
+    try { found = { ...(await pages(SOURCE_PRO)), tier: found.tier, source: SOURCE_PRO } } catch { /* the free list stands */ }
+  }
+  if (!found.rows.length) throw new Error('Artificial Analysis sent an empty list')
+  return { as_of: today.toISOString().slice(0, 10), version: found.version, format: FORMAT, tier: found.tier ?? 'free',
+    source: found.source ?? SOURCE, attribution: ATTRIBUTION, rows: found.rows }
 }
 
 export class Rankings {
@@ -187,8 +222,8 @@ export class Rankings {
   }
 
   get about () {
-    return { as_of: this.data.as_of, version: this.data.version, models: this.models.size, source: SOURCE,
-      attribution: ATTRIBUTION }
+    return { as_of: this.data.as_of, version: this.data.version, models: this.models.size, tier: this.data.tier ?? 'free',
+      source: this.data.source ?? SOURCE, attribution: ATTRIBUTION }
   }
 
   /** The slug a model is measured under: `aliases` first (`provider/model` or `model` → slug), then its own id with
@@ -208,14 +243,18 @@ export class Rankings {
     const best = this.models.get(base)
     const efforts = this.data.rows.filter(row => split(row.slug).base === base)
       .map(row => ({ effort: split(row.slug).effort ?? /\(([^,)]+)/.exec(row.name)?.[1]?.toLowerCase() ?? 'default',
-        intelligence: row.intelligence }))
+        intelligence: row.intelligence, taskCost: row.taskCost ?? null }))
       .sort((one, other) => other.intelligence - one.intelligence)
     return { ...best, slug: base, rank: this.order.indexOf(base) + 1, of: this.order.length, efforts }
   }
 
-  /** The best `count` models, each once, at its best; or (`sort` 'released') the newest, with their rank. */
-  top (count = 20, sort = 'intelligence') {
-    const rows = this.order.map((base, index) => ({ ...this.models.get(base), slug: base, rank: index + 1 }))
+  /** The leaderboard: the best `count` models, each once, at its best (or, `efforts`, every effort each was measured at,
+   * ranked among them all); or (`sort` 'released') the newest, with their rank. */
+  top (count = 20, sort = 'intelligence', { efforts = false } = {}) {
+    const rows = efforts
+      ? [...this.data.rows].sort((one, other) => other.intelligence - one.intelligence)
+          .map((row, index) => ({ ...row, base: split(row.slug).base, rank: index + 1 }))
+      : this.order.map((base, index) => ({ ...this.models.get(base), slug: base, rank: index + 1 }))
     if (sort === 'released') rows.sort((one, other) => String(other.released).localeCompare(String(one.released)) || one.rank - other.rank)
     return rows.slice(0, count)
   }

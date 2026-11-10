@@ -46,8 +46,8 @@ shows its date. A model's release date is, in this order:
 1. Artificial Analysis's, where they measure it.
 2. The day OpenRouter listed the model, whichever provider you use it through (Volcengine's
    `doubao-seed-2-1-turbo-260628` gets OpenRouter's date for Seed 2.1 Turbo).
-3. For a lineup model neither of them lists, the date the roster gives it in [`art/art.json`](art/art.json): the day
-   its maker announced it (Seed 2.1 Pro, 2026-06-23).
+3. For a lineup model neither of them lists, the date the roster gives it in
+   [`plugin/models.json`](plugin/models.json): the day its maker announced it (Seed 2.1 Pro, 2026-06-23).
 4. The date written in its id, if there is one (`claude-3-5-haiku-20241022`, or a build stamp like Volcengine's
    `doubao-seed-2-1-pro-260628`).
 5. Otherwise, **the day the roster first saw it**, shown with a `~` (`~2026-11-12`). A model in none of the lists we
@@ -61,9 +61,16 @@ OpenRouter has stopped listing, and that carries no date in its id, also gets th
 
 **A character's page** (the **…** button) has:
 
-- **Showcase and gallery:** the big card art, and every tier of the character. Click a tier to preview it, then
-  **Equip this art**.
-- **Stats:** intelligence, coding and agentic bars, rank, price, speed, and the efforts Artificial Analysis measured.
+- **Showcase and gallery:** the big card art, and every picture the art pack has of the character (her four tiers,
+  and any more). Click one to preview it, then **Equip this art**.
+- **Stats**, from Artificial Analysis:
+  - bars for the Intelligence Index and their six capability indexes (engineering, finance, economics, legal, health,
+    strategy & ops);
+  - her rank;
+  - the cost of one Intelligence Index task, and of the whole index;
+  - with a Pro key, the time and tokens a task takes;
+  - price, speed, and how long until the first answer token (thinking included);
+  - every effort they measured, with its index and cost per task.
 - **Equipment:** the card art and the avatar, each changeable on its own. Pick any character's art or face, or upload
   a picture (PNG, JPEG, WebP or GIF, up to 4 MB).
 - **In the roster:** whether the model is Used or Ignored, with **Move to Ignored**.
@@ -97,6 +104,9 @@ and DeepSeek), and anything else can come in as an OpenAI-compatible key.
 | High-schooler | high-school blazer | SSR |
 | University student | grown-up, on campus | UR |
 
+Those are the bundled art pack's names and pictures. Another pack can call the tiers anything (Squire, Page, Knight,
+Paladin) and draw the characters any way: see [Art packs](#art-packs).
+
 Fourteen characters ship, each with a card picture and a face for every tier:
 
 - GPT, Claude, Gemini, DeepSeek and Grok, from their own providers;
@@ -108,7 +118,7 @@ add Ark as an OpenAI-compatible endpoint on Doubao's page (base URL `https://ark
 Ark key) and send her through it. Ark's own ids, such as `doubao-seed-2-1-pro-260628`, are matched to the lineup and
 keep its tiers. Artificial Analysis doesn't measure the Seed models, so their cards have no rankings.
 
-[`art/art.json`](art/art.json) says which mainstream model is which character and tier (GPT-6 Luna a chibi, GPT-6.1
+[`plugin/models.json`](plugin/models.json) says which mainstream model is which character and tier (GPT-6 Luna a chibi, GPT-6.1
 Sol a high-schooler, Claude Fable a university student, Kimi K3.1 Pro a high-schooler, …), and those models are the
 roster's lineup. Any other model is matched by its id (`gpt…`, `claude…`, `kimi…`, `glm…`, `qwen…`, `sonar…`, …, also
 behind OpenRouter's `vendor/` prefix) or by its provider. It gets its tier from the words in its id: flash, mini and
@@ -151,9 +161,23 @@ An endpoint's key is tested by DSH itself, which lists its models with the key i
 
 The roster speaks English and Chinese, following DSH's language.
 
-**Rankings.** Artificial Analysis's top models, each listed once at its best effort, with the intelligence, coding
-and agentic indexes and prices, by intelligence or newest first. Models in your roster are highlighted. The plugin
-ships a snapshot (the date is shown).
+**Rankings.** Artificial Analysis's leaderboard: every model they measure, each listed once at its best effort, or
+with **Every effort**, each effort as its own entry. The columns are:
+
+- the Intelligence Index;
+- the cost of one task of the index;
+- with a Pro key, the time and the tokens a task takes;
+- speed, price, and release date.
+
+Click a column to sort by it, and again to reverse it. Type to find a model or its maker, and **In your roster**
+narrows the list to your models, which are highlighted anyway. The plugin ships a snapshot (the date is shown).
+
+Artificial Analysis no longer publishes a Coding or an Agentic index (their API returns both as empty), so the roster
+shows their six capability indexes instead. Their free list has the cost of a task but not its time or tokens, which
+are in their Pro list. With a Pro key, **Fetch again** reads the Pro list, and those two columns appear. The tokens of
+a task are what it writes, reasoning included: the output part of a task's cost, divided by the price of an output
+token.
+
 **Fetch again** downloads the current list, which needs your own free key from
 [artificialanalysis.ai](https://artificialanalysis.ai). Paste it on the Rankings tab, where it is stored write-only in
 DSH's credential store like a provider's key. Or name the environment variable that holds it. Otherwise the roster
@@ -193,7 +217,72 @@ glossy band and a highlight follow the pointer across it, and ★4 and ★5 card
 The same goes for a character's big art, the album and the summon banner, whose art moves a little with the
 pointer. All of this, and every animation, is off when your system asks for reduced motion.
 
-Models & keys and Rankings are also on DSH's Plugins page, under **dsh-llm-roster**.
+**Art packs.** How the characters look, and what they and their tiers are called, come from an art pack. The
+bundled one is *Academy*: the school-age tiers above, drawn after ZipZipPipe's designs. A pack doesn't change who a
+model is (her character, her tier and its rarity, the lineup), only how she's dressed and named. The tab lists the
+packs you have:
+
+- **Use** one, and every card, avatar, gallery and the summon change to it.
+- **Export .zip** saves one.
+- **Remove** deletes one of yours.
+- **Import a .zip or pack.json** adds one.
+- **Fetch** adds one from a link: a GitHub repository (`https://github.com/you/your-pack`), a folder in one
+  (`…/tree/main/packs/knights`), or a link to a .zip.
+
+Importing a pack of the same name again replaces it, which is how you update one.
+
+A pack is a folder anyone can make and change with a text editor and some pictures:
+
+```
+knights/
+  pack.json
+  claude/
+    high.png            her card as a high-schooler (or Knight, as this pack calls the tier)
+    face-high.png       her avatar at that tier
+    opus.png            any more pictures: more to choose from on her page
+  gpt/
+    university.webp
+```
+
+```json
+{
+  "name": "Knights",
+  "zh": "骑士团",
+  "author": "you",
+  "license": "CC BY 4.0",
+  "tiers": {
+    "chibi": "Squire",
+    "middle": { "name": "Page", "zh": "见习骑士" },
+    "high": { "name": "Knight", "zh": "骑士" },
+    "university": { "name": "Paladin", "zh": "圣骑士" }
+  },
+  "characters": {
+    "claude": { "name": "Sir Claude", "zh": "克劳德爵士" }
+  },
+  "models": {
+    "claude-opus-5-5": "claude/opus"
+  }
+}
+```
+
+- **The folders are named after the characters:** `gpt`, `claude`, `gemini`, `deepseek`, `grok`, `kimi`, `glm`,
+  `qwen`, `mistral`, `minimax`, `llama`, `doubao`, `perplexity` and `hunyuan`.
+- **Pictures are found by their file names.** `chibi`, `middle`, `high` and `university` are the tiers' cards.
+  `face-<tier>` is the avatar at a tier, and `face` is a portrait for any tier. They can be `.webp`, `.png`, `.jpg` or
+  `.gif`. Cards look best at 2:3 (the bundled ones are 512 × 768) and avatars square. With no avatar for a card, the
+  card itself is the avatar.
+- **Names** are a plain string, or a `name` with other languages beside it (`"zh"`). The pack's own name is given
+  the same way.
+- **`models`** gives a model its own picture (`"claude-opus-5-5": "claude/opus"`, the extension left off or not).
+  When it points to a tier's card, the model's card becomes that tier.
+- **Anything a pack leaves out comes from the bundled pack:** a tier's name, a character, a picture. So a pack can be
+  as small as a lone `pack.json` that renames the tiers, or as large as a whole new cast.
+
+The easiest start is to export *Academy*, change what you like, zip it again and import it. To share a pack, put its
+folder on GitHub; anyone can fetch it by its link. A pack you imported is kept in `~/.dsh/llm-roster/packs/<name>/`
+(the tab shows where), and you can also edit its files there. The roster shows the change the next time it opens.
+
+Models & keys, Rankings and Art packs are also on DSH's Plugins page, under **dsh-llm-roster**.
 
 ## Settings
 
@@ -215,8 +304,9 @@ The roster keeps its own files in `$DSH_HOME/llm-roster/` (`~/.dsh/llm-roster/`)
 
 | File | What it holds |
 | --- | --- |
-| `roster.json` | your art and avatar picks (`provider/model` → `gpt/high`, `gpt/face-high` or `custom:<id>`), your uploads' names, the provider each character goes through, the providers you set aside with Ignore all (as they were in DSH's settings), and the variable your Artificial Analysis key is in, if you named one |
+| `roster.json` | your art and avatar picks (`provider/model` → `gpt/high`, `gpt/face-high` or `custom:<id>`), your uploads' names, the provider each character goes through, the providers you set aside with Ignore all (as they were in DSH's settings), the art pack in use, and the variable your Artificial Analysis key is in, if you named one |
 | `art/<id>.<ext>` | the pictures you uploaded |
+| `packs/<name>/` | the art packs you imported or fetched, each as its folder: `pack.json` and a folder of pictures per character |
 | `aa.json` | the rankings, once fetched again |
 | `openrouter.json` | the release dates from OpenRouter, once fetched again |
 | `seen.json` | the day each model with no published release date was first seen (let go once one is published) |
@@ -232,9 +322,12 @@ its own album.
 | [`plugin/index.js`](plugin/index.js) | The DSH plugin (`llm-roster`). It mounts the routes on DSH's API and resolves keys through DSH's credential store, then the environment. |
 | [`plugin/server.js`](plugin/server.js) | The routes, below. |
 | [`plugin/roster.js`](plugin/roster.js) | Which character and tier each model is, the lineup, your picks of art and avatar, your uploads, set-aside providers, and the provider each character goes through. |
-| [`plugin/rankings.js`](plugin/rankings.js) | The Artificial Analysis list: matching a model to its slug, ranks, and fetching the list again. |
+| [`plugin/models.json`](plugin/models.json) | Who each model is: each character's ids, providers and home provider, the lineup by tier, the words that tell a tier, and the release dates of lineup models no list has. |
+| [`plugin/packs.js`](plugin/packs.js) | Art packs: reading one (its names and pictures, over the bundled one), keeping one from a .zip or a GitHub link, and exporting one. |
+| [`plugin/zip.js`](plugin/zip.js) | .zip files, read and written with Node's own zlib: no file outside the archive, no encrypted or ZIP64 entries, and size limits. |
+| [`plugin/rankings.js`](plugin/rankings.js) | The Artificial Analysis list: matching a model to its slug, ranks, the leaderboard, and fetching the list again (the Pro list with a Pro key). |
 | [`plugin/providers.js`](plugin/providers.js) | Each provider's balance and live-list endpoints, at fixed official addresses, and the key check built on them. |
-| [`art/`](art) | The characters' art and [`art.json`](art/art.json). Credits are in [`art/CREDITS.md`](art/CREDITS.md). |
+| [`art/`](art) | The bundled art pack, *Academy*: [`pack.json`](art/pack.json) and a folder of pictures per character. Credits are in [`art/CREDITS.md`](art/CREDITS.md). |
 | [`tools/`](tools) | [`import-art.py`](tools/import-art.py) brings in the five ChimeraArchiveHarness characters. [`draw-art.py`](tools/draw-art.py) draws the others from [`characters.yml`](tools/characters.yml) with OpenAI's image model. [`aa-snapshot.mjs`](tools/aa-snapshot.mjs) refreshes the rankings and release-date snapshots. |
 | [`data/`](data) | The shipped snapshots: Artificial Analysis's rankings, and OpenRouter's release dates. |
 
@@ -246,7 +339,7 @@ The routes are on DSH's API, behind its sign-in and for its owner only:
 
 | Route | |
 | --- | --- |
-| `GET /api/llm-roster.state` | tiers, characters, the lineup, your uploads, set-aside providers, the rankings' date and key names, what each provider offers |
+| `GET /api/llm-roster.state` | the tiers and characters as the art pack in use names and pictures them, the pack, the lineup, your uploads, set-aside providers, the rankings' date and key names, what each provider offers |
 | `POST /api/llm-roster.resolve` | `{models: [{provider, id}]}` → each one's art, avatar, character, tier, name and rankings |
 | `POST /api/llm-roster.pick` | `{model: 'provider/model', art?: 'gpt/high' \| 'custom:<id>' \| null, face?: 'gpt/face-high' \| 'custom:<id>' \| null}` |
 | `POST /api/llm-roster.upload?name=` | the picture as the body → `{id}` |
@@ -254,10 +347,14 @@ The routes are on DSH's API, behind its sign-in and for its owner only:
 | `POST /api/llm-roster.settings` | `{aaKeyEnv: '<variable>' \| null}`: where your Artificial Analysis key is |
 | `POST /api/llm-roster.park` / `unpark` | `{provider, ns, path, profile}` / `{provider}`: a provider set aside by Ignore all, and put back |
 | `POST /api/llm-roster.route` | `{character, provider \| null}`: the provider a character's lineup goes through |
-| `GET /api/llm-roster.image` | `?art=<character>/<tier, face or face-tier>` or `?upload=<id>` |
+| `GET /api/llm-roster.image` | `?art=<character>/<picture>` (the art pack's: `claude/high`, `claude/face-high`; `&pack=<id>` for another pack's) or `?upload=<id>` |
+| `GET /api/llm-roster.packs` | the art packs, and the one in use |
+| `POST /api/llm-roster.packs` | `{use: id \| null}`, `{remove: id}`, or `{fetch: '<GitHub or .zip link>'}` |
+| `POST /api/llm-roster.pack-import?name=` | a pack's .zip, or a lone `pack.json`, as the body |
+| `GET /api/llm-roster.pack-export?id=` | the pack as a .zip |
 | `GET /api/llm-roster.released` | every release date known, by model slug (Artificial Analysis's over OpenRouter's), and the days models were first seen |
 | `POST /api/llm-roster.released` | `{ids}` → `{dates: {id: {date, seen}}}`: the release dates of a list of models, a model of no published date stamped as first seen today |
-| `GET/POST /api/llm-roster.rankings` | the top models (`?top=`, `&sort=released` for the newest), or fetch the release dates and the rankings again |
+| `GET/POST /api/llm-roster.rankings` | the leaderboard (`?top=`, `&sort=released` for the newest, `&efforts=1` for every effort), or fetch the release dates and the rankings again |
 | `GET /api/llm-roster.check` | `?provider=<route>&ref=<credential reference>&fresh=1`: does the key work (`ok`, `missing`, `rejected`, `error`, `untested`) |
 | `GET /api/llm-roster.balance` | `?provider=<route>&ref=<credential reference>` |
 | `GET /api/llm-roster.live` | `?provider=<route>&ref=<credential reference>` |
@@ -265,7 +362,7 @@ The routes are on DSH's API, behind its sign-in and for its owner only:
 ## Development
 
 ```sh
-npm test                                              # node --test: the server half and the summon odds, no DSH or network needed
+npm test                                              # node --test: the server half, art packs and the summon odds, no DSH or network needed
 python3 tools/import-art.py ~/Projects/DiscordStudyBot  # art/ again from a ChimeraArchiveHarness checkout
 python3 tools/draw-art.py --dry-run                   # the other characters' tiers: what it would draw
 python3 tools/draw-art.py --env-file .env             # draw what is missing (OPENAI_API_KEY; needs openai, pillow, pyyaml)
@@ -274,8 +371,9 @@ AA_API_TOKEN=... node tools/aa-snapshot.mjs           # new snapshots in data/ (
 ```
 
 To add a character, give her an entry in [`tools/characters.yml`](tools/characters.yml) (her standing art, look,
-motif and role). Then add her to [`art/art.json`](art/art.json): her name, home provider, the ids that are hers, and
-her lineup by tier. Draw her with `draw-art.py`, and check her faces.
+motif and role). Then add her to [`plugin/models.json`](plugin/models.json) (her home provider, the ids that are hers,
+and her lineup by tier) and her name to [`art/pack.json`](art/pack.json). Draw her with `draw-art.py`, and check her
+faces.
 
 For a local checkout, `dsh plugin --profile web add link:/path/to/dsh-llm-roster` uses it in place.
 
