@@ -36,6 +36,7 @@ The pictures in this folder are adaptations, not the original works.
 | `<name>/middle.webp` | `art/model-chuugakusei.webp` |
 | `<name>/high.webp` | `art/model-koukousei.webp` |
 | `<name>/university.webp` | `art/model-daigakusei.webp` |
+| `<name>/face-<tier>.webp` | each tier's face, cropped from its card (192 px) |
 
 These adapted pictures are shared under the same license, CC BY-NC-SA 4.0, as ShareAlike requires. If you reuse
 them:

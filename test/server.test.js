@@ -6,9 +6,9 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, test } from 'node:test'
 import { dshHome } from '../plugin/index.js'
-import { balance, keyFor, liveModels } from '../plugin/providers.js'
+import { balance, check, keyFor, liveModels } from '../plugin/providers.js'
 import { compact, load, slugOf, split } from '../plugin/rankings.js'
-import { bundledArt, characterOf, Roster, tierOf, validArt } from '../plugin/roster.js'
+import { bundledArt, characterOf, lineup, Roster, tierOf, validArt, validFace } from '../plugin/roster.js'
 import { createRoster, ROUTES, serve } from '../plugin/server.js'
 
 let folder
@@ -56,29 +56,47 @@ describe('who a model is', () => {
     assert.ok(validArt('gpt/high'))
     assert.ok(validArt('custom:0123456789ab'))
     for (const bad of ['gpt/face', 'nobody/high', '../x', 'custom:../../x', 7, null]) assert.ok(!validArt(bad), String(bad))
+    assert.ok(validFace('gpt/face-high') && validFace('claude/face') && validFace('custom:0123456789ab'))
+    assert.ok(!validFace('gpt/high') && !validFace('gpt/face-nope'))
+  })
+  test('the lineup: the mainstream models, each from its character\'s home provider', () => {
+    const found = lineup()
+    assert.ok(found.length >= 15)
+    assert.deepEqual(found.find(item => item.id === 'gpt-6.1-sol'), { id: 'gpt-6.1-sol', provider: 'openai', character: 'gpt', tier: 'high' })
+    assert.equal(found.find(item => item.id === 'deepseek-flash').provider, 'deepseek-official')
+    assert.equal(found.find(item => item.id === 'gemini-4-argon').provider, 'google')
   })
 })
 
 describe('the roster file', () => {
   test('picks and uploads are kept, and an upload is forgotten with its picks', () => {
     const roster = new Roster(folder)
-    roster.pick('openai/gpt-6-luna', 'grok/university')
+    roster.pick('openai/gpt-6-luna', { art: 'grok/university' })
     const id = roster.upload(PNG, 'image/png', 'mine.png')
-    roster.pick('anthropic/claude-haiku-5-5', `custom:${id}`)
+    roster.pick('anthropic/claude-haiku-5-5', { art: `custom:${id}` })
+    roster.pick('openai/gpt-6.1-sol', { face: 'claude/face-chibi' })
     const again = new Roster(folder)
     assert.deepEqual(again.artOf('openai', 'gpt-6-luna'), { art: 'grok/university', own: true })
+    assert.equal(again.faceOf('openai', 'gpt-6-luna'), 'grok/face-university') // the avatar follows the art's tier
     assert.deepEqual(again.artOf('anthropic', 'claude-haiku-5-5'), { art: `custom:${id}`, own: true })
+    assert.equal(again.faceOf('anthropic', 'claude-haiku-5-5'), `custom:${id}`) // your picture is its own avatar
+    assert.equal(again.faceOf('openai', 'gpt-6.1-sol'), 'claude/face-chibi') // an avatar picked apart from the art
+    assert.equal(again.faceOf('openai', 'gpt-6-astra'), 'gpt/face-university')
     assert.equal(again.image({ upload: id }).type, 'image/png')
     again.forget(id)
     assert.deepEqual(new Roster(folder).artOf('anthropic', 'claude-haiku-5-5'), { art: 'claude/chibi', own: false })
     assert.equal(fs.readdirSync(path.join(folder, 'art')).length, 0)
-    roster.pick('openai/gpt-6-luna', null)
+    roster.pick('openai/gpt-6-luna', { art: null })
     assert.equal(new Roster(folder).artOf('openai', 'gpt-6-luna').own, false)
+    roster.pick('openai/gpt-6.1-sol', { face: null })
+    assert.equal(new Roster(folder).faceOf('openai', 'gpt-6.1-sol'), 'gpt/face-high')
   })
   test('refusals', () => {
     const roster = new Roster(folder)
-    assert.throws(() => roster.pick('no-slash', 'gpt/high'), RangeError)
-    assert.throws(() => roster.pick('openai/x', 'custom:0123456789ab'), /no such upload/)
+    assert.throws(() => roster.pick('no-slash', { art: 'gpt/high' }), RangeError)
+    assert.throws(() => roster.pick('openai/x', { art: 'custom:0123456789ab' }), /no such upload/)
+    assert.throws(() => roster.pick('openai/x', { face: 'gpt/high' }), /not an avatar/)
+    assert.throws(() => roster.park('openai', { ns: 'llm-pi-ai', path: [] }), RangeError)
     assert.throws(() => roster.upload(Buffer.from('<svg/>'), 'image/svg+xml'), RangeError)
     assert.throws(() => roster.upload(Buffer.alloc(0), 'image/png'), /empty/)
     assert.throws(() => roster.upload(Buffer.alloc(4 * 1024 * 1024 + 1), 'image/png'), /at most/)
@@ -87,6 +105,12 @@ describe('the roster file', () => {
     const roster = new Roster(folder)
     assert.ok(fs.existsSync(roster.image({ art: 'gpt/face' }).file))
     for (const art of TIERS_OF('claude')) assert.ok(fs.existsSync(roster.image({ art }).file), art)
+    for (const character of ['gpt', 'claude', 'gemini', 'deepseek', 'grok']) {
+      for (const tier of ['chibi', 'middle', 'high', 'university']) {
+        assert.ok(fs.existsSync(roster.image({ art: `${character}/${tier}` }).file), `${character}/${tier}`)
+        assert.ok(fs.existsSync(roster.image({ art: `${character}/face-${tier}` }).file), `${character}/face-${tier}`)
+      }
+    }
     assert.equal(roster.image({ art: '../../etc/passwd' }), null)
     assert.equal(roster.image({ upload: '../roster' }), null)
   })
@@ -174,6 +198,20 @@ describe('providers', () => {
     await assert.rejects(liveModels('xai', 'k', { fetch }), /HTTP 401: bad key/)
     await assert.rejects(liveModels('some-gateway', 'k', { fetch }), RangeError)
   })
+  test('a key\'s check: its usage where the provider reports one, else its models', async () => {
+    const { fetch } = fakeFetch({
+      'https://api.deepseek.com/user/balance': { balance_infos: [{ currency: 'CNY', total_balance: '3' }] },
+      'https://api.openai.com/v1/models': () => Response.json({ error: { message: 'Incorrect API key' } }, { status: 401 }),
+      'https://api.x.ai/v1/models': () => Response.json({ error: 'busy' }, { status: 503 }),
+      'https://api.anthropic.com/v1/models': { data: [{ id: 'claude-opus-5-5' }] }
+    })
+    const deepseek = await check('deepseek-official', 'k', { fetch })
+    assert.equal(deepseek.status, 'ok'); assert.equal(deepseek.balances[0].amount, 3)
+    assert.equal((await check('openai', 'k', { fetch })).status, 'rejected')
+    assert.equal((await check('xai', 'k', { fetch })).status, 'error')
+    assert.deepEqual(await check('anthropic', 'k', { fetch }), { status: 'ok', models: 1 })
+    assert.deepEqual(await check('my-gateway', 'k', { fetch }), { status: 'untested' })
+  })
 })
 
 describe('the routes', () => {
@@ -193,13 +231,14 @@ describe('the routes', () => {
       'https://api.deepseek.com/models': { data: [{ id: 'deepseek-flash' }, { id: 'deepseek-v4-pro' }] } })
     const call = connect(createRoster(folder, { fetch, resolve: async name => name === 'DEEPSEEK_API_KEY' ? 'k' : undefined }))
     const json = async response => ({ status: response.status, body: await response.json() })
-    assert.deepEqual(Object.keys((await json(await call('GET', ROUTES.state))).body).sort(), ['characters', 'providers', 'rankings', 'tiers', 'uploads'])
+    assert.deepEqual(Object.keys((await json(await call('GET', ROUTES.state))).body).sort(), ['characters', 'lineup', 'parked', 'providers', 'rankings', 'tiers', 'uploads'])
     const resolved = await json(await call('POST', ROUTES.resolve, { body: { models: [{ provider: 'openai', id: 'gpt-6.1-sol' }] } }))
     assert.equal(resolved.body.models[0].art, 'gpt/high')
     assert.equal(resolved.body.models[0].aa.rank > 0, true)
     const uploaded = await json(await call('POST', `${ROUTES.upload}?name=a.png`, { body: PNG, type: 'image/png' }))
     assert.match(uploaded.body.id, /^[a-f0-9]{12}$/)
     assert.equal((await call('POST', ROUTES.pick, { body: { model: 'openai/gpt-6.1-sol', art: `custom:${uploaded.body.id}` } })).status, 200)
+    assert.equal((await json(await call('POST', ROUTES.resolve, { body: { models: [{ provider: 'openai', id: 'gpt-6.1-sol' }] } }))).body.models[0].face, `custom:${uploaded.body.id}`)
     const image = await call('GET', `${ROUTES.image}?upload=${uploaded.body.id}`)
     assert.equal(image.headers.get('content-type'), 'image/png')
     assert.equal(Buffer.from(await image.arrayBuffer()).equals(PNG), true)
@@ -214,6 +253,22 @@ describe('the routes', () => {
     assert.equal((await json(await call('GET', `${ROUTES.rankings}?top=5`))).body.rows.length, 5)
     assert.equal((await call('POST', ROUTES.forget, { body: { upload: uploaded.body.id } })).status, 200)
     assert.equal((await json(await call('POST', ROUTES.settings, { body: { aaKeyEnv: 'MY_AA' } }))).body.keys[0], 'MY_AA')
+    const state = (await json(await call('GET', ROUTES.state))).body
+    assert.ok(state.lineup.find(item => item.id === 'gpt-6.1-sol').name.startsWith('GPT-6.1 Sol'))
+    assert.equal((await call('POST', ROUTES.pick, { body: { model: 'openai/gpt-6.1-sol', face: 'grok/face-chibi' } })).status, 200)
+    assert.equal((await json(await call('POST', ROUTES.resolve, { body: { models: [{ provider: 'openai', id: 'gpt-6.1-sol' }] } }))).body.models[0].face, 'grok/face-chibi')
+    assert.equal((await call('GET', `${ROUTES.image}?art=gemini/face-middle`)).headers.get('content-type'), 'image/webp')
+    // a key's check: kept for a while, asked again when fresh
+    const first = (await json(await call('GET', `${ROUTES.check}?provider=deepseek-official&ref=DEEPSEEK_API_KEY`))).body
+    assert.equal(first.status, 'ok'); assert.equal(first.key, 'DEEPSEEK_API_KEY')
+    assert.equal((await json(await call('GET', `${ROUTES.check}?provider=deepseek-official`))).body.at, first.at)
+    assert.equal((await json(await call('GET', `${ROUTES.check}?provider=openai`))).body.status, 'missing')
+    // a provider set aside whole, and put back
+    const profile = { apiKeyEnv: 'OPENAI_API_KEY', models: [{ id: 'gpt-6.1-sol' }] }
+    assert.deepEqual((await json(await call('POST', ROUTES.park, { body: { provider: 'openai', ns: 'llm-pi-ai', path: ['providers', 'openai'], profile } }))).body.parked.openai.profile, profile)
+    assert.deepEqual((await json(await call('GET', ROUTES.state))).body.parked.openai.path, ['providers', 'openai'])
+    assert.deepEqual((await json(await call('POST', ROUTES.unpark, { body: { provider: 'openai' } }))).body.kept.profile, profile)
+    assert.deepEqual((await json(await call('GET', ROUTES.state))).body.parked, {})
     assert.equal((await call('POST', ROUTES.settings, { body: { aaKeyEnv: '1bad' } })).status, 400)
   })
 })

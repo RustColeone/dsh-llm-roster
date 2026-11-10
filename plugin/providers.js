@@ -95,7 +95,9 @@ async function ask (spec, key, fetch) {
   const body = await response.json().catch(() => ({}))
   if (!response.ok) {
     const said = body?.error?.message ?? body?.error ?? body?.message
-    throw new Error(`HTTP ${response.status}${said ? `: ${String(typeof said === 'string' ? said : JSON.stringify(said)).slice(0, 200)}` : ''}`)
+    const error = new Error(`HTTP ${response.status}${said ? `: ${String(typeof said === 'string' ? said : JSON.stringify(said)).slice(0, 200)}` : ''}`)
+    error.status = response.status
+    throw error
   }
   return body
 }
@@ -114,4 +116,18 @@ export async function balance (route, key, { fetch = globalThis.fetch } = {}) {
   if (!spec) return { offered: false, balances: [] }
   const body = await ask(spec, key, fetch)
   return { offered: true, balances: spec.read(body).filter(found => Number.isFinite(found.amount)), note: spec.note?.(body) ?? null }
+}
+
+/** Whether a key works, by asking the provider for its usage: the balance where it reports one, else the models the key
+ * can call. `ok` (with the balance, when asked), `rejected` (the provider refused the key), `error` (it could not be
+ * asked), or `untested` (the roster has no address for this provider: it may well work). */
+export async function check (route, key, { fetch = globalThis.fetch } = {}) {
+  const spec = PROVIDERS[route]
+  if (!spec) return { status: 'untested' }
+  try {
+    if (spec.balance) return { status: 'ok', ...(await balance(route, key, { fetch })) }
+    return { status: 'ok', models: (await liveModels(route, key, { fetch })).length }
+  } catch (error) {
+    return { status: [401, 403].includes(error.status) ? 'rejected' : 'error', detail: String(error.message).slice(0, 300) }
+  }
 }

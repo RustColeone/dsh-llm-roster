@@ -1,19 +1,20 @@
 // The roster's client half, for DSH's web page, which loads it as a plugin bundle (React is all it needs).
 //
 //   - An avatar beside the composer's model picker (the `conversation.input.right` slot, just left of it): the face of
-//     the model the session uses. A click opens the roster.
-//   - The roster: every model DSH's picker offers, as a character card (art by tier, rarity, Artificial Analysis
-//     rankings, price). A click switches the session to it, through the same model directory DSH's picker uses, so the
-//     two always agree; effort stays in DSH's picker.
-//   - Models & keys (also under Plugins → dsh-llm-roster): for each provider, its API key (stored write-only, as DSH's
-//     Models page stores it) or the environment variable holding it, the account's balance, and its models as pills,
-//     Used or Ignored: a click moves one, and the Used ones are the provider's model list in DSH's settings, so they
-//     are exactly what DSH's picker offers. Each Used model's art can be picked or uploaded.
-//   - Rankings: Artificial Analysis's, as of the date shown, fetched again on request with your own free key (pasted,
-//     or the variable holding it).
+//     the session's model at its tier, ringed in its rarity. A click opens the roster.
+//   - Roster: every model DSH's picker offers, and the roster's lineup of mainstream models besides, each a character
+//     card (art by tier, rarity, Artificial Analysis rankings). A card switches the session to its model, through the
+//     same model directory DSH's picker uses; a card that cannot be used yet says why (no API key, a key the provider
+//     refused, not in use). Each card's … opens its page: its art and gallery, its stats, and its equipment (art,
+//     avatar, the provider's key, whether it is in use). The + card adds a model the lineup does not have.
+//   - Models & keys (also under Plugins → dsh-llm-roster): each provider's key (stored write-only, as DSH's Models page
+//     stores it) or the variable holding it, a test of it, its balance, and its models as pills, Used or Ignored (Used
+//     is the provider's model list in DSH's settings, so they are exactly what DSH's picker offers); every model
+//     ignored at once, the provider removed, and DeepSeek's account sign-in, which needs no key.
+//   - Rankings: Artificial Analysis's, as of the date shown, fetched again with your own free key.
 //
-// Pictures, rankings, balances and live model lists come from the plugin's routes (plugin/server.js); keys never reach
-// the page.
+// Pictures, rankings, key checks, balances and live model lists come from the plugin's routes (plugin/server.js);
+// keys never reach the page.
 window.__ModuleLoader__.load({
   id: 'dsh-llm-roster',
   factory: require => {
@@ -29,13 +30,17 @@ window.__ModuleLoader__.load({
     const NS = 'llm-roster'
     const API = {
       state: 'api/llm-roster.state', resolve: 'api/llm-roster.resolve', pick: 'api/llm-roster.pick',
-      upload: 'api/llm-roster.upload', forget: 'api/llm-roster.forget', image: 'api/llm-roster.image',
-      rankings: 'api/llm-roster.rankings', balance: 'api/llm-roster.balance', live: 'api/llm-roster.live',
-      settings: 'api/llm-roster.settings'
+      upload: 'api/llm-roster.upload', forget: 'api/llm-roster.forget', settings: 'api/llm-roster.settings',
+      park: 'api/llm-roster.park', unpark: 'api/llm-roster.unpark', image: 'api/llm-roster.image',
+      rankings: 'api/llm-roster.rankings', check: 'api/llm-roster.check', balance: 'api/llm-roster.balance',
+      live: 'api/llm-roster.live'
     }
     const RARITY = { R: 1, SR: 2, SSR: 3, UR: 4 }
     const TIER_ORDER = ['chibi', 'middle', 'high', 'university']
     const CHARACTER_ORDER = ['gpt', 'claude', 'gemini', 'deepseek', 'grok']
+    const STATUS_ORDER = { ready: 0, unused: 1, checking: 2, error: 3, rejected: 4, nokey: 5 }
+    const ACCOUNT = 'deepseek-account'
+    const DEEPSEEK_ROUTES = [ACCOUNT, 'deepseek-official'] // one model reached two ways: one card
 
     const EN = {
       'avatar.title': 'Roster: {model}',
@@ -45,25 +50,99 @@ window.__ModuleLoader__.load({
       'tab.models': 'Models & keys',
       'tab.rankings': 'Rankings',
       close: 'Close',
+      back: 'Roster',
+      'tier.chibi': 'Chibi',
+      'tier.middle': 'Middle-schooler',
+      'tier.high': 'High-schooler',
+      'tier.university': 'University student',
+      'tier.custom': 'Your own',
       'roster.all': 'All',
+      'roster.available': 'Available',
       'roster.sort.provider': 'By provider',
       'roster.sort.rank': 'By rank',
       'roster.inUse': 'In use',
-      'roster.empty': 'No models yet. Add a provider and pick its models under Models & keys.',
       'roster.loading': 'Reading the models…',
       'roster.switching': 'Switching…',
       'roster.unavailable': 'This session cannot change its model.',
       'roster.rank': '#{rank} of {of}',
-      'roster.price': '${input} / ${output} per M',
-      'roster.hint': 'A card switches this session to its model; effort is in DSH\'s model picker.',
-      'roster.unknown': 'Not in DSH\'s catalog',
-      'credit': 'Rankings: Artificial Analysis Intelligence Index v{version}, as of {date}.',
+      'roster.hint': 'A card switches this session to its model; … opens its page. Effort is in DSH\'s model picker.',
+      'roster.more': 'Details',
+      'roster.add': 'Add a model',
+      'roster.addHint': 'One the roster does not have',
+      'status.ready': 'Ready',
+      'status.unused': 'Not in use',
+      'status.unusedHint': 'Its key works: add it to the roster',
+      'status.nokey': 'Not available',
+      'status.nokeyHint': 'Please add an API key',
+      'status.nokeyDeepseek': 'Please add an API key, or sign in to your DeepSeek account in DSH\'s settings',
+      'status.rejected': 'API key rejected',
+      'status.rejectedHint': 'The provider refused the key',
+      'status.error': 'Provider not reachable',
+      'status.checking': 'Checking the key…',
+      credit: 'Rankings: Artificial Analysis Intelligence Index v{version}, as of {date}.',
       'credit.none': 'No rankings yet.',
+      'page.use': 'Use this model',
+      'page.useAdd': 'Add and use this model',
+      'page.inUse': 'In use in this session',
+      'page.needKey': 'Add an API key below first.',
+      'page.stats': 'Stats',
+      'page.intelligence': 'Intelligence',
+      'page.coding': 'Coding',
+      'page.agentic': 'Agentic',
+      'page.rank': 'Rank',
+      'page.price': 'Price (in / out, $ per M)',
+      'page.speed': 'Speed',
+      'page.speedValue': '{speed} tokens/s',
+      'page.efforts': 'Measured at',
+      'page.noStats': 'Artificial Analysis has not measured this model.',
+      'page.equipment': 'Equipment',
+      'page.art': 'Art',
+      'page.avatar': 'Avatar',
+      'page.change': 'Change',
+      'page.gallery': 'Gallery',
+      'page.equip': 'Equip this art',
+      'page.provider': 'Provider',
+      'page.roster': 'In the roster',
+      'page.rosterUsed': 'Used: DSH\'s model picker offers it',
+      'page.rosterIgnored': 'Ignored',
+      'page.ignore': 'Move to Ignored',
+      'page.route': 'Through',
+      'page.routeAccount': 'DeepSeek account (no key)',
+      'page.routeKey': 'DeepSeek API key',
+      'add.title': 'Add a model',
+      'add.intro': 'A model the roster\'s lineup does not have: it joins the provider\'s Used models, so DSH\'s picker offers it too.',
+      'add.provider': 'Provider',
+      'add.newProvider': '{name} (add)',
+      'add.model': 'Model id',
+      'add.modelHint': 'As the provider names it, such as gpt-6.1-sol',
+      'add.name': 'Display name (optional)',
+      'add.art': 'Art',
+      'add.avatar': 'Avatar',
+      'add.auto': 'Automatic',
+      'add.sameAsArt': 'From the art',
+      'add.save': 'Add to the roster',
+      'add.saving': 'Adding…',
+      'add.needModel': 'Enter the model\'s id.',
       'models.intro': 'Each provider\'s key, balance and models. Used models are the ones DSH\'s model picker offers; a click moves a model between Used and Ignored.',
       'models.loading': 'Reading the providers…',
       'models.readOnly': 'This DSH\'s settings cannot be changed from the page.',
       'models.add': 'Add a provider…',
       'models.adding': 'Adding…',
+      'models.useAll': 'Use all',
+      'models.ignoreAll': 'Ignore all',
+      'models.ignoreAllFixed': 'This provider is part of DSH\'s own setup; ignore its models one by one.',
+      'models.remove': 'Remove provider',
+      'models.removeFixed': 'This provider is part of DSH\'s own setup and cannot be removed here.',
+      'models.removeConfirm': 'Remove {name}? Its models leave DSH\'s picker and the roster.',
+      'models.removeKey': 'Also delete its key stored in DSH',
+      'models.removeYes': 'Remove',
+      cancel: 'Cancel',
+      'parked.title': 'Every model ignored',
+      'parked.hint': 'Set aside with its key and models as they were; nothing of it is in DSH\'s picker.',
+      'parked.restore': 'Use again',
+      'account.title': 'DeepSeek account',
+      'account.signedIn': 'Signed in to your DeepSeek account: its models need no API key.',
+      'account.signedOut': 'Not signed in to a DeepSeek account. Sign in from DSH\'s Settings → Account to use DeepSeek without an API key.',
       'key.title': 'API key',
       'key.stored': 'stored in DSH',
       'key.env': 'from the environment',
@@ -76,6 +155,14 @@ window.__ModuleLoader__.load({
       'key.envSave': 'Use variable',
       'key.envSaved': 'The provider now reads {name}.',
       'key.envBad': 'A variable name is letters, digits and underscores, not starting with a digit.',
+      'key.test': 'Test key',
+      'key.testing': 'Testing…',
+      'check.ok': 'The key works.',
+      'check.okModels': 'The key works: it can call {count} models.',
+      'check.missing': 'No key found.',
+      'check.rejected': 'The provider refused the key.',
+      'check.error': 'The provider could not be asked: {detail}',
+      'check.untested': 'The roster cannot test this provider\'s key.',
       'balance.button': 'Balance',
       'balance.none': 'This provider reports no balance through its API.',
       'balance.missing': 'No key to ask with.',
@@ -84,7 +171,6 @@ window.__ModuleLoader__.load({
       'balance.used': 'used {amount}',
       'used.title': 'Used ({count})',
       'used.all': 'The provider\'s whole catalog is in use ({count}). Click a model to narrow it down.',
-      'used.last': 'Keep at least one model.',
       'ignored.title': 'Ignored ({count})',
       'ignored.none': 'Nothing else found yet: fetch the catalog or the provider\'s live list.',
       'ignored.filter': 'Filter',
@@ -93,18 +179,21 @@ window.__ModuleLoader__.load({
       'fetch.live': 'Fetch live list',
       'fetch.liveTitle': 'Ask the provider itself which models your key can call, for models newer than DSH\'s catalog.',
       'fetch.found': '{count} models found.',
+      'fetch.newTag': 'new',
       'art.title': 'Art for {model}',
+      'face.title': 'Avatar for {model}',
       'art.default': 'Default',
       'art.upload': 'Upload a picture…',
       'art.forget': 'Delete this upload',
-      'art.change': 'Change art',
+      'art.yours': 'Your pictures',
+      'art.portrait': 'Portrait',
+      'aa.title': 'Your Artificial Analysis key',
+      'aa.hint': 'Free from artificialanalysis.ai (sign in, then API keys). Only needed to fetch the rankings again.',
+      'aa.envHint': 'Variable to read (else {names})',
       'rankings.intro': 'Artificial Analysis Intelligence Index v{version}, as of {date}: each model once, at its best effort.',
       'rankings.refresh': 'Fetch again',
       'rankings.refreshing': 'Fetching…',
       'rankings.needKey': 'Fetching needs a free key from artificialanalysis.ai: paste it above, or name the variable that holds it.',
-      'aa.title': 'Your Artificial Analysis key',
-      'aa.hint': 'Free from artificialanalysis.ai (sign in, then API keys). Only needed to fetch the rankings again.',
-      'aa.envHint': 'Variable to read (else {names})',
       'rankings.model': 'Model',
       'rankings.index': 'Intelligence',
       'rankings.coding': 'Coding',
@@ -123,25 +212,99 @@ window.__ModuleLoader__.load({
       'tab.models': '模型与密钥',
       'tab.rankings': '排行',
       close: '关闭',
+      back: '名册',
+      'tier.chibi': 'Q版',
+      'tier.middle': '初中生',
+      'tier.high': '高中生',
+      'tier.university': '大学生',
+      'tier.custom': '自定义',
       'roster.all': '全部',
+      'roster.available': '可用',
       'roster.sort.provider': '按服务商',
       'roster.sort.rank': '按排名',
       'roster.inUse': '使用中',
-      'roster.empty': '还没有模型。请在「模型与密钥」里添加服务商并选择模型。',
       'roster.loading': '正在读取模型……',
       'roster.switching': '切换中……',
       'roster.unavailable': '这个会话不能更换模型。',
       'roster.rank': '第 {rank} / {of} 名',
-      'roster.price': '每百万 ${input} / ${output}',
-      'roster.hint': '点击卡片即可把这个会话切换到该模型；思考强度在 DSH 的模型选择器里调。',
-      'roster.unknown': '不在 DSH 的模型目录中',
-      'credit': '排行：Artificial Analysis 智能指数 v{version}，截至 {date}。',
+      'roster.hint': '点击卡片即可把这个会话切换到该模型；点击 … 查看角色详情。思考强度在 DSH 的模型选择器里调。',
+      'roster.more': '详情',
+      'roster.add': '添加模型',
+      'roster.addHint': '名册里没有的模型',
+      'status.ready': '可用',
+      'status.unused': '未启用',
+      'status.unusedHint': '密钥可用：加入名册即可使用',
+      'status.nokey': '不可用',
+      'status.nokeyHint': '请添加 API 密钥',
+      'status.nokeyDeepseek': '请添加 API 密钥，或在 DSH 设置中登录 DeepSeek 账号',
+      'status.rejected': 'API 密钥被拒绝',
+      'status.rejectedHint': '服务商拒绝了这个密钥',
+      'status.error': '无法连接服务商',
+      'status.checking': '正在检查密钥……',
+      credit: '排行：Artificial Analysis 智能指数 v{version}，截至 {date}。',
       'credit.none': '还没有排行数据。',
+      'page.use': '使用这个模型',
+      'page.useAdd': '加入并使用这个模型',
+      'page.inUse': '这个会话正在使用',
+      'page.needKey': '请先在下方添加 API 密钥。',
+      'page.stats': '属性',
+      'page.intelligence': '智能',
+      'page.coding': '编程',
+      'page.agentic': '智能体',
+      'page.rank': '排名',
+      'page.price': '价格（输入 / 输出，每百万 $）',
+      'page.speed': '速度',
+      'page.speedValue': '每秒 {speed} 个 token',
+      'page.efforts': '测评的思考强度',
+      'page.noStats': 'Artificial Analysis 还没有测评这个模型。',
+      'page.equipment': '装备',
+      'page.art': '立绘',
+      'page.avatar': '头像',
+      'page.change': '更换',
+      'page.gallery': '图鉴',
+      'page.equip': '装备这张立绘',
+      'page.provider': '服务商',
+      'page.roster': '名册状态',
+      'page.rosterUsed': '使用中：DSH 的模型选择器里有它',
+      'page.rosterIgnored': '已忽略',
+      'page.ignore': '移到忽略',
+      'page.route': '使用方式',
+      'page.routeAccount': 'DeepSeek 账号（无需密钥）',
+      'page.routeKey': 'DeepSeek API 密钥',
+      'add.title': '添加模型',
+      'add.intro': '添加名册阵容里没有的模型：它会加入该服务商「使用中」的模型，DSH 的模型选择器里也会出现。',
+      'add.provider': '服务商',
+      'add.newProvider': '{name}（添加）',
+      'add.model': '模型 ID',
+      'add.modelHint': '服务商使用的名称，例如 gpt-6.1-sol',
+      'add.name': '显示名称（可选）',
+      'add.art': '立绘',
+      'add.avatar': '头像',
+      'add.auto': '自动',
+      'add.sameAsArt': '取自立绘',
+      'add.save': '加入名册',
+      'add.saving': '添加中……',
+      'add.needModel': '请输入模型 ID。',
       'models.intro': '每个服务商的密钥、余额和模型。「使用中」的模型就是 DSH 模型选择器里列出的模型；点击即可在「使用中」和「忽略」之间移动。',
       'models.loading': '正在读取服务商……',
       'models.readOnly': '这个 DSH 的设置不能在网页上修改。',
       'models.add': '添加服务商……',
       'models.adding': '添加中……',
+      'models.useAll': '全部使用',
+      'models.ignoreAll': '全部忽略',
+      'models.ignoreAllFixed': '这个服务商属于 DSH 自带的配置，请逐个忽略它的模型。',
+      'models.remove': '移除服务商',
+      'models.removeFixed': '这个服务商属于 DSH 自带的配置，不能在这里移除。',
+      'models.removeConfirm': '移除 {name}？它的模型会从 DSH 的模型选择器和名册中消失。',
+      'models.removeKey': '同时删除存放在 DSH 中的密钥',
+      'models.removeYes': '移除',
+      cancel: '取消',
+      'parked.title': '已全部忽略',
+      'parked.hint': '连同密钥和模型原样保存；DSH 的模型选择器里不会有它的模型。',
+      'parked.restore': '重新使用',
+      'account.title': 'DeepSeek 账号',
+      'account.signedIn': '已登录 DeepSeek 账号：它的模型不需要 API 密钥。',
+      'account.signedOut': '未登录 DeepSeek 账号。在 DSH 的「设置 → 账号」中登录后，无需 API 密钥即可使用 DeepSeek。',
       'key.title': 'API 密钥',
       'key.stored': '已存入 DSH',
       'key.env': '来自环境变量',
@@ -154,6 +317,14 @@ window.__ModuleLoader__.load({
       'key.envSave': '使用该变量',
       'key.envSaved': '该服务商现在读取 {name}。',
       'key.envBad': '变量名只能包含字母、数字和下划线，且不能以数字开头。',
+      'key.test': '测试密钥',
+      'key.testing': '测试中……',
+      'check.ok': '密钥可用。',
+      'check.okModels': '密钥可用：可以调用 {count} 个模型。',
+      'check.missing': '没有找到密钥。',
+      'check.rejected': '服务商拒绝了这个密钥。',
+      'check.error': '无法询问服务商：{detail}',
+      'check.untested': '名册无法测试这个服务商的密钥。',
       'balance.button': '余额',
       'balance.none': '这个服务商的 API 不提供余额查询。',
       'balance.missing': '没有可用的密钥。',
@@ -162,7 +333,6 @@ window.__ModuleLoader__.load({
       'balance.used': '已用 {amount}',
       'used.title': '使用中（{count}）',
       'used.all': '正在使用该服务商的完整目录（{count} 个）。点击某个模型即可开始筛选。',
-      'used.last': '至少保留一个模型。',
       'ignored.title': '忽略（{count}）',
       'ignored.none': '暂时没有其他模型：可以拉取目录或服务商的实时列表。',
       'ignored.filter': '筛选',
@@ -171,18 +341,21 @@ window.__ModuleLoader__.load({
       'fetch.live': '拉取实时列表',
       'fetch.liveTitle': '直接询问服务商你的密钥能调用哪些模型，可以找到比 DSH 目录更新的模型。',
       'fetch.found': '找到 {count} 个模型。',
+      'fetch.newTag': '新',
       'art.title': '{model} 的立绘',
+      'face.title': '{model} 的头像',
       'art.default': '默认',
       'art.upload': '上传图片……',
       'art.forget': '删除这张上传的图片',
-      'art.change': '更换立绘',
+      'art.yours': '你的图片',
+      'art.portrait': '肖像',
+      'aa.title': '你的 Artificial Analysis 密钥',
+      'aa.hint': '在 artificialanalysis.ai 免费获取（登录后进入 API keys）。只有重新拉取排行时才需要。',
+      'aa.envHint': '读取的变量（否则依次读取 {names}）',
       'rankings.intro': 'Artificial Analysis 智能指数 v{version}，截至 {date}：每个模型只列一次，取其最佳思考强度。',
       'rankings.refresh': '重新拉取',
       'rankings.refreshing': '拉取中……',
       'rankings.needKey': '拉取需要 artificialanalysis.ai 的免费密钥：在上方粘贴，或填写保存它的环境变量名。',
-      'aa.title': '你的 Artificial Analysis 密钥',
-      'aa.hint': '在 artificialanalysis.ai 免费获取（登录后进入 API keys）。只有重新拉取排行时才需要。',
-      'aa.envHint': '读取的变量（否则依次读取 {names}）',
       'rankings.model': '模型',
       'rankings.index': '智能',
       'rankings.coding': '编程',
@@ -193,27 +366,28 @@ window.__ModuleLoader__.load({
       failed: '失败：{error}'
     }
 
+    // ---- small helpers ----
     /** `{name}` in a sentence filled in. */
     const format = (text, values = {}) => String(text).replace(/\{(\w+)\}/g, (all, key) =>
       Object.hasOwn(values, key) ? String(values[key]) : all)
     const english = (key, values) => format(EN[key] ?? key, values)
     /** DSH's words for the plugin (`words`, from a slot's `t`), filled in by us. */
     const wordsOf = words => (key, values) => format(typeof words === 'function' ? (words(key) ?? EN[key] ?? key) : (EN[key] ?? key), values)
-
     const getPath = (value, path) => path.reduce((at, key) => (at === null || at === undefined ? undefined : at[key]), value)
+    const hasPath = (value, path) => path.length > 0 && getPath(value, path) !== undefined
     // The reference a provider's key is under when its profile names none: DSH's Models page derives `<ROUTE>_API_KEY`;
     // DeepSeek's adapter reads DEEPSEEK_API_KEY by default.
     const deriveKeyRef = provider => `${provider.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_API_KEY`
     const DEFAULT_REFS = { 'deepseek-official': 'DEEPSEEK_API_KEY' }
     const REF = /^[A-Za-z_][A-Za-z0-9_]*$/
+    const bare = model => String(model ?? '').toLowerCase().split('/').pop()
     const money = value => (Number(value) >= 1 ? Number(value).toFixed(2) : Number(value).toFixed(3)).replace(/\.?0+$/, '') || '0'
-    const imageOf = art => !art ? null : art.startsWith('custom:')
-      ? `${API.image}?upload=${encodeURIComponent(art.slice(7))}` : `${API.image}?art=${encodeURIComponent(art)}`
-    const faceOf = found => !found?.art ? null : found.art.startsWith('custom:') ? imageOf(found.art)
-      : imageOf(`${found.art.split('/')[0]}/face`)
+    const pictureUrl = picture => !picture ? null : picture.startsWith('custom:')
+      ? `${API.image}?upload=${encodeURIComponent(picture.slice(7))}` : `${API.image}?art=${encodeURIComponent(picture)}`
     const initials = text => String(text || '?').replace(/^.*\//, '').split(/[-_.\s]+/).filter(Boolean).slice(0, 2)
       .map(word => word[0].toUpperCase()).join('')
     const errorText = error => String(error?.message ?? error)
+    const modelId = model => (typeof model === 'string' ? model : model.id)
 
     async function get (route) {
       const response = await fetch(route, { cache: 'no-store', credentials: 'same-origin' })
@@ -234,12 +408,13 @@ window.__ModuleLoader__.load({
       return response?.ok === true ? response.value : response
     }
 
-    // ---- what the plugin's server says about each model, kept for the page's life ----
-    // `provider/model` → { art, own, character, tier, aa }; a pick of art clears it.
+    // ---- what the page knows, shared by every view, kept for the page's life ----
+    // resolved: `provider/model` → the server's word on it (art, face, character, tier, name, rankings)
+    // state: the server's state; providers: DSH's settings and provider directory; checks: provider → its key's check
     const resolved = new Map()
-    let shared = { version: 0, generation: 0, state: null }
+    let shared = { version: 0, generation: 0, state: null, providers: null, checks: {} }
     const listeners = new Set()
-    const bump = () => { shared = { ...shared, version: shared.version + 1 }; for (const listener of listeners) listener() }
+    const bump = (changes = {}) => { shared = { ...shared, ...changes, version: shared.version + 1 }; for (const listener of listeners) listener() }
     const sharedStore = { subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
       getSnapshot: () => shared }
     const useShared = () => useSyncExternalStore(sharedStore.subscribe, sharedStore.getSnapshot)
@@ -258,12 +433,8 @@ window.__ModuleLoader__.load({
         bump()
       }
     }
-    async function loadState () {
-      shared = { ...shared, state: await get(API.state) }
-      bump()
-      return shared.state
-    }
-    function forgetResolved () { resolved.clear(); shared = { ...shared, generation: shared.generation + 1 }; bump() }
+    async function loadState () { bump({ state: await get(API.state) }); return shared.state }
+    function forgetResolved () { resolved.clear(); bump({ generation: shared.generation + 1 }) }
 
     /** The server's word on these models (re-rendering as it arrives). */
     function useResolved (models) {
@@ -278,51 +449,192 @@ window.__ModuleLoader__.load({
       return state
     }
 
+    // DSH's settings (redacted) and its provider directory: which providers are set up, how, and which could be.
+    let loadingProviders = null
+    function loadProviders (remote) {
+      loadingProviders ??= Promise.all([remote.settings.describe(), remote.llm.listConfigurableProviders()])
+        .then(([described, configurable]) => {
+          const view = unwrap(described)
+          bump({ providers: { view, entries: unwrap(configurable), namespaces: new Map(view.namespaces.map(item => [item.ns, item])), error: null } })
+          return shared.providers
+        })
+        .catch(error => { bump({ providers: { ...(shared.providers ?? {}), error: errorText(error) } }); throw error })
+        .finally(() => { loadingProviders = null })
+      return loadingProviders
+    }
+    function useProviders (remote) {
+      const { providers } = useShared()
+      useEffect(() => { if (remote && !providers) loadProviders(remote).catch(() => {}) }, [remote])
+      return providers
+    }
+
+    /** What the page knows of one provider: its directory entry, settings, profile and key reference. */
+    function providerInfo (providers, provider) {
+      const entry = providers?.entries?.find(item => item.provider === provider) ?? null
+      const namespace = entry ? providers.namespaces.get(entry.settingsNs) ?? null : null
+      const configured = Boolean(namespace && (entry.settingsPath.length === 0 || getPath(namespace.value, entry.settingsPath) !== undefined))
+      const profile = configured ? (getPath(namespace.value, entry.settingsPath) ?? {}) : {}
+      const named = typeof profile.apiKeyEnv === 'string' && profile.apiKeyEnv ? profile.apiKeyEnv : undefined
+      const ref = named ?? DEFAULT_REFS[provider] ?? deriveKeyRef(provider)
+      const used = Array.isArray(profile.models) ? profile.models : null
+      const removable = configured && entry.settingsPath.length > 0 && hasPath(namespace.user ?? namespace.value, entry.settingsPath) &&
+        !hasPath(namespace.base, entry.settingsPath)
+      return { provider, entry, namespace, configured, profile, named, ref, used, removable,
+        writable: providers?.view?.writable !== false, whole: entry?.settingsPath.length === 0 }
+    }
+
+    /** Write DSH's settings (path ops), again once over a newer revision; then read them again. */
+    async function writeSettings (remote, ns, ops) {
+      let revision = shared.providers?.namespaces.get(ns)?.revision
+      for (let tries = 0; tries < 2; tries++) {
+        const response = await remote.settings.mutate(ns, ops, revision)
+        if (response?.ok !== false) { await loadProviders(remote); return }
+        if (response.error?.code !== 'settings/conflict' || tries) throw new Error(response.error?.message ?? 'refused')
+        revision = unwrap(await remote.settings.describe()).namespaces.find(item => item.ns === ns)?.revision
+      }
+    }
+
+    /** Ask whether a provider's key works (the server asks the provider for its usage; a check stands a while). */
+    async function checkKey (provider, ref, fresh = false) {
+      bump({ checks: { ...shared.checks, [provider]: { ...(shared.checks[provider] ?? {}), pending: true } } })
+      try {
+        const found = await get(`${API.check}?provider=${encodeURIComponent(provider)}&ref=${encodeURIComponent(ref ?? '')}${fresh ? '&fresh=1' : ''}`)
+        bump({ checks: { ...shared.checks, [provider]: found } })
+        return found
+      } catch (error) {
+        const found = { status: 'error', detail: errorText(error) }
+        bump({ checks: { ...shared.checks, [provider]: found } })
+        return found
+      }
+    }
+
+    /** Add a model to a provider's Used models (setting the provider up, or putting it back, first if it must be). */
+    async function addModel (remote, provider, model, { catalog = [], keyName } = {}) {
+      let providers = shared.providers ?? await loadProviders(remote)
+      const parked = shared.state?.parked?.[provider]
+      if (parked) {
+        await writeSettings(remote, parked.ns, [{ op: 'set', path: parked.path, value: parked.profile ?? {} }])
+        await post(API.unpark, { provider }); await loadState()
+        providers = shared.providers
+      }
+      const info = providerInfo(providers, provider)
+      if (!info.entry || !info.namespace) throw new Error(`DSH cannot route ${provider}`)
+      const entryOf = Object.fromEntries(Object.entries({ id: model.id, name: model.name, contextWindow: model.contextWindow,
+        maxTokens: model.maxTokens }).filter(([, value]) => value !== undefined && value !== null && value !== ''))
+      if (!info.configured) {
+        const profile = { ...(keyName && keyName !== info.ref ? { apiKeyEnv: keyName } : {}), models: [entryOf] }
+        await writeSettings(remote, info.entry.settingsNs, [{ op: 'set', path: [...info.entry.settingsPath], value: profile }])
+        return
+      }
+      const current = info.used ?? catalog.map(found => ({ id: found.id }))
+      if (current.some(found => modelId(found) === model.id)) return
+      await writeSettings(remote, info.entry.settingsNs, [{ op: 'set', path: [...info.entry.settingsPath, 'models'], value: [...current, entryOf] }])
+    }
+
     /** A model directory's snapshot (the one DSH's picker renders from). */
     const useDirectory = directory => useSyncExternalStore(directory.store.subscribe, directory.store.getSnapshot)
-
     /** The models DSH's picker offers, in its order, each with its provider. */
     const catalogOf = snapshot => (snapshot.groups ?? []).flatMap(group => (group.models ?? [])
       .map(model => ({ provider: group.id, providerName: group.name ?? group.id, id: model.id, name: model.name ?? model.id })))
+    const providerName = (provider, snapshot, providers) => snapshot?.groups?.find(group => group.id === provider)?.name ??
+      providers?.entries?.find(entry => entry.provider === provider)?.displayName ?? provider
+
+    /** The roster's cards: DSH's catalog, then the lineup models it does not have, each with whether it can be used. */
+    function useCards (directory, remote) {
+      const snapshot = useDirectory(directory)
+      const state = useRosterState()
+      const providers = useProviders(remote)
+      const { checks } = useShared()
+      const catalog = useMemo(() => catalogOf(snapshot), [snapshot.groups])
+      const current = snapshot.pending ?? snapshot.current
+      const cards = useMemo(() => {
+        // DeepSeek's account and its API key reach the same models: one card each, through the account unless the session
+        // already uses the key (its page chooses)
+        const merged = [], deepseek = new Map()
+        for (const model of catalog) {
+          const card = { ...model, source: 'catalog' }
+          if (!DEEPSEEK_ROUTES.includes(model.provider)) { merged.push(card); continue }
+          const found = deepseek.get(bare(model.id))
+          if (found) { found.routes.push(card); continue }
+          const entry = { ...card, routes: [card] }
+          deepseek.set(bare(model.id), entry); merged.push(entry)
+        }
+        for (const entry of deepseek.values()) {
+          const preferred = entry.routes.find(route => current?.provider === route.provider && current?.model === route.id) ??
+            entry.routes.find(route => route.provider === ACCOUNT) ?? entry.routes[0]
+          Object.assign(entry, { provider: preferred.provider, providerName: preferred.providerName, id: preferred.id, name: preferred.name })
+        }
+        const have = new Set(catalog.map(model => bare(model.id)))
+        const lineup = (state?.lineup ?? []).filter(item => !have.has(bare(item.id))).map(item => ({
+          provider: item.provider, providerName: providerName(item.provider, snapshot, providers), id: item.id, name: item.name,
+          source: 'lineup' }))
+        return [...merged, ...lineup]
+      }, [catalog, state?.lineup, providers, current?.provider, current?.model])
+      // ask once about each provider whose key the roster can test
+      const offered = state?.providers ?? {}
+      const toCheck = [...new Set(cards.filter(card => card.provider !== ACCOUNT && (card.source === 'lineup' || offered[card.provider]))
+        .map(card => card.provider))]
+      useEffect(() => {
+        if (!state || (remote && !providers)) return
+        for (const provider of toCheck) {
+          if (!shared.checks[provider]) checkKey(provider, providerInfo(providers, provider).ref).catch(() => {})
+        }
+      }, [toCheck.join(), Boolean(state), Boolean(providers), checks])
+      const statusOf = card => {
+        const found = checks[card.provider]
+        if (card.source === 'catalog') return found?.status === 'rejected' ? 'rejected' : 'ready'
+        if (!found?.status) return 'checking'
+        return { missing: 'nokey', rejected: 'rejected', error: 'error' }[found.status] ?? 'unused'
+      }
+      return { snapshot, state, providers, catalog, cards: cards.map(card => ({ ...card, status: statusOf(card) })) }
+    }
 
     // ---- pieces ----
-    function Face ({ found, label, size = 26, className = '' }) {
+    function Face ({ face, label, size = 26, className = '' }) {
       const [broken, setBroken] = useState(false)
-      const url = faceOf(found)
+      const url = pictureUrl(face)
       useEffect(() => setBroken(false), [url])
       const style = { width: size, height: size }
       if (!url || broken) return h('span', { className: `lr-face lr-face-none ${className}`, style }, initials(label))
-      return h('img', { className: `lr-face ${className}`, style, src: url, alt: '', draggable: false,
-        onError: () => setBroken(true) })
+      return h('img', { className: `lr-face ${className}`, style, src: url, alt: '', draggable: false, onError: () => setBroken(true) })
     }
-
-    function Card ({ model, found, tiers, characters, current, busy, onPick, t }) {
-      const tier = found?.tier ? tiers?.[found.tier] : null
-      const rarity = found?.own && found.art?.startsWith('custom:') ? 'SSR' : (tier?.rarity ?? 'R')
-      const character = found?.character ? characters?.[found.character]?.name : null
+    function Art ({ art, label, className = '' }) {
       const [broken, setBroken] = useState(false)
-      const art = imageOf(found?.art)
+      const url = pictureUrl(art)
+      useEffect(() => setBroken(false), [url])
+      return url && !broken
+        ? h('img', { className, src: url, alt: '', loading: 'lazy', draggable: false, onError: () => setBroken(true) })
+        : h('span', { className: `lr-card-blank ${className}` }, initials(label))
+    }
+    const rarityOf = (found, state) => found?.tier ? state?.tiers?.[found.tier]?.rarity ?? 'R' : (found?.own && found.art?.startsWith('custom:') ? 'SSR' : 'R')
+    const whoOf = (found, state, t) => found?.character
+      ? `${state?.characters?.[found.character]?.name ?? found.character} · ${t(`tier.${found.tier}`)}`
+      : found?.art?.startsWith('custom:') ? t('tier.custom') : null
+
+    function Card ({ card, found, state, current, busy, onPick, onMore, t }) {
+      const rarity = rarityOf(found, state)
       const aa = found?.aa
-      return h('button', {
-        type: 'button', className: 'lr-card', 'data-rarity': rarity, 'data-current': current ? '' : undefined,
-        disabled: busy, title: `${model.providerName} · ${model.id}`, onClick: () => onPick(model)
-      },
-      h('span', { className: 'lr-card-art' },
-        art && !broken
-          ? h('img', { src: art, alt: '', loading: 'lazy', draggable: false, onError: () => setBroken(true) })
-          : h('span', { className: 'lr-card-blank' }, initials(model.name))),
+      const name = card.source === 'catalog' ? card.name : (found?.name ?? card.name ?? card.id)
+      const blocked = card.status !== 'ready'
+      const hint = { unused: t('status.unusedHint'), nokey: card.provider.startsWith('deepseek') ? t('status.nokeyDeepseek') : t('status.nokeyHint'),
+        rejected: t('status.rejectedHint') }[card.status]
+      return h('div', { className: 'lr-card', 'data-rarity': rarity, 'data-current': current ? '' : undefined,
+        'data-status': card.status },
+      h('button', { type: 'button', className: 'lr-card-main', disabled: busy, title: `${card.providerName} · ${card.id}`,
+        onClick: () => (blocked ? onMore(card) : onPick(card)) },
+      h('span', { className: 'lr-card-art' }, h(Art, { art: found?.art, label: name })),
       h('span', { className: 'lr-rarity' }, rarity),
-      aa ? h('span', { className: 'lr-aa', title: t('roster.rank', { rank: aa.rank, of: aa.of }) }, `AA ${aa.intelligence}`) : null,
       current ? h('span', { className: 'lr-ribbon' }, t('roster.inUse')) : null,
+      blocked ? h('span', { className: 'lr-veil' },
+        h('strong', null, t(`status.${card.status}`)), hint ? h('span', null, hint) : null) : null,
       h('span', { className: 'lr-card-text' },
-        h('span', { className: 'lr-card-who' }, [character, tier?.name].filter(Boolean).join(' · ') || model.providerName),
-        h('span', { className: 'lr-card-name' }, model.name),
+        h('span', { className: 'lr-card-who' }, whoOf(found, state, t) ?? card.providerName),
+        h('span', { className: 'lr-card-name' }, name),
         h('span', { className: 'lr-card-meta' },
-          h('span', null, model.providerName),
-          aa ? h('span', null, t('roster.rank', { rank: aa.rank, of: aa.of })) : null),
-        aa && aa.input !== null && aa.output !== null
-          ? h('span', { className: 'lr-card-meta' }, t('roster.price', { input: money(aa.input), output: money(aa.output) }))
-          : null))
+          h('span', null, card.providerName),
+          aa ? h('span', { title: t('roster.rank', { rank: aa.rank, of: aa.of }) }, `AA ${aa.intelligence} · #${aa.rank}`) : null))),
+      h('button', { type: 'button', className: 'lr-more', title: t('roster.more'), 'aria-label': `${t('roster.more')}: ${name}`,
+        onClick: () => onMore(card) }, '…'))
     }
 
     function Credit ({ state, t }) {
@@ -332,56 +644,45 @@ window.__ModuleLoader__.load({
         h('a', { href: 'https://artificialanalysis.ai', target: '_blank', rel: 'noreferrer' }, 'artificialanalysis.ai'))
     }
 
-    function RosterTab ({ directory, available, onPicked, onSettings, t }) {
-      const snapshot = useDirectory(directory)
-      const state = useRosterState()
-      const models = useMemo(() => catalogOf(snapshot), [snapshot.groups])
-      const lookup = useResolved(models)
+    function RosterTab ({ remote, directory, available, onPicked, onPage, t }) {
+      const { snapshot, state, cards } = useCards(directory, remote)
+      const lookup = useResolved(cards)
       const [filter, setFilter] = useState('all')
       const [sort, setSort] = useState('provider')
       const [busy, setBusy] = useState(null)
       const [failure, setFailure] = useState(null)
       const current = snapshot.pending ?? snapshot.current
-      const providers = useMemo(() => [...new Map(models.map(model => [model.provider, model.providerName])).entries()], [models])
+      const providers = [...new Map(cards.map(card => [card.provider, card.providerName])).entries()]
 
-      const strength = model => {
-        const found = lookup(model)
-        return [RARITY[found?.tier ? state?.tiers?.[found.tier]?.rarity : 'R'] ?? 0, found?.aa?.intelligence ?? -1]
-      }
-      const shown = models.filter(model => filter === 'all' || model.provider === filter)
+      const shown = cards.filter(card => filter === 'all' || (filter === 'available' ? card.status === 'ready' : card.provider === filter))
+      const strength = card => [RARITY[rarityOf(lookup(card), state)] ?? 0, lookup(card)?.aa?.intelligence ?? -1]
       if (sort === 'rank') {
-        shown.sort((one, other) => (lookup(other)?.aa?.intelligence ?? -1) - (lookup(one)?.aa?.intelligence ?? -1))
+        shown.sort((one, other) => (STATUS_ORDER[one.status] > 0) - (STATUS_ORDER[other.status] > 0) ||
+          (lookup(other)?.aa?.intelligence ?? -1) - (lookup(one)?.aa?.intelligence ?? -1))
       } else {
         const order = new Map(providers.map(([id], index) => [id, index]))
         shown.sort((one, other) => order.get(one.provider) - order.get(other.provider) ||
+          STATUS_ORDER[one.status] - STATUS_ORDER[other.status] ||
           strength(other)[0] - strength(one)[0] || strength(other)[1] - strength(one)[1])
       }
 
-      async function pick (model) {
+      async function pick (card) {
         if (!available) return setFailure(t('roster.unavailable'))
-        setBusy(`${model.provider}/${model.id}`)
-        setFailure(null)
+        setBusy(`${card.provider}/${card.id}`); setFailure(null)
         try {
-          const result = await directory.select({ provider: model.provider, model: model.id })
+          const result = await directory.select({ provider: card.provider, model: card.id })
           if (result && result.ok === false) throw new Error(result.error?.message ?? 'refused')
           onPicked()
-        } catch (error) {
-          setFailure(t('failed', { error: errorText(error) }))
-        } finally {
-          setBusy(null)
-        }
+        } catch (error) { setFailure(t('failed', { error: errorText(error) })) } finally { setBusy(null) }
       }
 
-      if (!models.length) {
-        return h('div', { className: 'lr-empty' },
-          snapshot.status === 'loading' || snapshot.status === 'idle' ? t('roster.loading') : t('roster.empty'),
-          snapshot.status === 'loading' ? null
-            : h('div', null, h('button', { type: 'button', className: 'lr-button lr-primary', onClick: onSettings }, t('tab.models'))))
+      if (!cards.length && (snapshot.status === 'loading' || snapshot.status === 'idle' || !state)) {
+        return h('div', { className: 'lr-empty' }, t('roster.loading'))
       }
       return h('div', { className: 'lr-roster' },
         h('div', { className: 'lr-toolbar' },
           h('div', { className: 'lr-chips' },
-            [['all', t('roster.all')], ...providers].map(([id, label]) => h('button', {
+            [['all', t('roster.all')], ['available', t('roster.available')], ...providers].map(([id, label]) => h('button', {
               key: id, type: 'button', className: `lr-chip${filter === id ? ' lr-on' : ''}`, onClick: () => setFilter(id)
             }, label))),
           h('div', { className: 'lr-chips' },
@@ -389,34 +690,29 @@ window.__ModuleLoader__.load({
               key: id, type: 'button', className: `lr-chip${sort === id ? ' lr-on' : ''}`, onClick: () => setSort(id)
             }, t(`roster.sort.${id}`))))),
         failure ? h('div', { className: 'lr-error', role: 'alert' }, failure) : null,
-        h('div', { className: 'lr-grid' }, shown.map(model => h(Card, {
-          key: `${model.provider}/${model.id}`, model, found: lookup(model), tiers: state?.tiers,
-          characters: state?.characters, t, busy: busy !== null,
-          current: current?.provider === model.provider && current?.model === model.id, onPick: pick
-        }))),
+        h('div', { className: 'lr-grid' },
+          shown.map(card => h(Card, {
+            key: `${card.provider}/${card.id}`, card, found: lookup(card), state, t, busy: busy !== null,
+            current: current?.provider === card.provider && current?.model === card.id,
+            onPick: pick, onMore: chosen => onPage({ kind: 'character', card: chosen })
+          })),
+          h('button', { type: 'button', className: 'lr-card lr-add-card', onClick: () => onPage({ kind: 'add' }) },
+            h('span', { className: 'lr-plus' }, '+'), h('strong', null, t('roster.add')), h('span', null, t('roster.addHint')))),
         h('div', { className: 'lr-foot' }, h('span', null, busy ? t('roster.switching') : t('roster.hint')), h(Credit, { state, t })))
     }
 
-    // ---- art for one model ----
-    function ArtPicker ({ model, onClose, t }) {
+    // ---- pictures: choosing a card picture or an avatar ----
+    /** Tiles of every picture of a kind (`art`: each character's tiers; `face`: each one's portrait and tier faces) and
+     * your uploads; `value` is the chosen one (null: the default). */
+    function PictureTiles ({ kind, value, onChoose, t, defaultLabel, defaultValue = null }) {
       const state = useRosterState()
-      const lookup = useResolved([model])
-      const found = lookup(model)
       const [failure, setFailure] = useState(null)
       const input = useRef(null)
-      const choose = async art => {
-        try {
-          await post(API.pick, { model: `${model.provider}/${model.id}`, art })
-          forgetResolved()
-          onClose()
-        } catch (error) { setFailure(t('failed', { error: errorText(error) })) }
-      }
       const upload = async file => {
         if (!file) return
         try {
           const { id } = await post(`${API.upload}?name=${encodeURIComponent(file.name)}`, file, { raw: true, type: file.type })
-          await loadState()
-          await choose(`custom:${id}`)
+          await loadState(); onChoose(`custom:${id}`)
         } catch (error) { setFailure(t('failed', { error: errorText(error) })) }
       }
       const forget = async id => {
@@ -425,52 +721,364 @@ window.__ModuleLoader__.load({
         }
       }
       const characters = state ? CHARACTER_ORDER.filter(name => state.characters[name]) : []
-      const tile = (art, label, extra = null) => h('div', { key: art, className: 'lr-tile-holder' },
-        h('button', { type: 'button', className: `lr-tile${found?.art === art ? ' lr-on' : ''}`, title: label,
-          onClick: () => choose(art) }, h('img', { src: imageOf(art), alt: label, loading: 'lazy' })), extra)
-      return h(Modal, { title: t('art.title', { model: model.name ?? model.id }), onClose, t, small: true },
+      const kinds = kind === 'art' ? TIER_ORDER : ['face', ...TIER_ORDER.map(tier => `face-${tier}`)]
+      const labelOf = (name, part) => `${state.characters[name].name} · ${part === 'face' ? t('art.portrait') : t(`tier.${part.replace(/^face-/, '')}`)}`
+      const tile = (picture, label, extra = null) => h('div', { key: picture, className: 'lr-tile-holder' },
+        h('button', { type: 'button', className: `lr-tile lr-tile-${kind}${value === picture ? ' lr-on' : ''}`, title: label,
+          'aria-label': label, onClick: () => onChoose(picture) }, h('img', { src: pictureUrl(picture), alt: '', loading: 'lazy' })), extra)
+      return h('div', { className: 'lr-pictures' },
         failure ? h('div', { className: 'lr-error' }, failure) : null,
         h('div', { className: 'lr-row' },
-          h('button', { type: 'button', className: 'lr-button', onClick: () => choose(null) }, t('art.default')),
+          h('button', { type: 'button', className: `lr-button${value === defaultValue ? ' lr-on-button' : ''}`, onClick: () => onChoose(defaultValue) },
+            defaultLabel ?? t('art.default')),
           h('button', { type: 'button', className: 'lr-button lr-primary', onClick: () => input.current?.click() }, t('art.upload')),
           h('input', { ref: input, type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif', hidden: true,
             onChange: event => upload(event.target.files?.[0]) })),
-        state?.uploads?.length ? h('div', { className: 'lr-tiles' }, state.uploads.map(upload => tile(`custom:${upload.id}`,
-          upload.name || upload.id, h('button', { type: 'button', className: 'lr-tile-forget', title: t('art.forget'),
-            'aria-label': t('art.forget'), onClick: () => forget(upload.id) }, '×')))) : null,
+        state?.uploads?.length ? h('div', { className: 'lr-art-group' }, h('div', { className: 'lr-label' }, t('art.yours')),
+          h('div', { className: `lr-tiles lr-tiles-${kind}` }, state.uploads.map(found => tile(`custom:${found.id}`, found.name || found.id,
+            h('button', { type: 'button', className: 'lr-tile-forget', title: t('art.forget'), 'aria-label': t('art.forget'),
+              onClick: () => forget(found.id) }, '×'))))) : null,
         characters.map(name => h('div', { key: name, className: 'lr-art-group' },
           h('div', { className: 'lr-label' }, state.characters[name].name),
-          h('div', { className: 'lr-tiles' }, TIER_ORDER.map(tier => tile(`${name}/${tier}`,
-            `${state.characters[name].name} · ${state.tiers[tier]?.name ?? tier}`))))))
+          h('div', { className: `lr-tiles lr-tiles-${kind}` }, kinds.map(part => tile(`${name}/${part}`, labelOf(name, part)))))))
     }
 
-    // ---- one provider: key, balance, models ----
-    function ProviderCard ({ remote, entry, namespace, writable, offered, catalogNames, reload, t }) {
-      const profile = getPath(namespace.value, entry.settingsPath) ?? {}
-      const named = typeof profile.apiKeyEnv === 'string' && profile.apiKeyEnv ? profile.apiKeyEnv : undefined
-      const ref = named ?? DEFAULT_REFS[entry.provider] ?? deriveKeyRef(entry.provider)
-      const used = Array.isArray(profile.models) ? profile.models : null
-      const [info, setInfo] = useState(null)
+    function PicturePicker ({ kind, model, onClose, t }) {
+      const lookup = useResolved([model])
+      const found = lookup(model)
+      const [failure, setFailure] = useState(null)
+      const choose = async picture => {
+        try {
+          await post(API.pick, { model: `${model.provider}/${model.id}`, [kind]: picture })
+          forgetResolved(); onClose()
+        } catch (error) { setFailure(t('failed', { error: errorText(error) })) }
+      }
+      return h(Modal, { title: t(kind === 'art' ? 'art.title' : 'face.title', { model: model.name ?? model.id }), onClose, t, small: true },
+        failure ? h('div', { className: 'lr-error' }, failure) : null,
+        h(PictureTiles, { kind, value: found?.own || kind === 'face' ? found?.[kind] : null, onChoose: choose, t }))
+    }
+
+    // ---- a provider's key: status, paste, variable, test, balance ----
+    function KeySection ({ remote, info, t }) {
+      const { checks } = useShared()
+      const state = useRosterState()
+      const [described, setDescribed] = useState(null)
       const [keyDraft, setKeyDraft] = useState('')
-      const [envDraft, setEnvDraft] = useState(named ?? '')
+      const [envDraft, setEnvDraft] = useState(info.named ?? '')
       const [note, setNote] = useState(null)
       const [failure, setFailure] = useState(null)
-      const [found, setFound] = useState(null) // discovered models: [{ id, name, ..., live }]
-      const [filter, setFilter] = useState('')
-      const [balance, setBalance] = useState(null)
       const [busy, setBusy] = useState(false)
-      const [artFor, setArtFor] = useState(null)
-      useEffect(() => setEnvDraft(named ?? ''), [named])
-
+      const [balance, setBalance] = useState(null)
+      const found = checks[info.provider]
+      useEffect(() => setEnvDraft(info.named ?? ''), [info.named])
       const describe = useCallback(async () => {
         try {
-          const refs = [...new Set([ref, ...(named ? [] : entry.nativeAuth?.env ?? [])])].filter(name => REF.test(name)).slice(0, 64)
+          const refs = [...new Set([info.ref, ...(info.named ? [] : info.entry?.nativeAuth?.env ?? [])])].filter(name => REF.test(name)).slice(0, 64)
           const answer = unwrap(await remote.credentials.describe(refs))
-          setInfo(refs.map(name => ({ name, ...answer[name] })).find(item => item.configured) ?? { name: ref, ...answer[ref] })
-        } catch { setInfo({ name: ref, unknown: true }) }
-      }, [ref, named])
+          setDescribed(refs.map(name => ({ name, ...answer[name] })).find(item => item.configured) ?? { name: info.ref, ...answer[info.ref] })
+        } catch { setDescribed({ name: info.ref, unknown: true }) }
+      }, [info.ref, info.named])
       useEffect(() => { describe() }, [describe])
 
+      const run = async work => {
+        setBusy(true); setFailure(null); setNote(null)
+        try { await work() } catch (error) { setFailure(t('failed', { error: errorText(error) })) } finally { setBusy(false) }
+      }
+      const saveKey = () => run(async () => {
+        const value = keyDraft.trim()
+        if (!value) return
+        if (!info.configured && info.entry) {
+          await writeSettings(remote, info.entry.settingsNs, [{ op: 'set', path: [...info.entry.settingsPath], value: { apiKeyEnv: info.ref } }])
+        } else if (!info.named && info.entry?.settingsNs === 'llm-pi-ai') {
+          await writeSettings(remote, info.entry.settingsNs, [{ op: 'set', path: [...info.entry.settingsPath, 'apiKeyEnv'], value: info.ref }])
+        }
+        unwrap(await remote.credentials.set(info.ref, value))
+        setKeyDraft(''); setNote(t('key.saved'))
+        await describe(); await checkKey(info.provider, info.ref, true)
+      })
+      const saveEnv = () => run(async () => {
+        const name = envDraft.trim()
+        if (name && !REF.test(name)) throw new Error(t('key.envBad'))
+        const path = info.configured ? [...info.entry.settingsPath, 'apiKeyEnv'] : [...info.entry.settingsPath]
+        const ops = info.configured ? [name ? { op: 'set', path, value: name } : { op: 'unset', path }] : [{ op: 'set', path, value: { apiKeyEnv: name } }]
+        await writeSettings(remote, info.entry.settingsNs, ops)
+        setNote(name ? t('key.envSaved', { name }) : null)
+        await checkKey(info.provider, name || info.ref, true)
+      })
+      const test = () => run(async () => { await checkKey(info.provider, info.ref, true) })
+      const askBalance = () => run(async () => {
+        setBalance(await get(`${API.balance}?provider=${encodeURIComponent(info.provider)}&ref=${encodeURIComponent(info.ref)}`))
+      })
+      const status = described?.unknown ? 'unknown' : described?.configured ? (described.source === 'env' || described.source === 'environment' ? 'env' : 'stored') : 'missing'
+      const offered = state?.providers?.[info.provider]
+      const checkText = found?.status ? (found.status === 'ok' && found.models ? t('check.okModels', { count: found.models })
+        : t(`check.${found.status}`, { detail: found.detail ?? '' })) : null
+      const editable = info.writable && Boolean(info.entry)
+      return h('div', { className: 'lr-field lr-key' },
+        h('span', { className: 'lr-label' }, t('key.title')),
+        h('span', { className: 'lr-key-status', 'data-status': status },
+          h('span', { className: 'lr-dot' }), h('code', null, described?.name ?? info.ref), ' ', t(`key.${status}`),
+          checkText ? h('span', { className: 'lr-check', 'data-check': found.status }, ' · ', checkText) : null),
+        h('div', { className: 'lr-row' },
+          h('input', { className: 'lr-input', type: 'password', autoComplete: 'new-password', placeholder: t('key.paste'),
+            value: keyDraft, disabled: busy || !editable, onChange: event => setKeyDraft(event.target.value),
+            onKeyDown: event => { if (event.key === 'Enter') saveKey() } }),
+          h('button', { type: 'button', className: 'lr-button', disabled: busy || !keyDraft.trim() || !editable, onClick: saveKey }, t('key.save'))),
+        h('div', { className: 'lr-row' },
+          h('input', { className: 'lr-input lr-mono', placeholder: `${t('key.envName')} (${info.ref})`, value: envDraft,
+            disabled: busy || !editable, onChange: event => setEnvDraft(event.target.value),
+            onKeyDown: event => { if (event.key === 'Enter') saveEnv() } }),
+          h('button', { type: 'button', className: 'lr-button', disabled: busy || !editable || envDraft.trim() === (info.named ?? ''), onClick: saveEnv }, t('key.envSave'))),
+        h('div', { className: 'lr-row' },
+          offered ? h('button', { type: 'button', className: 'lr-button', disabled: busy || found?.pending, onClick: test },
+            found?.pending ? t('key.testing') : t('key.test')) : null,
+          offered?.balance ? h('button', { type: 'button', className: 'lr-button', disabled: busy, onClick: askBalance }, t('balance.button')) : null),
+        balance ? h('div', { className: 'lr-balance' },
+          balance.missing ? t('balance.missing') : !balance.offered ? t('balance.none')
+            : balance.balances.map((item, index) => h('div', { key: index },
+              h('strong', null, `${money(item.amount)} ${item.currency}`), ' ',
+              h('span', { className: 'lr-dim' }, [
+                Number.isFinite(item.granted) && item.granted ? t('balance.granted', { amount: money(item.granted) }) : null,
+                Number.isFinite(item.topped) && item.topped ? t('balance.topped', { amount: money(item.topped) }) : null,
+                Number.isFinite(item.used) && item.used ? t('balance.used', { amount: money(item.used) }) : null
+              ].filter(Boolean).join(' · ')))),
+          balance.note ? h('div', { className: 'lr-dim' }, balance.note) : null) : null,
+        note ? h('div', { className: 'lr-note' }, note) : null,
+        failure ? h('div', { className: 'lr-error', role: 'alert' }, failure) : null)
+    }
+
+    function AccountNote ({ snapshot, t }) {
+      const signedIn = (snapshot?.groups ?? []).some(group => group.id === ACCOUNT && group.models?.length)
+      return h('div', { className: 'lr-note', 'data-account': signedIn ? 'in' : 'out' }, signedIn ? t('account.signedIn') : t('account.signedOut'))
+    }
+
+    // ---- a character's page ----
+    function Stat ({ label, value, scale = 70 }) {
+      return h('div', { className: 'lr-stat' },
+        h('span', { className: 'lr-stat-label' }, label),
+        h('span', { className: 'lr-stat-bar' }, value === null || value === undefined ? null
+          : h('span', { style: { width: `${Math.max(2, Math.min(100, value / scale * 100))}%` } })),
+        h('span', { className: 'lr-stat-value' }, value ?? '–'))
+    }
+
+    function CharacterPage ({ remote, directory, available, card: initial, onBack, onPicked, t }) {
+      const { snapshot, state, providers, catalog, cards } = useCards(directory, remote)
+      const listed = cards.find(item => (item.routes ?? [item]).some(route => route.provider === initial.provider && route.id === initial.id))
+      const [routeChoice, setRouteChoice] = useState(null)
+      const routes = listed?.routes ?? null
+      const chosen = routes?.find(route => route.provider === routeChoice) ?? null
+      const card = chosen ? { ...listed, provider: chosen.provider, providerName: chosen.providerName, id: chosen.id, name: chosen.name }
+        : listed ?? initial
+      const lookup = useResolved([card])
+      const found = lookup(card)
+      const [preview, setPreview] = useState(null)
+      const [picker, setPicker] = useState(null)
+      const [busy, setBusy] = useState(false)
+      const [failure, setFailure] = useState(null)
+      const info = providerInfo(providers, card.provider)
+      const current = snapshot.pending ?? snapshot.current
+      const inSession = current?.provider === card.provider && current?.model === card.id
+      const rarity = rarityOf(found, state)
+      const aa = found?.aa
+      const name = card.source === 'catalog' ? card.name : (found?.name ?? card.name ?? card.id)
+      const shownArt = preview ?? found?.art
+      useEffect(() => setPreview(null), [found?.art])
+
+      const run = async work => {
+        setBusy(true); setFailure(null)
+        try { await work() } catch (error) { setFailure(t('failed', { error: errorText(error) })) } finally { setBusy(false) }
+      }
+      const use = () => run(async () => {
+        if (card.status === 'unused') {
+          await addModel(remote, card.provider, { id: card.id }, { catalog: catalog.filter(model => model.provider === card.provider),
+            keyName: shared.checks[card.provider]?.key })
+        }
+        if (!available) throw new Error(t('roster.unavailable'))
+        const result = await directory.select({ provider: card.provider, model: card.id })
+        if (result && result.ok === false) throw new Error(result.error?.message ?? 'refused')
+        onPicked()
+      })
+      const ignore = () => run(async () => {
+        const current = info.used ?? catalog.filter(model => model.provider === card.provider).map(model => ({ id: model.id }))
+        await writeSettings(remote, info.entry.settingsNs, [{ op: 'set', path: [...info.entry.settingsPath, 'models'],
+          value: current.filter(model => modelId(model) !== card.id) }])
+        onBack()
+      })
+      const equip = art => run(async () => { await post(API.pick, { model: `${card.provider}/${card.id}`, art }); forgetResolved() })
+      const gallery = found?.character ? TIER_ORDER.map(tier => `${found.character}/${tier}`) : []
+      if (found?.art?.startsWith('custom:')) gallery.push(found.art)
+      const canUse = card.status === 'ready' || card.status === 'unused'
+
+      return h('div', { className: 'lr-page-character', 'data-rarity': rarity },
+        h('div', { className: 'lr-page-top' },
+          h('button', { type: 'button', className: 'lr-button lr-small', onClick: onBack }, `‹ ${t('back')}`)),
+        h('div', { className: 'lr-character' },
+          h('div', { className: 'lr-character-art' },
+            h('div', { className: 'lr-showcase', 'data-rarity': rarity, 'data-status': card.status },
+              h(Art, { art: shownArt, label: name }),
+              h('span', { className: 'lr-rarity lr-rarity-big' }, rarity)),
+            gallery.length ? h('div', { className: 'lr-gallery' },
+              h('span', { className: 'lr-label' }, t('page.gallery')),
+              h('div', { className: 'lr-gallery-row' }, gallery.map(picture =>
+                h('button', { key: picture, type: 'button', className: `lr-thumb${shownArt === picture ? ' lr-on' : ''}`,
+                  title: picture.startsWith('custom:') ? t('tier.custom') : t(`tier.${picture.split('/')[1]}`),
+                  onClick: () => setPreview(picture === found?.art ? null : picture) }, h('img', { src: pictureUrl(picture), alt: '' })))),
+              preview && preview !== found?.art ? h('button', { type: 'button', className: 'lr-button lr-primary', disabled: busy,
+                onClick: () => equip(preview) }, t('page.equip')) : null) : null),
+          h('div', { className: 'lr-character-info' },
+            h('div', { className: 'lr-character-head' },
+              h(Face, { face: found?.face, label: name, size: 56, className: 'lr-face-big' }),
+              h('div', null,
+                h('div', { className: 'lr-card-who lr-who-dark' }, whoOf(found, state, t) ?? card.providerName),
+                h('h2', { className: 'lr-character-name' }, name),
+                h('div', { className: 'lr-dim' }, `${card.providerName} · `, h('code', null, card.id)))),
+            h('div', { className: 'lr-status-line', 'data-status': card.status },
+              inSession ? t('page.inUse') : t(`status.${card.status}`)),
+            routes?.length > 1 ? h('div', { className: 'lr-field' },
+              h('span', { className: 'lr-label' }, t('page.route')),
+              h('div', { className: 'lr-chips' }, routes.map(route => h('button', { key: route.provider, type: 'button',
+                className: `lr-chip${route.provider === card.provider ? ' lr-on' : ''}`, onClick: () => setRouteChoice(route.provider) },
+              route.provider === ACCOUNT ? t('page.routeAccount') : t('page.routeKey'))))) : null,
+            h('div', { className: 'lr-row' },
+              h('button', { type: 'button', className: 'lr-button lr-primary lr-big', disabled: busy || !canUse || inSession, onClick: use },
+                card.status === 'unused' ? t('page.useAdd') : t('page.use')),
+              !canUse ? h('span', { className: 'lr-dim' }, t('page.needKey')) : null),
+            failure ? h('div', { className: 'lr-error', role: 'alert' }, failure) : null,
+            h('section', { className: 'lr-section' },
+              h('h3', null, t('page.stats')),
+              aa ? h(React.Fragment, null,
+                h(Stat, { label: t('page.intelligence'), value: aa.intelligence }),
+                h(Stat, { label: t('page.coding'), value: aa.coding }),
+                h(Stat, { label: t('page.agentic'), value: aa.agentic }),
+                h('dl', { className: 'lr-facts' },
+                  h('dt', null, t('page.rank')), h('dd', null, t('roster.rank', { rank: aa.rank, of: aa.of })),
+                  aa.input !== null ? h(React.Fragment, null, h('dt', null, t('page.price')), h('dd', null, `${money(aa.input)} / ${money(aa.output)}`)) : null,
+                  aa.speed ? h(React.Fragment, null, h('dt', null, t('page.speed')), h('dd', null, t('page.speedValue', { speed: aa.speed }))) : null,
+                  aa.efforts?.length ? h(React.Fragment, null, h('dt', null, t('page.efforts')),
+                    h('dd', null, h('span', { className: 'lr-pills' }, aa.efforts.map(effort => h('span', { key: effort.effort, className: 'lr-effort' },
+                      `${effort.effort} ${effort.intelligence}`))))) : null),
+                h(Credit, { state, t })) : h('div', { className: 'lr-dim' }, t('page.noStats'))),
+            h('section', { className: 'lr-section' },
+              h('h3', null, t('page.equipment')),
+              h('div', { className: 'lr-equip' },
+                h('div', { className: 'lr-equip-slot' },
+                  h('span', { className: 'lr-label' }, t('page.art')),
+                  h('span', { className: 'lr-equip-art' }, h(Art, { art: found?.art, label: name })),
+                  h('button', { type: 'button', className: 'lr-button lr-small', onClick: () => setPicker('art') }, t('page.change'))),
+                h('div', { className: 'lr-equip-slot' },
+                  h('span', { className: 'lr-label' }, t('page.avatar')),
+                  h(Face, { face: found?.face, label: name, size: 48 }),
+                  h('button', { type: 'button', className: 'lr-button lr-small', onClick: () => setPicker('face') }, t('page.change')))),
+              h('div', { className: 'lr-field' },
+                h('span', { className: 'lr-label' }, t('page.roster')),
+                h('div', { className: 'lr-row' },
+                  h('span', null, card.source === 'catalog' ? t('page.rosterUsed') : t('page.rosterIgnored')),
+                  card.source === 'catalog' && info.entry && card.provider !== ACCOUNT
+                    ? h('button', { type: 'button', className: 'lr-button lr-small', disabled: busy || !info.writable, onClick: ignore }, t('page.ignore')) : null))),
+            h('section', { className: 'lr-section' },
+              h('h3', null, `${t('page.provider')}: ${card.providerName}`),
+              card.provider.startsWith('deepseek') ? h(AccountNote, { snapshot, t }) : null,
+              card.provider !== ACCOUNT && info.entry ? h(KeySection, { remote, info, t }) : null))),
+        picker ? h(PicturePicker, { kind: picker, model: { provider: card.provider, id: card.id, name }, onClose: () => setPicker(null), t }) : null)
+    }
+
+    // ---- adding a model the lineup does not have ----
+    function AddPage ({ remote, directory, onBack, onDone, t }) {
+      const snapshot = useDirectory(directory)
+      const providers = useProviders(remote)
+      const state = useRosterState()
+      const catalog = catalogOf(snapshot)
+      const parked = state?.parked ?? {}
+      const options = (providers?.entries ?? []).filter(entry => entry.provider !== ACCOUNT && providers.namespaces.has(entry.settingsNs))
+      const [provider, setProvider] = useState('')
+      const [model, setModel] = useState('')
+      const [name, setName] = useState('')
+      const [art, setArt] = useState(null)
+      const [face, setFace] = useState(null)
+      const [found, setFound] = useState([])
+      const [busy, setBusy] = useState(false)
+      const [failure, setFailure] = useState(null)
+      useEffect(() => {
+        if (!provider && options.length) setProvider((options.find(entry => providerInfo(providers, entry.provider).configured) ?? options[0]).provider)
+      }, [options.length])
+      const info = providerInfo(providers, provider)
+      const run = async work => {
+        setBusy(true); setFailure(null)
+        try { await work() } catch (error) { setFailure(t('failed', { error: errorText(error) })) } finally { setBusy(false) }
+      }
+      const fetchModels = live => run(async () => {
+        const models = live
+          ? (await get(`${API.live}?provider=${encodeURIComponent(provider)}&ref=${encodeURIComponent(info.ref)}`)).models
+          : unwrap(await remote.llm.discoverModels(info.entry.settingsNs, { provider }))
+        setFound(models)
+      })
+      const save = () => run(async () => {
+        const id = model.trim()
+        if (!id) throw new Error(t('add.needModel'))
+        const fetched = found.find(item => item.id === id) ?? {}
+        await addModel(remote, provider, { ...fetched, id, name: name.trim() || fetched.name },
+          { catalog: catalog.filter(item => item.provider === provider), keyName: shared.checks[provider]?.key })
+        if (art !== null || face !== null) await post(API.pick, { model: `${provider}/${id}`, ...(art !== null ? { art } : {}), ...(face !== null ? { face } : {}) })
+        forgetResolved()
+        onDone({ provider, id, name: name.trim() || fetched.name || id, providerName: providerName(provider, snapshot, providers) })
+      })
+      const configured = entry => providerInfo(providers, entry.provider).configured && !parked[entry.provider]
+      return h('div', { className: 'lr-page-add' },
+        h('div', { className: 'lr-page-top' },
+          h('button', { type: 'button', className: 'lr-button lr-small', onClick: onBack }, `‹ ${t('back')}`),
+          h('h2', { className: 'lr-page-title' }, t('add.title'))),
+        h('p', { className: 'lr-dim' }, t('add.intro')),
+        !providers?.view ? h('div', { className: 'lr-empty' }, t('models.loading')) : h(React.Fragment, null,
+          h('label', { className: 'lr-field' },
+            h('span', { className: 'lr-label' }, t('add.provider')),
+            h('select', { className: 'lr-input lr-select', value: provider, onChange: event => { setProvider(event.target.value); setFound([]) } },
+              options.map(entry => h('option', { key: entry.provider, value: entry.provider },
+                configured(entry) ? (entry.displayName || entry.provider) : t('add.newProvider', { name: entry.displayName || entry.provider }))))),
+          provider ? h('div', { className: 'lr-field' },
+            h('span', { className: 'lr-label' }, t('add.model')),
+            h('div', { className: 'lr-row' },
+              h('input', { className: 'lr-input lr-mono', list: 'lr-add-models', placeholder: t('add.modelHint'), value: model,
+                onChange: event => setModel(event.target.value) }),
+              h('datalist', { id: 'lr-add-models' }, found.map(item => h('option', { key: item.id, value: item.id }, item.name ?? item.id))),
+              h('button', { type: 'button', className: 'lr-button lr-small', disabled: busy || !info.entry, onClick: () => fetchModels(false) }, t('fetch.catalog')),
+              state?.providers?.[provider]?.models ? h('button', { type: 'button', className: 'lr-button lr-small', disabled: busy,
+                title: t('fetch.liveTitle'), onClick: () => fetchModels(true) }, t('fetch.live')) : null),
+            found.length ? h('span', { className: 'lr-dim' }, t('fetch.found', { count: found.length })) : null) : null,
+          h('label', { className: 'lr-field' },
+            h('span', { className: 'lr-label' }, t('add.name')),
+            h('input', { className: 'lr-input', value: name, onChange: event => setName(event.target.value) })),
+          provider && !info.configured && info.entry ? h('div', { className: 'lr-section' }, h(KeySection, { remote, info, t })) : null,
+          h('div', { className: 'lr-add-pictures' },
+            h('div', { className: 'lr-field' }, h('span', { className: 'lr-label' }, t('add.art')),
+              h(PictureTiles, { kind: 'art', value: art, onChoose: setArt, t, defaultLabel: t('add.auto') })),
+            h('div', { className: 'lr-field' }, h('span', { className: 'lr-label' }, t('add.avatar')),
+              h(PictureTiles, { kind: 'face', value: face, onChoose: setFace, t, defaultLabel: t('add.sameAsArt') }))),
+          failure ? h('div', { className: 'lr-error', role: 'alert' }, failure) : null,
+          h('div', { className: 'lr-row lr-sticky' },
+            h('button', { type: 'button', className: 'lr-button lr-primary lr-big', disabled: busy || !provider || !model.trim(), onClick: save },
+              busy ? t('add.saving') : t('add.save')))))
+    }
+
+    // ---- Models & keys ----
+    function ProviderCard ({ remote, info, snapshot, catalogNames, t }) {
+      const { entry } = info
+      const [found, setFound] = useState(null) // discovered models: [{ id, name, ..., live }]
+      const [filter, setFilter] = useState('')
+      const [busy, setBusy] = useState(false)
+      const [note, setNote] = useState(null)
+      const [failure, setFailure] = useState(null)
+      const [faceFor, setFaceFor] = useState(null)
+      const [removing, setRemoving] = useState(false)
+      const [dropKey, setDropKey] = useState(false)
+      const run = async work => {
+        setBusy(true); setFailure(null); setNote(null)
+        try { await work() } catch (error) { setFailure(t('failed', { error: errorText(error) })) } finally { setBusy(false) }
+      }
+      const merge = (previous, models) => {
+        const all = new Map((previous ?? []).map(model => [model.id, model]))
+        for (const model of models) all.set(model.id, { ...all.get(model.id), ...model, live: all.get(model.id)?.live === false ? false : model.live })
+        return [...all.values()]
+      }
       const fetchCatalog = useCallback(async quiet => {
         try {
           const models = unwrap(await remote.llm.discoverModels(entry.settingsNs, { provider: entry.provider }))
@@ -479,212 +1087,176 @@ window.__ModuleLoader__.load({
         } catch (error) { if (!quiet) setFailure(t('failed', { error: errorText(error) })) }
       }, [entry.provider, entry.settingsNs])
       useEffect(() => { fetchCatalog(true) }, [fetchCatalog])
-
-      const merge = (previous, models) => {
-        const all = new Map((previous ?? []).map(model => [model.id, model]))
-        for (const model of models) all.set(model.id, { ...all.get(model.id), ...model, live: all.get(model.id)?.live === false ? false : model.live })
-        return [...all.values()]
-      }
-      async function fetchLive () {
-        setBusy(true); setFailure(null)
-        try {
-          const answer = await get(`${API.live}?provider=${encodeURIComponent(entry.provider)}&ref=${encodeURIComponent(ref)}`)
-          setFound(previous => merge(previous, answer.models.map(model => ({ ...model, live: true }))))
-          setNote(t('fetch.found', { count: answer.models.length }))
-        } catch (error) { setFailure(t('failed', { error: errorText(error) })) } finally { setBusy(false) }
-      }
-
-      async function write (path, value) {
-        const ops = value === undefined ? [{ op: 'unset', path }] : [{ op: 'set', path, value }]
-        let attempt = namespace.revision
-        for (let tries = 0; tries < 2; tries++) {
-          const response = await remote.settings.mutate(entry.settingsNs, ops, attempt)
-          if (response?.ok !== false) { await reload(); return }
-          if (response.error?.code !== 'settings/conflict' || tries) throw new Error(response.error?.message ?? 'refused')
-          const view = unwrap(await remote.settings.describe())
-          attempt = view.namespaces.find(item => item.ns === entry.settingsNs)?.revision
-        }
-      }
-
-      async function saveKey () {
-        const value = keyDraft.trim()
-        if (!value) return
-        setBusy(true); setFailure(null); setNote(null)
-        try {
-          if (!named && entry.settingsNs === 'llm-pi-ai') await write([...entry.settingsPath, 'apiKeyEnv'], ref)
-          unwrap(await remote.credentials.set(ref, value))
-          setKeyDraft('')
-          setNote(t('key.saved'))
-          await describe()
-        } catch (error) { setFailure(t('failed', { error: errorText(error) })) } finally { setBusy(false) }
-      }
-      async function saveEnv () {
-        const name = envDraft.trim()
-        if (name && !REF.test(name)) return setFailure(t('key.envBad'))
-        setBusy(true); setFailure(null); setNote(null)
-        try {
-          await write([...entry.settingsPath, 'apiKeyEnv'], name || undefined)
-          setNote(name ? t('key.envSaved', { name }) : null)
-        } catch (error) { setFailure(t('failed', { error: errorText(error) })) } finally { setBusy(false) }
-      }
-      async function askBalance () {
-        setBusy(true); setFailure(null)
-        try {
-          setBalance(await get(`${API.balance}?provider=${encodeURIComponent(entry.provider)}&ref=${encodeURIComponent(ref)}`))
-        } catch (error) { setFailure(t('failed', { error: errorText(error) })) } finally { setBusy(false) }
-      }
+      const fetchLive = () => run(async () => {
+        const answer = await get(`${API.live}?provider=${encodeURIComponent(entry.provider)}&ref=${encodeURIComponent(info.ref)}`)
+        setFound(previous => merge(previous, answer.models.map(model => ({ ...model, live: true }))))
+        setNote(t('fetch.found', { count: answer.models.length }))
+      })
 
       // Used: the profile's model list; without one, the provider's whole catalog (as DSH's picker shows it).
       const catalog = catalogNames ?? []
-      const usedIds = used ? used.map(model => (typeof model === 'string' ? model : model.id)) : catalog.map(model => model.id)
+      const usedIds = info.used ? info.used.map(modelId) : catalog.map(model => model.id)
       const usedSet = new Set(usedIds)
       const ignored = (found ?? []).filter(model => !usedSet.has(model.id))
       const shownIgnored = ignored.filter(model => !filter || `${model.id} ${model.name ?? ''}`.toLowerCase().includes(filter.toLowerCase()))
       const nameOf = id => catalog.find(model => model.id === id)?.name ?? found?.find(model => model.id === id)?.name ?? id
       const lookup = useResolved(usedIds.map(id => ({ provider: entry.provider, id })))
+      const writeModels = value => writeSettings(remote, entry.settingsNs, [value === undefined
+        ? { op: 'unset', path: [...entry.settingsPath, 'models'] } : { op: 'set', path: [...entry.settingsPath, 'models'], value }])
 
-      async function move (id, toUsed) {
-        if (!writable) return
-        const current = used ?? catalog.map(model => ({ id: model.id }))
-        let next
+      // Every model ignored: DeepSeek's own section takes an empty list; a pi-ai route with no list serves its whole
+      // catalog, so it is set aside whole (kept in the roster's file) and put back as it was.
+      const parkable = info.removable && entry.settingsNs === 'llm-pi-ai'
+      const canIgnoreAll = entry.settingsNs === 'llm-deepseek' || parkable
+      async function ignoreAll () {
+        if (entry.settingsNs === 'llm-deepseek') return writeModels([])
+        const profile = getPath(info.namespace.user ?? info.namespace.value, entry.settingsPath) ?? info.profile
+        await post(API.park, { provider: entry.provider, ns: entry.settingsNs, path: entry.settingsPath, profile })
+        try {
+          await writeSettings(remote, entry.settingsNs, [{ op: 'unset', path: [...entry.settingsPath] }])
+        } catch (error) { await post(API.unpark, { provider: entry.provider }); throw error } finally { await loadState() }
+      }
+      const move = (id, toUsed) => run(async () => {
+        const current = info.used ?? catalog.map(model => ({ id: model.id }))
         if (toUsed) {
           const model = found?.find(item => item.id === id) ?? { id }
           const entryOf = model.live
             ? Object.fromEntries(Object.entries({ id: model.id, name: model.name, contextWindow: model.contextWindow,
                 maxTokens: model.maxTokens }).filter(([, value]) => value !== undefined && value !== null))
             : { id: model.id }
-          next = [...current, entryOf]
+          await writeModels([...current, entryOf])
         } else {
-          next = current.filter(model => (typeof model === 'string' ? model : model.id) !== id)
-          if (!next.length) return setFailure(t('used.last'))
+          const next = current.filter(model => modelId(model) !== id)
+          if (!next.length && canIgnoreAll) return ignoreAll()
+          if (!next.length) throw new Error(t('models.ignoreAllFixed'))
+          await writeModels(next)
         }
-        setBusy(true); setFailure(null); setNote(null)
-        try { await write([...entry.settingsPath, 'models'], next) } catch (error) {
-          setFailure(t('failed', { error: errorText(error) }))
-        } finally { setBusy(false) }
-      }
+      })
+      const remove = () => run(async () => {
+        if (dropKey) unwrap(await remote.credentials.unset(info.ref))
+        await writeSettings(remote, entry.settingsNs, [{ op: 'unset', path: [...entry.settingsPath] }])
+        bump({ checks: { ...shared.checks, [entry.provider]: undefined } })
+        setRemoving(false)
+      })
 
-      const status = info?.unknown ? 'unknown' : info?.configured ? (info.source === 'environment' || info.source === 'env' ? 'env' : 'stored') : 'missing'
-      return h('section', { className: 'lr-provider' },
+      return h('section', { className: 'lr-provider', 'data-provider': entry.provider },
         h('header', { className: 'lr-provider-head' },
           h('span', { className: 'lr-provider-name' }, entry.displayName || entry.provider),
-          h('code', { className: 'lr-dim' }, entry.provider)),
-        h('div', { className: 'lr-field' },
-          h('span', { className: 'lr-label' }, t('key.title')),
-          h('span', { className: 'lr-key-status', 'data-status': status },
-            h('span', { className: 'lr-dot' }), h('code', null, info?.name ?? ref), ' ', t(`key.${status}`)),
+          h('code', { className: 'lr-dim' }, entry.provider),
+          h('span', { className: 'lr-spacer' }),
+          h('button', { type: 'button', className: 'lr-button lr-small lr-danger', disabled: busy || !info.removable || !info.writable,
+            title: info.removable ? undefined : t('models.removeFixed'), onClick: () => setRemoving(true) }, t('models.remove'))),
+        removing ? h('div', { className: 'lr-confirm', role: 'alertdialog' },
+          h('span', null, t('models.removeConfirm', { name: entry.displayName || entry.provider })),
+          h('label', { className: 'lr-check-row' }, h('input', { type: 'checkbox', checked: dropKey, onChange: event => setDropKey(event.target.checked) }),
+            t('models.removeKey')),
           h('div', { className: 'lr-row' },
-            h('input', { className: 'lr-input', type: 'password', autoComplete: 'new-password', placeholder: t('key.paste'),
-              value: keyDraft, disabled: busy || !writable, onChange: event => setKeyDraft(event.target.value),
-              onKeyDown: event => { if (event.key === 'Enter') saveKey() } }),
-            h('button', { type: 'button', className: 'lr-button', disabled: busy || !keyDraft.trim() || !writable, onClick: saveKey }, t('key.save'))),
-          h('div', { className: 'lr-row' },
-            h('input', { className: 'lr-input lr-mono', placeholder: `${t('key.envName')} (${ref})`, value: envDraft,
-              disabled: busy || !writable, onChange: event => setEnvDraft(event.target.value),
-              onKeyDown: event => { if (event.key === 'Enter') saveEnv() } }),
-            h('button', { type: 'button', className: 'lr-button', disabled: busy || !writable || envDraft.trim() === (named ?? ''), onClick: saveEnv }, t('key.envSave')),
-            offered?.balance ? h('button', { type: 'button', className: 'lr-button', disabled: busy, onClick: askBalance }, t('balance.button')) : null),
-          balance ? h('div', { className: 'lr-balance' },
-            balance.missing ? t('balance.missing') : !balance.offered ? t('balance.none')
-              : balance.balances.map((item, index) => h('div', { key: index },
-                h('strong', null, `${money(item.amount)} ${item.currency}`), ' ',
-                h('span', { className: 'lr-dim' }, [
-                  Number.isFinite(item.granted) && item.granted ? t('balance.granted', { amount: money(item.granted) }) : null,
-                  Number.isFinite(item.topped) && item.topped ? t('balance.topped', { amount: money(item.topped) }) : null,
-                  Number.isFinite(item.used) && item.used ? t('balance.used', { amount: money(item.used) }) : null
-                ].filter(Boolean).join(' · ')))),
-            balance.note ? h('div', { className: 'lr-dim' }, balance.note) : null) : null),
+            h('button', { type: 'button', className: 'lr-button lr-danger-solid', disabled: busy, onClick: remove }, t('models.removeYes')),
+            h('button', { type: 'button', className: 'lr-button', onClick: () => setRemoving(false) }, t('cancel')))) : null,
+        entry.provider === 'deepseek-official' ? h(AccountNote, { snapshot, t }) : null,
+        h(KeySection, { remote, info, t }),
         h('div', { className: 'lr-field' },
-          h('span', { className: 'lr-label' }, t('used.title', { count: usedIds.length })),
-          used ? null : h('div', { className: 'lr-dim' }, t('used.all', { count: usedIds.length })),
+          h('div', { className: 'lr-row lr-between' },
+            h('span', { className: 'lr-label' }, t('used.title', { count: usedIds.length })),
+            h('span', { className: 'lr-row' },
+              h('button', { type: 'button', className: 'lr-button lr-small', disabled: busy || !info.writable || !info.used,
+                onClick: () => run(() => writeModels(undefined)) }, t('models.useAll')),
+              h('button', { type: 'button', className: 'lr-button lr-small', disabled: busy || !info.writable || !canIgnoreAll,
+                title: canIgnoreAll ? undefined : t('models.ignoreAllFixed'), onClick: () => run(ignoreAll) }, t('models.ignoreAll')))),
+          info.used ? null : h('div', { className: 'lr-dim' }, t('used.all', { count: usedIds.length })),
           h('div', { className: 'lr-pills' }, usedIds.map(id => h('span', { key: id, className: 'lr-pill lr-used' },
-            h('button', { type: 'button', className: 'lr-pill-face', title: t('art.change'), 'aria-label': t('art.change'),
-              onClick: () => setArtFor({ provider: entry.provider, id, name: nameOf(id) }) },
-            h(Face, { found: lookup({ provider: entry.provider, id }), label: id, size: 20 })),
-            h('button', { type: 'button', className: 'lr-pill-text', disabled: busy || !writable, title: id,
+            h('button', { type: 'button', className: 'lr-pill-face', title: `${t('page.avatar')}: ${t('page.change')}`, 'aria-label': `${t('page.avatar')}: ${id}`,
+              onClick: () => setFaceFor({ provider: entry.provider, id, name: nameOf(id) }) },
+            h(Face, { face: lookup({ provider: entry.provider, id })?.face, label: id, size: 20 })),
+            h('button', { type: 'button', className: 'lr-pill-text', disabled: busy || !info.writable, title: id,
               onClick: () => move(id, false) }, nameOf(id)))))),
         h('div', { className: 'lr-field' },
           h('div', { className: 'lr-row lr-between' },
             h('span', { className: 'lr-label' }, t('ignored.title', { count: ignored.length })),
             h('span', { className: 'lr-row' },
               h('button', { type: 'button', className: 'lr-button lr-small', disabled: busy, onClick: () => fetchCatalog(false) }, t('fetch.catalog')),
-              offered?.models ? h('button', { type: 'button', className: 'lr-button lr-small', disabled: busy, title: t('fetch.liveTitle'), onClick: fetchLive }, t('fetch.live')) : null)),
+              shared.state?.providers?.[entry.provider]?.models ? h('button', { type: 'button', className: 'lr-button lr-small', disabled: busy,
+                title: t('fetch.liveTitle'), onClick: fetchLive }, t('fetch.live')) : null)),
           ignored.length > 12 ? h('input', { className: 'lr-input lr-small-input', placeholder: t('ignored.filter'), value: filter,
             onChange: event => setFilter(event.target.value) }) : null,
           ignored.length ? h('div', { className: 'lr-pills' }, shownIgnored.slice(0, 150).map(model => h('button', {
-            key: model.id, type: 'button', className: 'lr-pill lr-ignored', disabled: busy || !writable, title: model.name ?? model.id,
+            key: model.id, type: 'button', className: 'lr-pill lr-ignored', disabled: busy || !info.writable, title: model.name ?? model.id,
             onClick: () => move(model.id, true)
-          }, model.id, model.live && !catalog.some(item => item.id === model.id) && !(found ?? []).some(item => item.id === model.id && item.live === false)
-            ? h('span', { className: 'lr-new' }, 'live') : null)),
+          }, model.id, model.live && !(found ?? []).some(item => item.id === model.id && item.live === false)
+            ? h('span', { className: 'lr-new' }, t('fetch.newTag')) : null)),
           shownIgnored.length > 150 ? h('span', { className: 'lr-dim' }, t('ignored.more', { count: shownIgnored.length - 150 })) : null)
             : h('div', { className: 'lr-dim' }, t('ignored.none'))),
         note ? h('div', { className: 'lr-note' }, note) : null,
         failure ? h('div', { className: 'lr-error', role: 'alert' }, failure) : null,
-        artFor ? h(ArtPicker, { model: artFor, onClose: () => setArtFor(null), t }) : null)
+        faceFor ? h(PicturePicker, { kind: 'face', model: faceFor, onClose: () => setFaceFor(null), t }) : null)
+    }
+
+    function ParkedCard ({ remote, provider, parked, providers, t }) {
+      const [busy, setBusy] = useState(false)
+      const [failure, setFailure] = useState(null)
+      const label = providers?.entries?.find(entry => entry.provider === provider)?.displayName ?? provider
+      const restore = async () => {
+        setBusy(true); setFailure(null)
+        try {
+          await writeSettings(remote, parked.ns, [{ op: 'set', path: parked.path, value: parked.profile ?? {} }])
+          await post(API.unpark, { provider }); await loadState()
+        } catch (error) { setFailure(t('failed', { error: errorText(error) })) } finally { setBusy(false) }
+      }
+      return h('section', { className: 'lr-provider lr-parked', 'data-provider': provider },
+        h('header', { className: 'lr-provider-head' },
+          h('span', { className: 'lr-provider-name' }, label), h('code', { className: 'lr-dim' }, provider), h('span', { className: 'lr-spacer' }),
+          h('button', { type: 'button', className: 'lr-button lr-small lr-primary', disabled: busy, onClick: restore }, t('parked.restore'))),
+        h('div', null, h('strong', null, t('parked.title')), ' ', h('span', { className: 'lr-dim' }, t('parked.hint'))),
+        failure ? h('div', { className: 'lr-error' }, failure) : null)
     }
 
     function ModelsTab ({ remote, directory, t }) {
       const state = useRosterState()
-      const [view, setView] = useState(null)
-      const [entries, setEntries] = useState(null)
-      const [failure, setFailure] = useState(null)
+      const providers = useProviders(remote)
+      const snapshot = useDirectory(directory)
       const [adding, setAdding] = useState(false)
-      const snapshot = directory ? useDirectory(directory) : null
-      const [catalog, setCatalog] = useState(null)
-
-      const reload = useCallback(async () => {
-        try {
-          const [described, configurable, models] = await Promise.all([remote.settings.describe(),
-            remote.llm.listConfigurableProviders(), directory ? Promise.resolve(null) : remote.session.modelCatalog()])
-          setView(unwrap(described))
-          setEntries(unwrap(configurable))
-          if (models) setCatalog(unwrap(models))
-          setFailure(null)
-        } catch (error) { setFailure(t('failed', { error: errorText(error) })) }
-      }, [])
-      useEffect(() => { reload() }, [reload])
-      useEffect(() => { directory?.load().catch(() => {}) }, [directory])
-
-      if (failure && !view) return h('div', { className: 'lr-error' }, failure)
-      if (!view || !entries) return h('div', { className: 'lr-empty' }, t('models.loading'))
-      const namespaces = new Map(view.namespaces.map(item => [item.ns, item]))
-      const groups = snapshot?.groups ?? catalog?.groups ?? []
-      const rows = entries.filter(entry => entry.provider !== 'deepseek-account' && namespaces.has(entry.settingsNs))
-      const configured = rows.filter(entry => entry.settingsPath.length === 0 ||
-        getPath(namespaces.get(entry.settingsNs).value, entry.settingsPath) !== undefined)
-      const addable = rows.filter(entry => !configured.includes(entry) && entry.settingsPath.length > 0)
-      const writable = view.writable !== false
-
-      async function add (provider) {
-        const entry = addable.find(item => item.provider === provider)
-        if (!entry) return
-        setAdding(true)
-        try {
-          const response = await remote.settings.mutate(entry.settingsNs, [{ op: 'set', path: [...entry.settingsPath], value: {} }],
-            namespaces.get(entry.settingsNs).revision)
-          unwrap(response)
-          await reload()
-        } catch (error) { setFailure(t('failed', { error: errorText(error) })) } finally { setAdding(false) }
+      const [failure, setFailure] = useState(null)
+      useEffect(() => { directory.load().catch(() => {}) }, [directory])
+      if (providers?.error && !providers.view) return h('div', { className: 'lr-error' }, t('failed', { error: providers.error }))
+      if (!providers?.view) return h('div', { className: 'lr-empty' }, t('models.loading'))
+      const parked = state?.parked ?? {}
+      const rows = providers.entries.filter(entry => providers.namespaces.has(entry.settingsNs))
+      const infos = rows.map(entry => providerInfo(providers, entry.provider))
+      const configured = infos.filter(info => info.configured && info.provider !== ACCOUNT)
+      const addable = infos.filter(info => !info.configured && !info.whole && !parked[info.provider])
+      const account = providers.entries.find(entry => entry.provider === ACCOUNT)
+      const writable = providers.view.writable !== false
+      const add = async provider => {
+        const info = addable.find(item => item.provider === provider)
+        if (!info) return
+        setAdding(true); setFailure(null)
+        try { await writeSettings(remote, info.entry.settingsNs, [{ op: 'set', path: [...info.entry.settingsPath], value: {} }]) } catch (error) {
+          setFailure(t('failed', { error: errorText(error) }))
+        } finally { setAdding(false) }
       }
-
       return h('div', { className: 'lr-models' },
         h('p', { className: 'lr-dim lr-intro' }, t('models.intro')),
         writable ? null : h('div', { className: 'lr-note' }, t('models.readOnly')),
         failure ? h('div', { className: 'lr-error' }, failure) : null,
-        configured.map(entry => h(ProviderCard, {
-          key: `${entry.settingsNs}:${entry.provider}`, remote, entry, namespace: namespaces.get(entry.settingsNs), writable,
-          offered: state?.providers?.[entry.provider], reload,
-          catalogNames: groups.find(group => group.id === entry.provider)?.models ?? null, t
-        })),
+        account ? h('section', { className: 'lr-provider', 'data-provider': ACCOUNT },
+          h('header', { className: 'lr-provider-head' }, h('span', { className: 'lr-provider-name' }, t('account.title')),
+            h('code', { className: 'lr-dim' }, ACCOUNT)),
+          h(AccountNote, { snapshot, t }),
+          h('div', { className: 'lr-pills' }, (snapshot.groups.find(group => group.id === ACCOUNT)?.models ?? [])
+            .map(model => h('span', { key: model.id, className: 'lr-pill lr-used lr-static' }, model.name ?? model.id)))) : null,
+        configured.map(info => h(ProviderCard, { key: `${info.entry.settingsNs}:${info.provider}`, remote, info, snapshot,
+          catalogNames: snapshot.groups.find(group => group.id === info.provider)?.models ?? null, t })),
+        Object.entries(parked).map(([provider, about]) => h(ParkedCard, { key: `parked:${provider}`, remote, provider, parked: about, providers, t })),
         writable && addable.length ? h('select', { className: 'lr-input lr-add', value: '', disabled: adding,
           onChange: event => add(event.target.value) },
         h('option', { value: '' }, adding ? t('models.adding') : t('models.add')),
-        addable.map(entry => h('option', { key: entry.provider, value: entry.provider }, entry.displayName || entry.provider))) : null)
+        addable.map(info => h('option', { key: info.provider, value: info.provider }, info.entry.displayName || info.provider))) : null)
     }
 
+    // ---- Rankings ----
     /** Your Artificial Analysis key: pasted (kept write-only in DSH's credential store, under the first name the server
      * looks up), or the variable that holds it (kept in the roster's settings). */
-    function AaKey ({ remote, t, onChange }) {
+    function AaKey ({ remote, t }) {
       const state = useRosterState()
       const keys = state?.rankings?.keys ?? ['ARTIFICIAL_ANALYSIS_API_KEY', 'AA_API_TOKEN']
       const keyEnv = state?.rankings?.keyEnv ?? ''
@@ -702,25 +1274,23 @@ window.__ModuleLoader__.load({
         } catch { setInfo({ name: keys[0], unknown: true }) }
       }, [keys.join()])
       useEffect(() => { describe() }, [describe])
-      async function saveKey () {
+      const run = async work => {
+        setBusy(true); setFailure(null); setNote(null)
+        try { await work() } catch (error) { setFailure(t('failed', { error: errorText(error) })) } finally { setBusy(false) }
+      }
+      const saveKey = () => run(async () => {
         const value = keyDraft.trim()
         if (!value) return
-        setBusy(true); setFailure(null); setNote(null)
-        try {
-          unwrap(await remote.credentials.set(keys[0], value))
-          setKeyDraft(''); setNote(t('key.saved')); await describe(); onChange?.()
-        } catch (error) { setFailure(t('failed', { error: errorText(error) })) } finally { setBusy(false) }
-      }
-      async function saveEnv () {
+        unwrap(await remote.credentials.set(keys[0], value))
+        setKeyDraft(''); setNote(t('key.saved')); await describe()
+      })
+      const saveEnv = () => run(async () => {
         const name = envDraft.trim()
-        if (name && !REF.test(name)) return setFailure(t('key.envBad'))
-        setBusy(true); setFailure(null); setNote(null)
-        try {
-          await post(API.settings, { aaKeyEnv: name || null })
-          await loadState()
-          setNote(name ? t('key.envSaved', { name }) : null)
-        } catch (error) { setFailure(t('failed', { error: errorText(error) })) } finally { setBusy(false) }
-      }
+        if (name && !REF.test(name)) throw new Error(t('key.envBad'))
+        await post(API.settings, { aaKeyEnv: name || null })
+        await loadState()
+        setNote(name ? t('key.envSaved', { name }) : null)
+      })
       const status = info?.unknown ? 'unknown' : info?.configured ? (info.source === 'env' || info.source === 'environment' ? 'env' : 'stored') : 'missing'
       const usual = keys.filter(name => name !== keyEnv).join(', ')
       return h('section', { className: 'lr-provider lr-aa-key' },
@@ -744,7 +1314,7 @@ window.__ModuleLoader__.load({
     }
 
     function RankingsTab ({ remote, directory, t }) {
-      const snapshot = directory ? useDirectory(directory) : null
+      const snapshot = useDirectory(directory)
       const [data, setData] = useState(null)
       const [busy, setBusy] = useState(false)
       const [failure, setFailure] = useState(null)
@@ -752,7 +1322,7 @@ window.__ModuleLoader__.load({
         try { setData(await get(`${API.rankings}?top=30`)) } catch (error) { setFailure(t('failed', { error: errorText(error) })) }
       }
       useEffect(() => { load() }, [])
-      const models = snapshot ? catalogOf(snapshot) : []
+      const models = catalogOf(snapshot)
       const lookup = useResolved(models)
       const mine = new Set(models.map(model => lookup(model)?.aa?.slug).filter(Boolean))
       async function refresh () {
@@ -762,7 +1332,7 @@ window.__ModuleLoader__.load({
         } finally { setBusy(false) }
       }
       return h('div', { className: 'lr-rankings' },
-        remote ? h(AaKey, { remote, t }) : null,
+        h(AaKey, { remote, t }),
         h('div', { className: 'lr-row lr-between' },
           h('span', { className: 'lr-dim' }, data?.as_of ? t('rankings.intro', { version: data.version ?? '?', date: data.as_of }) : t('credit.none')),
           h('button', { type: 'button', className: 'lr-button', disabled: busy, onClick: refresh }, busy ? t('rankings.refreshing') : t('rankings.refresh'))),
@@ -781,6 +1351,7 @@ window.__ModuleLoader__.load({
         h('div', { className: 'lr-credit' }, h('a', { href: 'https://artificialanalysis.ai', target: '_blank', rel: 'noreferrer' }, t('rankings.source'))))
     }
 
+    // ---- the dialog ----
     function Modal ({ title, onClose, small = false, children, t, tabs = null }) {
       const box = useRef(null)
       useEffect(() => {
@@ -802,15 +1373,20 @@ window.__ModuleLoader__.load({
 
     function RosterDialog ({ remote, directory, available, onClose, t }) {
       const [tab, setTab] = useState(() => { try { return sessionStorage.getItem('dsh-llm-roster.tab') || 'roster' } catch { return 'roster' } })
+      const [page, setPage] = useState(null) // within Roster: { kind: 'character', card } or { kind: 'add' }
       useEffect(() => { try { sessionStorage.setItem('dsh-llm-roster.tab', tab) } catch { /* fine */ } }, [tab])
-      useEffect(() => { directory.load().catch(() => {}) }, [directory])
+      useEffect(() => { directory.load().catch(() => {}); loadProviders(remote).catch(() => {}) }, [directory])
+      const close = useCallback(() => (page ? setPage(null) : onClose()), [page, onClose])
       const tabs = h('nav', { className: 'lr-tabs' }, ['roster', 'models', 'rankings'].map(id => h('button', {
-        key: id, type: 'button', className: `lr-tab${tab === id ? ' lr-on' : ''}`, onClick: () => setTab(id)
+        key: id, type: 'button', className: `lr-tab${tab === id ? ' lr-on' : ''}`, onClick: () => { setTab(id); setPage(null) }
       }, t(`tab.${id}`))))
-      return h(Modal, { title: t('dialog.title'), onClose, t, tabs },
-        tab === 'roster' ? h(RosterTab, { directory, available, onPicked: onClose, onSettings: () => setTab('models'), t })
-          : tab === 'models' ? h(ModelsTab, { remote, directory, t })
-            : h(RankingsTab, { remote, directory, t }))
+      const body = tab === 'models' ? h(ModelsTab, { remote, directory, t })
+        : tab === 'rankings' ? h(RankingsTab, { remote, directory, t })
+          : page?.kind === 'character' ? h(CharacterPage, { remote, directory, available, card: page.card, onBack: () => setPage(null), onPicked: onClose, t })
+            : page?.kind === 'add' ? h(AddPage, { remote, directory, onBack: () => setPage(null), t,
+              onDone: card => setPage({ kind: 'character', card: { ...card, source: 'catalog', status: 'ready' } }) })
+              : h(RosterTab, { remote, directory, available, onPicked: onClose, onPage: setPage, t })
+      return h(Modal, { title: t('dialog.title'), onClose: close, t, tabs }, body)
     }
 
     /** The avatar beside DSH's model picker. */
@@ -827,26 +1403,44 @@ window.__ModuleLoader__.load({
         if (!available) return null
         const found = current ? lookup(models[0]) : null
         const name = current ? (catalogOf(snapshot).find(model => model.provider === current.provider && model.id === current.model)?.name ?? current.model) : null
-        const rarity = found?.tier ? state?.tiers?.[found.tier]?.rarity : null
-        const label = name ? t('avatar.title', { model: name }) : t('avatar.none')
+        const rarity = found ? rarityOf(found, state) : null
+        const label = name ? `${t('avatar.title', { model: name })}${found?.tier ? ` · ${t(`tier.${found.tier}`)}` : ''}` : t('avatar.none')
         return h(React.Fragment, null,
           h('button', { type: 'button', className: 'lr-avatar', 'data-rarity': rarity ?? undefined, title: label, 'aria-label': label,
             'data-pending': snapshot.status === 'selecting' ? '' : undefined, onClick: () => setOpen(true) },
-          h(Face, { found, label: name ?? '?', size: 24 })),
+          h(Face, { face: found?.face, label: name ?? '?', size: 24 })),
           open ? h(RosterDialog, { remote, directory, available, onClose: () => setOpen(false), t }) : null)
+      }
+    }
+
+    /** A stand-in for a session's model directory on the Plugins page (no session there): DSH's catalog, read once. */
+    function catalogDirectory (remote) {
+      let value = { current: null, pending: null, groups: [], status: 'idle' }
+      const watchers = new Set()
+      const set = next => { value = next; for (const watcher of watchers) watcher() }
+      return {
+        store: { getSnapshot: () => value, subscribe: watcher => { watchers.add(watcher); return () => watchers.delete(watcher) } },
+        load: async () => {
+          const catalog = unwrap(await remote.session.modelCatalog())
+          set({ ...value, groups: catalog.groups ?? [], status: 'ready' })
+          return value
+        },
+        select: async () => ({ ok: false, error: { message: 'no session' } })
       }
     }
 
     /** The plugin's page under Plugins: Models & keys and Rankings, without a session. */
     function makeSettings (remote) {
+      const directory = catalogDirectory(remote)
       return function RosterSettings ({ t: words }) {
         const t = wordsOf(words)
         const [tab, setTab] = useState('models')
+        useEffect(() => { directory.load().catch(() => {}); loadProviders(remote).catch(() => {}) }, [])
         return h('div', { className: 'lr-page' },
           h('nav', { className: 'lr-tabs' }, ['models', 'rankings'].map(id => h('button', {
             key: id, type: 'button', className: `lr-tab${tab === id ? ' lr-on' : ''}`, onClick: () => setTab(id)
           }, t(`tab.${id}`)))),
-          tab === 'models' ? h(ModelsTab, { remote, directory: null, t }) : h(RankingsTab, { remote, directory: null, t }))
+          tab === 'models' ? h(ModelsTab, { remote, directory, t }) : h(RankingsTab, { remote, directory, t }))
       }
     }
 
@@ -856,19 +1450,24 @@ window.__ModuleLoader__.load({
 .lr-avatar:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(128,128,128,.12)) }
 .lr-avatar .lr-face { box-shadow: 0 0 0 1.5px var(--lr-ring, var(--dsw-alias-border-l3, rgba(128,128,128,.4))) }
 .lr-avatar[data-rarity=R] { --lr-ring: #4a90e2 } .lr-avatar[data-rarity=SR] { --lr-ring: #a463f2 }
-.lr-avatar[data-rarity=SSR] { --lr-ring: #f2b233 } .lr-avatar[data-rarity=UR] { --lr-ring: #ff5f9e }
+.lr-avatar[data-rarity=SSR] { --lr-ring: #f2b233 }
+.lr-avatar[data-rarity=UR]::after { content: ''; position: absolute; width: 27px; height: 27px; border-radius: 50%; pointer-events: none;
+  padding: 1.5px; box-sizing: border-box; background: conic-gradient(#ff5f9e, #ffd36e, #7cf2c1, #8fe3ff, #b48cff, #ff5f9e);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude }
+.lr-avatar[data-rarity=UR] .lr-face { box-shadow: none }
 .lr-avatar[data-pending] .lr-face { opacity: .55 }
-.lr-face { border-radius: 50%; object-fit: cover; object-position: 50% 15%; flex: none; display: inline-block;
+.lr-face { border-radius: 50%; object-fit: cover; object-position: 50% 30%; flex: none; display: inline-block; box-sizing: border-box;
   background: var(--dsw-alias-bg-layer-3, rgba(128,128,128,.15)) }
 .lr-face-none { display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700;
   color: var(--dsw-alias-label-secondary, #666) }
+.lr-face-big { box-shadow: 0 0 0 2px var(--lr-c, #4a90e2) }
 .lr-overlay { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center;
   padding: 16px; background: rgba(10, 12, 24, .55); backdrop-filter: blur(3px) }
-.lr-dialog { width: min(1040px, 100%); height: min(780px, 100%); display: flex; flex-direction: column; outline: none;
+.lr-dialog { width: min(1080px, 100%); height: min(820px, 100%); display: flex; flex-direction: column; outline: none;
   border-radius: 16px; overflow: hidden; color: var(--dsw-alias-label-primary, #1a1a1a);
   background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff)); box-shadow: 0 24px 80px rgba(0,0,0,.35);
   font-size: 13px; line-height: 1.45 }
-.lr-dialog-small { width: min(720px, 100%); height: min(640px, 100%) }
+.lr-dialog-small { width: min(760px, 100%); height: min(680px, 100%) }
 .lr-dialog-head { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 18px;
   border-bottom: .5px solid var(--dsw-alias-border-l2, rgba(128,128,128,.22)) }
 .lr-dialog-title { font-weight: 700; font-size: 15px; white-space: nowrap }
@@ -886,41 +1485,60 @@ window.__ModuleLoader__.load({
 .lr-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-bottom: 12px }
 .lr-chips, .lr-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center }
 .lr-between { justify-content: space-between }
+.lr-spacer { flex: 1 }
 .lr-chip { height: 26px; padding: 0 11px; border-radius: 13px; font: inherit; font-size: 12px; color: inherit; cursor: pointer;
   background: transparent; border: .5px solid var(--dsw-alias-border-l4, rgba(128,128,128,.45)) }
 .lr-chip.lr-on { border-color: var(--dsw-alias-state-business-primary, #4d6bfe); color: var(--dsw-alias-state-business-primary, #4d6bfe);
   background: var(--dsw-alias-state-business-secondary, rgba(77,107,254,.1)) }
 .lr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: 12px }
-.lr-card { position: relative; aspect-ratio: 2 / 3; padding: 0; border: 0; border-radius: 12px; overflow: hidden; cursor: pointer;
-  font: inherit; color: #fff; text-align: left; isolation: isolate; --lr-c: #4a90e2; --lr-c2: #9cc7ff;
-  background: linear-gradient(160deg, color-mix(in srgb, var(--lr-c) 35%, #1b1d2e), #10121d 70%);
-  box-shadow: 0 0 0 2px var(--lr-c), 0 6px 18px rgba(0,0,0,.25); transition: transform .12s, box-shadow .12s }
-.lr-card[data-rarity=SR] { --lr-c: #a463f2; --lr-c2: #d6b4ff }
-.lr-card[data-rarity=SSR] { --lr-c: #f2b233; --lr-c2: #ffe39a }
-.lr-card[data-rarity=UR] { --lr-c: #ff5f9e; --lr-c2: #8fe3ff }
-.lr-card[data-rarity=UR]::before { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; border-radius: 12px;
-  padding: 2px; background: linear-gradient(135deg, #ff5f9e, #ffd36e, #7cf2c1, #8fe3ff, #b48cff, #ff5f9e);
+.lr-card { position: relative; aspect-ratio: 2 / 3; border-radius: 12px; overflow: hidden; isolation: isolate; color: #fff;
+  --lr-c: #4a90e2; --lr-c2: #9cc7ff; box-shadow: 0 0 0 2px var(--lr-c), 0 6px 18px rgba(0,0,0,.25); transition: transform .12s, box-shadow .12s;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--lr-c) 35%, #1b1d2e), #10121d 70%) }
+.lr-dialog [data-rarity=SR], .lr-page [data-rarity=SR] { --lr-c: #a463f2; --lr-c2: #d6b4ff }
+.lr-dialog [data-rarity=SSR], .lr-page [data-rarity=SSR] { --lr-c: #f2b233; --lr-c2: #ffe39a }
+.lr-dialog [data-rarity=UR], .lr-page [data-rarity=UR] { --lr-c: #ff5f9e; --lr-c2: #8fe3ff }
+.lr-card[data-rarity=UR]::before, .lr-showcase[data-rarity=UR]::before { content: ''; position: absolute; inset: 0; z-index: 4; pointer-events: none;
+  border-radius: inherit; padding: 2px; background: linear-gradient(135deg, #ff5f9e, #ffd36e, #7cf2c1, #8fe3ff, #b48cff, #ff5f9e);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude }
-.lr-card:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 0 0 2px var(--lr-c2), 0 10px 26px rgba(0,0,0,.35) }
-.lr-card:disabled { cursor: progress; opacity: .7 }
+.lr-card:hover { transform: translateY(-3px); box-shadow: 0 0 0 2px var(--lr-c2), 0 10px 26px rgba(0,0,0,.35) }
 .lr-card[data-current] { box-shadow: 0 0 0 3px var(--lr-c2), 0 0 22px 2px color-mix(in srgb, var(--lr-c2) 70%, transparent) }
+.lr-card-main { position: absolute; inset: 0; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left;
+  cursor: pointer; display: block }
+.lr-card-main:disabled { cursor: progress }
 .lr-card-art { position: absolute; inset: 0; z-index: 0 }
-.lr-card-art img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 12% }
+.lr-card-art img, .lr-showcase img, .lr-equip-art img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 12% }
+.lr-card[data-status=nokey] .lr-card-art, .lr-card[data-status=rejected] .lr-card-art, .lr-card[data-status=error] .lr-card-art,
+.lr-showcase[data-status=nokey] img, .lr-showcase[data-status=rejected] img { filter: grayscale(.85) brightness(.6) }
+.lr-card[data-status=unused] .lr-card-art, .lr-card[data-status=checking] .lr-card-art { filter: saturate(.55) brightness(.8) }
 .lr-card-blank { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 40px;
-  font-weight: 800; color: color-mix(in srgb, var(--lr-c2) 60%, transparent) }
+  font-weight: 800; color: color-mix(in srgb, var(--lr-c2, #9cc7ff) 60%, transparent) }
 .lr-card-text { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 1px;
   padding: 26px 9px 8px; background: linear-gradient(transparent, rgba(8,9,16,.82) 38%, rgba(8,9,16,.94)) }
-.lr-card-who { font-size: 10.5px; font-weight: 600; color: var(--lr-c2); letter-spacing: .02em; text-transform: uppercase;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.lr-card-who { font-size: 10.5px; font-weight: 600; color: var(--lr-c2); letter-spacing: .02em; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis }
+.lr-who-dark { color: color-mix(in srgb, var(--lr-c, #4a90e2) 80%, var(--dsw-alias-label-primary, #222)) }
 .lr-card-name { font-size: 13.5px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere }
 .lr-card-meta { display: flex; justify-content: space-between; gap: 6px; font-size: 10.5px; color: rgba(255,255,255,.72) }
 .lr-rarity { position: absolute; top: 7px; left: 7px; z-index: 2; padding: 1px 7px; border-radius: 6px; font-size: 11px; font-weight: 800;
   font-style: italic; letter-spacing: .04em; color: #1b1300; background: linear-gradient(135deg, var(--lr-c2), var(--lr-c));
   box-shadow: 0 1px 4px rgba(0,0,0,.35) }
-.lr-aa { position: absolute; top: 7px; right: 7px; z-index: 2; padding: 1px 6px; border-radius: 6px; font-size: 10.5px; font-weight: 700;
-  background: rgba(8,9,16,.72); color: #fff; font-variant-numeric: tabular-nums }
+.lr-rarity-big { top: 10px; left: 10px; font-size: 16px; padding: 2px 10px }
+.lr-more { position: absolute; top: 5px; right: 5px; z-index: 3; width: 30px; height: 24px; border: 0; border-radius: 8px; cursor: pointer;
+  background: rgba(8,9,16,.62); color: #fff; font: inherit; font-weight: 800; line-height: 1; letter-spacing: 1px }
+.lr-more:hover { background: rgba(8,9,16,.85); box-shadow: 0 0 0 1.5px var(--lr-c2) }
 .lr-ribbon { position: absolute; top: 34px; left: 0; z-index: 2; padding: 2px 9px 2px 7px; font-size: 10.5px; font-weight: 700;
   color: #10121d; background: var(--lr-c2); border-radius: 0 8px 8px 0 }
+.lr-veil { position: absolute; left: 8px; right: 8px; top: 36%; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 8px; border-radius: 10px; text-align: center; background: rgba(8,9,16,.74); font-size: 11px; color: rgba(255,255,255,.85) }
+.lr-veil strong { font-size: 13px; color: #fff }
+.lr-card[data-status=rejected] .lr-veil strong, .lr-card[data-status=nokey] .lr-veil strong { color: #ffb4a8 }
+.lr-card[data-status=unused] .lr-veil strong { color: #b8f5cf }
+.lr-add-card { cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 12px;
+  font: inherit; color: var(--dsw-alias-label-secondary, #666); background: transparent; box-shadow: none; text-align: center;
+  border: 2px dashed var(--dsw-alias-border-l4, rgba(128,128,128,.55)) }
+.lr-add-card:hover { color: var(--dsw-alias-state-business-primary, #4d6bfe); border-color: currentColor; box-shadow: none }
+.lr-add-card span:last-child { font-size: 11.5px; opacity: .8 }
+.lr-plus { font-size: 44px; font-weight: 300; line-height: 1 }
 .lr-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; margin-top: 14px;
   color: var(--dsw-alias-label-tertiary, #888); font-size: 12px }
 .lr-credit { color: var(--dsw-alias-label-tertiary, #888); font-size: 12px }
@@ -932,35 +1550,82 @@ window.__ModuleLoader__.load({
 .lr-note { margin: 6px 0; padding: 7px 10px; border-radius: 8px; font-size: 12px; background: var(--dsw-alias-bg-module-platform, rgba(128,128,128,.08)) }
 .lr-dim { color: var(--dsw-alias-label-tertiary, #888); font-weight: 400 }
 .lr-intro { margin: 0 0 12px }
+.lr-page-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px }
+.lr-page-title { margin: 0; font-size: 16px }
+.lr-character { display: grid; grid-template-columns: minmax(220px, 340px) minmax(0, 1fr); gap: 20px; align-items: start }
+.lr-character-art { display: flex; flex-direction: column; gap: 10px; position: sticky; top: 0 }
+.lr-showcase { position: relative; aspect-ratio: 2 / 3; border-radius: 16px; overflow: hidden; isolation: isolate;
+  box-shadow: 0 0 0 3px var(--lr-c, #4a90e2), 0 12px 32px rgba(0,0,0,.3); background: #10121d }
+.lr-gallery { display: flex; flex-direction: column; gap: 6px }
+.lr-gallery-row { display: flex; gap: 6px; flex-wrap: wrap }
+.lr-thumb { width: 54px; aspect-ratio: 2 / 3; padding: 0; border-radius: 8px; overflow: hidden; cursor: pointer; background: #10121d;
+  border: 2px solid transparent }
+.lr-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 12% }
+.lr-thumb.lr-on, .lr-thumb:hover { border-color: var(--lr-c, #4d6bfe) }
+.lr-character-info { display: flex; flex-direction: column; gap: 12px; min-width: 0 }
+.lr-character-head { display: flex; gap: 12px; align-items: center }
+.lr-character-name { margin: 0; font-size: 22px; line-height: 1.2; overflow-wrap: anywhere }
+.lr-status-line { font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary, #555) }
+.lr-status-line[data-status=nokey], .lr-status-line[data-status=rejected] { color: var(--dsw-alias-state-error-primary, #d93025) }
+.lr-section { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 12px;
+  border: .5px solid var(--dsw-alias-border-l2, rgba(128,128,128,.25)) }
+.lr-section h3 { margin: 0; font-size: 13px; letter-spacing: .02em }
+.lr-stat { display: grid; grid-template-columns: 6.5em 1fr 3em; gap: 8px; align-items: center; font-size: 12px }
+.lr-stat-bar { height: 8px; border-radius: 4px; overflow: hidden; background: var(--dsw-alias-bg-layer-3, rgba(128,128,128,.15)) }
+.lr-stat-bar span { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--lr-c, #4a90e2), var(--lr-c2, #9cc7ff)) }
+.lr-stat-value { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums }
+.lr-facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 4px 0 0; font-size: 12px }
+.lr-facts dt { color: var(--dsw-alias-label-tertiary, #888) }
+.lr-facts dd { margin: 0 }
+.lr-effort { padding: 0 7px; border-radius: 10px; font-size: 11px; background: var(--dsw-alias-bg-layer-3, rgba(128,128,128,.12)) }
+.lr-equip { display: flex; flex-wrap: wrap; gap: 14px }
+.lr-equip-slot { display: flex; flex-direction: column; align-items: flex-start; gap: 6px }
+.lr-equip-art { width: 64px; aspect-ratio: 2 / 3; border-radius: 8px; overflow: hidden; background: #10121d; position: relative }
+.lr-page-add { display: flex; flex-direction: column; gap: 12px; max-width: 860px }
+.lr-add-pictures { display: flex; flex-direction: column; gap: 14px }
+.lr-sticky { position: sticky; bottom: -18px; padding: 10px 0; background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff)) }
 .lr-models { display: flex; flex-direction: column; gap: 12px }
 .lr-provider { display: flex; flex-direction: column; gap: 12px; padding: 12px 14px; border-radius: 12px;
   border: .5px solid var(--dsw-alias-border-l2, rgba(128,128,128,.25)) }
-.lr-provider-head { display: flex; align-items: baseline; gap: 8px }
+.lr-parked { opacity: .85; border-style: dashed }
+.lr-provider-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap }
 .lr-provider-name { font-weight: 700; font-size: 14px }
+.lr-confirm { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 10px;
+  background: var(--dsw-alias-interactive-bg-hover-danger, rgba(217,48,37,.08)) }
+.lr-check-row { display: flex; gap: 6px; align-items: center; font-size: 12px }
 .lr-field { display: flex; flex-direction: column; gap: 6px }
 .lr-label { font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary, #555) }
-.lr-key-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px }
+.lr-key-status { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 12px }
+.lr-check[data-check=ok] { color: #22a559 } .lr-check[data-check=rejected], .lr-check[data-check=missing] { color: #d93025 }
 .lr-dot { width: 8px; height: 8px; border-radius: 50%; background: #999 }
 .lr-key-status[data-status=stored] .lr-dot, .lr-key-status[data-status=env] .lr-dot { background: #22a559 }
 .lr-key-status[data-status=missing] .lr-dot { background: #d93025 }
 .lr-input { height: 30px; min-width: 0; flex: 1 1 200px; box-sizing: border-box; padding: 0 9px; border-radius: 8px; font: inherit; color: inherit;
   background: var(--dsw-alias-bg-layer-3, transparent); border: .5px solid var(--dsw-alias-border-l4, rgba(128,128,128,.5)) }
-.lr-mono, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px }
+.lr-select { flex: none; width: min(360px, 100%); cursor: pointer }
+.lr-field > .lr-input { flex: none } /* (in a column, a flex basis would be a height) */
+.lr-mono, .lr-dialog code, .lr-page code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px }
 .lr-small-input { flex: none; width: min(260px, 100%); height: 26px; font-size: 12px }
 .lr-add { flex: none; width: min(320px, 100%); cursor: pointer }
 .lr-button { height: 30px; padding: 0 13px; border-radius: 8px; font: inherit; cursor: pointer; color: inherit; white-space: nowrap;
   background: transparent; border: .5px solid var(--dsw-alias-border-l4, rgba(128,128,128,.5)) }
 .lr-button:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover, rgba(128,128,128,.1)) }
 .lr-button:disabled { opacity: .5; cursor: default }
+.lr-on-button { border-color: var(--dsw-alias-state-business-primary, #4d6bfe); box-shadow: inset 0 0 0 1px var(--dsw-alias-state-business-primary, #4d6bfe) }
 .lr-small { height: 26px; padding: 0 10px; font-size: 12px }
+.lr-big { height: 36px; padding: 0 18px; font-weight: 600 }
 .lr-primary { color: var(--dsw-alias-label-primary-foreground, #fff); border-color: transparent;
   background: var(--dsw-alias-state-business-primary, #4d6bfe) }
+.lr-primary:hover:not(:disabled) { filter: brightness(1.08); background: var(--dsw-alias-state-business-primary, #4d6bfe) }
+.lr-danger { color: var(--dsw-alias-state-error-primary, #d93025) }
+.lr-danger-solid { color: #fff; border-color: transparent; background: var(--dsw-alias-state-error-primary, #d93025) }
 .lr-balance { display: flex; flex-direction: column; gap: 2px; font-size: 12.5px }
 .lr-pills { display: flex; flex-wrap: wrap; gap: 6px }
 .lr-pill { display: inline-flex; align-items: center; gap: 4px; height: 28px; border-radius: 14px; font: inherit; font-size: 12px;
   color: inherit; background: transparent; border: .5px solid var(--dsw-alias-border-l4, rgba(128,128,128,.5)) }
-.lr-used { padding: 0 3px 0 3px; border-color: var(--dsw-alias-state-business-primary, #4d6bfe);
+.lr-used { padding: 0 3px; border-color: var(--dsw-alias-state-business-primary, #4d6bfe);
   background: var(--dsw-alias-state-business-secondary, rgba(77,107,254,.08)) }
+.lr-static { padding: 0 11px }
 .lr-pill-face { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; display: inline-flex }
 .lr-pill-face:hover { outline: 2px solid var(--dsw-alias-state-business-primary, #4d6bfe) }
 .lr-pill-text { height: 100%; padding: 0 8px 0 2px; border: 0; background: transparent; font: inherit; color: inherit; cursor: pointer }
@@ -969,15 +1634,20 @@ window.__ModuleLoader__.load({
 .lr-ignored:hover:not(:disabled) { border-color: var(--dsw-alias-state-business-primary, #4d6bfe); color: var(--dsw-alias-label-primary, inherit) }
 .lr-pill:disabled, .lr-pill-text:disabled { opacity: .6; cursor: default }
 .lr-new { font-size: 9.5px; font-weight: 700; padding: 0 5px; border-radius: 6px; color: #fff; background: #22a559 }
-.lr-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px }
+.lr-pictures { display: flex; flex-direction: column; gap: 4px }
+.lr-tiles { display: grid; gap: 8px }
+.lr-tiles-art { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)) }
+.lr-tiles-face { grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)) }
 .lr-tile-holder { position: relative }
-.lr-tile { width: 100%; aspect-ratio: 2 / 3; padding: 0; border-radius: 8px; overflow: hidden; cursor: pointer; background: #10121d;
-  border: 2px solid transparent }
+.lr-tile { width: 100%; padding: 0; overflow: hidden; cursor: pointer; background: #10121d; border: 2px solid transparent; display: block }
+.lr-tile-art { aspect-ratio: 2 / 3; border-radius: 8px }
+.lr-tile-face { aspect-ratio: 1; border-radius: 50% }
 .lr-tile img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 12% }
+.lr-tile-face img { object-position: 50% 30% }
 .lr-tile.lr-on, .lr-tile:hover { border-color: var(--dsw-alias-state-business-primary, #4d6bfe) }
-.lr-tile-forget { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 50%; border: 0; cursor: pointer;
+.lr-tile-forget { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border-radius: 50%; border: 0; cursor: pointer;
   background: rgba(0,0,0,.6); color: #fff; line-height: 1 }
-.lr-art-group { display: flex; flex-direction: column; gap: 6px; margin-top: 12px }
+.lr-art-group { display: flex; flex-direction: column; gap: 6px; margin-top: 10px }
 .lr-rankings { display: flex; flex-direction: column; gap: 10px }
 .lr-table { width: 100%; border-collapse: collapse; font-size: 12.5px }
 .lr-table th { text-align: left; font-weight: 600; font-size: 11.5px; color: var(--dsw-alias-label-tertiary, #888); padding: 6px 8px;
@@ -989,6 +1659,10 @@ window.__ModuleLoader__.load({
 .lr-bar { display: inline-block; min-width: 64px; padding: 0 6px; border-radius: 4px; font-weight: 600;
   background: linear-gradient(90deg, color-mix(in srgb, var(--dsw-alias-state-business-primary, #4d6bfe) 28%, transparent) var(--lr-bar), transparent var(--lr-bar)) }
 .lr-page { display: flex; flex-direction: column; gap: 12px }
+@media (max-width: 720px) {
+  .lr-character { grid-template-columns: 1fr }
+  .lr-character-art { position: static; max-width: 360px; margin: 0 auto; width: 100% }
+}
 @media (max-width: 560px) {
   .lr-overlay { padding: 0 }
   .lr-dialog { height: 100%; border-radius: 0 }
@@ -1019,6 +1693,13 @@ window.__ModuleLoader__.load({
           name: 'conversation.input.right', id: 'llm-roster-avatar', order: 100, locale: NS,
           inject: sessionId => ({ directory: models.directoryFor(sessionId), available: sessions.subagentAddress(sessionId) === undefined })
         }, Avatar))
+        // a change to DSH's settings or keys made elsewhere (its Models page) is read again here too
+        for (const event of ['settings/document-updated', 'credentials/record-updated', 'credentials/reference-updated']) {
+          scope.effect(() => scope.remote.$on?.(event, () => {
+            if (shared.providers) loadProviders(scope.remote).catch(() => {})
+            if (event.startsWith('credentials/')) bump({ checks: {} })
+          }), `llm-roster: ${event}`)
+        }
       })
       // Models & keys and Rankings, on the plugin's page under Plugins
       ctx.inject(remoteFaces, scope => {

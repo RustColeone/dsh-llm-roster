@@ -1,6 +1,7 @@
-// Who each model is: its character, its tier and the picture on its card. The bundled table (art/art.json) answers for
-// the mainstream models; your own picks, kept in DSH's home (llm-roster/roster.json), win over it. Pictures you upload
-// are kept beside it (llm-roster/art/<id>.<ext>).
+// Who each model is: its character, its tier, the picture on its card and its avatar. The bundled table
+// (art/art.json) answers for the mainstream models and is the roster's lineup; your own picks, kept in DSH's home
+// (llm-roster/roster.json), win over it. Pictures you upload are kept beside it (llm-roster/art/<id>.<ext>), and so are
+// the providers you set aside whole ("Ignore all"), to be put back as they were.
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -14,20 +15,24 @@ export const CHARACTERS = Object.keys(TABLE.characters)
 /** Image types an upload may be, and the extension each is kept under. */
 export const TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' }
 export const MAX_UPLOAD = 4 * 1024 * 1024
-const UPLOAD_ID = /^[a-f0-9]{12}$/
-const BUNDLED = /^([a-z]+)\/([a-z]+)$/
 export const REF = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/ // a credential reference (an environment variable's name)
+const UPLOAD_ID = /^[a-f0-9]{12}$/
+const BUNDLED = /^([a-z]+)\/([a-z-]+)$/
+const FACES = ['face', ...TIERS.map(tier => `face-${tier}`)]
 
 /** The part of a model id that names the model: lowercase, without a `vendor/` prefix (OpenRouter's). */
 export const bare = model => String(model ?? '').toLowerCase().split('/').pop().trim()
 
-/** Whether `art` names a picture we can show: a bundled `character/tier`, or `custom:<id>`. */
-export function validArt (art) {
-  if (typeof art !== 'string') return false
-  if (art.startsWith('custom:')) return UPLOAD_ID.test(art.slice(7))
-  const found = BUNDLED.exec(art)
-  return Boolean(found && CHARACTERS.includes(found[1]) && TIERS.includes(found[2]))
+function bundled (picture, kinds) {
+  const found = BUNDLED.exec(String(picture))
+  return Boolean(found && CHARACTERS.includes(found[1]) && kinds.includes(found[2]))
 }
+const custom = picture => typeof picture === 'string' && picture.startsWith('custom:') && UPLOAD_ID.test(picture.slice(7))
+
+/** Whether `art` names a card picture: a bundled `character/tier`, or `custom:<id>`. */
+export const validArt = art => custom(art) || bundled(art, TIERS)
+/** Whether `face` names an avatar: a bundled `character/face-<tier>` (or `character/face`), or `custom:<id>`. */
+export const validFace = face => custom(face) || bundled(face, FACES)
 
 /** The character a model is, from its id, else its provider; null when neither says. */
 export function characterOf (provider, model) {
@@ -58,19 +63,29 @@ export function bundledArt (provider, model) {
   return character ? `${character}/${tierOf(model)}` : null
 }
 
-/** The roster file: your picks of art for each `provider/model`, and the pictures you uploaded. */
+/** The roster's lineup: the mainstream models of art.json, each from its character's home provider. */
+export const lineup = () => Object.entries(TABLE.models).map(([id, art]) => {
+  const [character, tier] = art.split('/')
+  return { id, provider: TABLE.characters[character].home, character, tier }
+})
+
+/** The roster file: your picks of art and avatar for each `provider/model`, your uploads, the providers you set aside,
+ * and the roster's own settings. */
 export class Roster {
   constructor (folder) {
     this.folder = folder
     this.file = path.join(folder, 'roster.json')
     this.uploads = path.join(folder, 'art')
-    this.data = { version: 1, art: {}, uploads: {}, settings: {} }
+    this.data = { version: 2, art: {}, faces: {}, uploads: {}, parked: {}, settings: {} }
     try {
       const read = JSON.parse(fs.readFileSync(this.file, 'utf8'))
       if (read && typeof read === 'object') {
         this.data.art = Object.fromEntries(Object.entries(read.art ?? {}).filter(([, art]) => validArt(art)))
+        this.data.faces = Object.fromEntries(Object.entries(read.faces ?? {}).filter(([, face]) => validFace(face)))
         this.data.uploads = Object.fromEntries(Object.entries(read.uploads ?? {})
           .filter(([id, about]) => UPLOAD_ID.test(id) && about && TYPES[about.type]))
+        this.data.parked = Object.fromEntries(Object.entries(read.parked ?? {})
+          .filter(([, about]) => about && typeof about.ns === 'string' && Array.isArray(about.path)))
         if (typeof read.settings?.aaKeyEnv === 'string' && REF.test(read.settings.aaKeyEnv)) {
           this.data.settings.aaKeyEnv = read.settings.aaKeyEnv
         }
@@ -85,20 +100,34 @@ export class Roster {
     fs.renameSync(temporary, this.file)
   }
 
+  #kept = picture => !custom(picture) || Boolean(this.data.uploads[picture.slice(7)])
+
   /** The picture a model's card shows: your pick, else the bundled one, else null. */
   artOf (provider, model) {
     const mine = this.data.art[`${provider}/${model}`]
-    if (mine && (!mine.startsWith('custom:') || this.data.uploads[mine.slice(7)])) return { art: mine, own: true }
+    if (mine && this.#kept(mine)) return { art: mine, own: true }
     return { art: bundledArt(provider, model), own: false }
   }
 
-  /** Pick `art` for a model, or let it go back to the bundled one (`art` null). */
-  pick (key, art) {
+  /** A model's avatar: your pick, else your own picture's (when its card is one you uploaded), else its tier's face. */
+  faceOf (provider, model, art = this.artOf(provider, model).art) {
+    const mine = this.data.faces[`${provider}/${model}`]
+    if (mine && this.#kept(mine)) return mine
+    if (custom(art)) return art
+    return art ? `${art.split('/')[0]}/face-${art.split('/')[1]}` : null
+  }
+
+  /** Pick a model's `art` and/or `face` (undefined leaves one as it is; null lets it go back to the default). */
+  pick (key, { art, face } = {}) {
     if (typeof key !== 'string' || !/^[^/\s]+\/\S+$/.test(key) || key.length > 300) throw new RangeError('a model is provider/model')
-    if (art === null) delete this.data.art[key]
-    else if (!validArt(art)) throw new RangeError(`not a picture: ${art}`)
-    else if (art.startsWith('custom:') && !this.data.uploads[art.slice(7)]) throw new RangeError(`no such upload: ${art}`)
-    else this.data.art[key] = art
+    const check = (value, valid, what) => {
+      if (value === undefined || value === null) return
+      if (!valid(value)) throw new RangeError(`not ${what}: ${value}`)
+      if (!this.#kept(value)) throw new RangeError(`no such upload: ${value}`)
+    }
+    check(art, validArt, 'a picture'); check(face, validFace, 'an avatar')
+    if (art === null) delete this.data.art[key]; else if (art !== undefined) this.data.art[key] = art
+    if (face === null) delete this.data.faces[key]; else if (face !== undefined) this.data.faces[key] = face
     this.save()
   }
 
@@ -109,6 +138,23 @@ export class Roster {
     else if (typeof aaKeyEnv === 'string' && REF.test(aaKeyEnv)) this.data.settings.aaKeyEnv = aaKeyEnv
     else throw new RangeError('a variable name is letters, digits and underscores, not starting with a digit')
     this.save()
+  }
+
+  /** Set a provider aside whole: its profile as it was in DSH's settings (`ns`, `path`, `profile`), to put back. */
+  park (provider, { ns, path: where, profile }) {
+    if (typeof provider !== 'string' || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(provider)) throw new RangeError('not a provider')
+    if (typeof ns !== 'string' || !Array.isArray(where) || !where.length || where.some(part => typeof part !== 'string')) {
+      throw new RangeError('a parked provider needs its settings namespace and path')
+    }
+    this.data.parked[provider] = { ns, path: where, profile: profile ?? {}, at: new Date().toISOString() }
+    this.save()
+  }
+
+  /** Forget a parked provider; what was kept of it. */
+  unpark (provider) {
+    const found = this.data.parked[provider] ?? null
+    if (found) { delete this.data.parked[provider]; this.save() }
+    return found
   }
 
   /** Keep an uploaded picture; its id. */
@@ -131,18 +177,21 @@ export class Roster {
     if (!about) return
     fs.rmSync(path.join(this.uploads, `${id}.${TYPES[about.type]}`), { force: true })
     delete this.data.uploads[id]
-    for (const [key, art] of Object.entries(this.data.art)) if (art === `custom:${id}`) delete this.data.art[key]
+    for (const picks of [this.data.art, this.data.faces]) {
+      for (const [key, picture] of Object.entries(picks)) if (picture === `custom:${id}`) delete picks[key]
+    }
     this.save()
   }
 
-  /** A picture's file and type: a bundled `character/tier` (or `character/face`), or an upload's id. */
+  /** A picture's file and type: a bundled `character/tier`, `character/face` or `character/face-<tier>`, or an
+   * upload's id. */
   image ({ art, upload }) {
     if (upload !== undefined) {
       const about = UPLOAD_ID.test(upload) ? this.data.uploads[upload] : undefined
       return about ? { file: path.join(this.uploads, `${upload}.${TYPES[about.type]}`), type: about.type } : null
     }
-    const found = BUNDLED.exec(String(art))
-    if (!found || !CHARACTERS.includes(found[1]) || ![...TIERS, 'face'].includes(found[2])) return null
-    return { file: path.join(ART, found[1], `${found[2]}.webp`), type: 'image/webp' }
+    if (!bundled(art, [...TIERS, ...FACES])) return null
+    const [character, kind] = String(art).split('/')
+    return { file: path.join(ART, character, `${kind}.webp`), type: 'image/webp' }
   }
 }

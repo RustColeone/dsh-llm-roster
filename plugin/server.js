@@ -1,54 +1,68 @@
-// The roster's server half: it keeps your picks of art,
-// serves the pictures, the Artificial Analysis rankings, and asks providers about your account (their live model list,
-// your balance) with the key DSH keeps for them, which never leaves the server. Its client half (client.js) is the
-// avatar beside the composer's model picker and the roster it opens.
+// The roster's server half: it keeps your picks of art and avatar, serves the pictures and the Artificial Analysis
+// rankings, and asks providers about your account (does the key work, its balance, the models it can call) with the key
+// DSH keeps for them, which never leaves the server.
 //
 // Routes, on DSH's own API (behind its sign-in, for its owner only):
 //
-//     GET  /api/llm-roster.state      the tiers, characters, your uploads, the rankings' date, what each provider offers
-//     POST /api/llm-roster.resolve    { models: [{ provider, id }] } → each model's character, tier, picture and rankings
-//     POST /api/llm-roster.pick       { model: 'provider/model', art: 'gpt/high' | 'custom:<id>' | null }
+//     GET  /api/llm-roster.state      tiers, characters, the lineup, your uploads, parked providers, the rankings' date
+//                                     and where your Artificial Analysis key is, what each provider offers
+//     POST /api/llm-roster.resolve    { models: [{ provider, id }] } → each one's character, tier, picture, avatar, name
+//                                     and rankings
+//     POST /api/llm-roster.pick       { model: 'provider/model', art?: 'gpt/high' | 'custom:<id>' | null,
+//                                       face?: 'gpt/face-high' | 'custom:<id>' | null }
 //     POST /api/llm-roster.upload     ?name=<file name>, the picture as the body (png, jpeg, webp or gif; 4 MB at most)
 //     POST /api/llm-roster.forget     { upload: '<id>' }
 //     POST /api/llm-roster.settings   { aaKeyEnv: '<variable>' | null }: where your Artificial Analysis key is
-//     GET  /api/llm-roster.image      ?art=<character>/<tier or face>, or ?upload=<id>
+//     POST /api/llm-roster.park       { provider, ns, path, profile }: a provider set aside whole ("Ignore all")
+//     POST /api/llm-roster.unpark     { provider } → what was kept of it
+//     GET  /api/llm-roster.image      ?art=<character>/<tier, face or face-tier>, or ?upload=<id>
 //     GET  /api/llm-roster.rankings   ?top=20: the best models, each once
 //     POST /api/llm-roster.rankings   fetch the rankings again (needs a free Artificial Analysis key)
+//     GET  /api/llm-roster.check      ?provider=<route>&ref=<credential reference>&fresh=1: does the key work
 //     GET  /api/llm-roster.balance    ?provider=<route>&ref=<credential reference>
 //     GET  /api/llm-roster.live       ?provider=<route>&ref=<credential reference>: the models the provider lists
 import fs from 'node:fs'
 import path from 'node:path'
-import { balance, keyFor, liveModels, offered } from './providers.js'
+import { balance, check, keyFor, liveModels, offered } from './providers.js'
 import { fetchRankings, load } from './rankings.js'
-import { CHARACTERS, Roster, TABLE, TIERS } from './roster.js'
+import { CHARACTERS, lineup, Roster, TABLE, TIERS } from './roster.js'
 
 export const ROUTES = {
   state: '/api/llm-roster.state', resolve: '/api/llm-roster.resolve', pick: '/api/llm-roster.pick',
-  upload: '/api/llm-roster.upload', forget: '/api/llm-roster.forget', image: '/api/llm-roster.image',
-  rankings: '/api/llm-roster.rankings', balance: '/api/llm-roster.balance', live: '/api/llm-roster.live',
-  settings: '/api/llm-roster.settings'
+  upload: '/api/llm-roster.upload', forget: '/api/llm-roster.forget', settings: '/api/llm-roster.settings',
+  park: '/api/llm-roster.park', unpark: '/api/llm-roster.unpark', image: '/api/llm-roster.image',
+  rankings: '/api/llm-roster.rankings', check: '/api/llm-roster.check', balance: '/api/llm-roster.balance',
+  live: '/api/llm-roster.live'
 }
 const AA_KEYS = ['ARTIFICIAL_ANALYSIS_API_KEY', 'AA_API_TOKEN']
+const CHECKED_FOR = 10 * 60 * 1000 // how long a key's check stands (a fresh one is asked for after a change)
 
 const answer = (body, status = 200) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } })
 
 /** The plugin's state and work, without DSH: what the routes call (and the tests). `resolve(name)` reads a credential
  * reference (DSH's store, then the environment). */
-export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async name => process.env[name], fetch } = {}) {
+export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async name => process.env[name], fetch, now = Date.now } = {}) {
   const roster = new Roster(folder)
   let rankings = load(folder)
   const options = fetch ? { fetch } : {}
-  const tiers = Object.fromEntries(TIERS.map(tier => [tier, TABLE.tiers[tier]]))
-  const characters = Object.fromEntries(CHARACTERS.map(found => [found, { name: TABLE.characters[found].name }]))
+  const tiers = Object.fromEntries(TIERS.map(tier => [tier, { rarity: TABLE.tiers[tier].rarity }]))
+  const characters = Object.fromEntries(CHARACTERS.map(found => [found, { name: TABLE.characters[found].name,
+    home: TABLE.characters[found].home }]))
   // Where your Artificial Analysis key is, in lookup order: the variable named on the page, then in the plugin's
   // settings, then the usual names. A key pasted on the page is stored under the first.
   const aaKeys = () => [...new Set([roster.data.settings.aaKeyEnv, aaKeyEnv, ...AA_KEYS].filter(Boolean))]
+  const checked = new Map() // `${provider}:${key name}` → { at, result }
+
+  /** A model's name as people know it: Artificial Analysis's (without the effort it was measured at), else its id. */
+  const nameOf = (model, aa) => aa?.name ? aa.name.replace(/\s*\([^)]*\)\s*$/, '') : model
 
   return {
     roster,
     state: () => ({
       tiers, characters,
+      lineup: lineup().map(item => ({ ...item, name: nameOf(item.id, rankings.of(item.provider, item.id, aliases)) })),
       uploads: Object.entries(roster.data.uploads).map(([id, about]) => ({ id, name: about.name, at: about.at })),
+      parked: roster.data.parked,
       rankings: { ...rankings.about, keys: aaKeys(), keyEnv: roster.data.settings.aaKeyEnv ?? null },
       providers: offered()
     }),
@@ -58,13 +72,16 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
         provider = String(provider ?? ''); id = String(id ?? '')
         const { art, own } = roster.artOf(provider, id)
         const [character, tier] = art && !art.startsWith('custom:') ? art.split('/') : [null, null]
-        return { provider, id, art, own, character, tier, aa: rankings.of(provider, id, aliases) }
+        const aa = rankings.of(provider, id, aliases)
+        return { provider, id, art, own, face: roster.faceOf(provider, id, art), character, tier, name: nameOf(id, aa), aa }
       })
     },
-    pick: (model, art) => roster.pick(model, art),
-    settings: values => { roster.set(values); return { keys: aaKeys(), keyEnv: roster.data.settings.aaKeyEnv ?? null } },
+    pick: (model, picks) => roster.pick(model, picks),
     upload: (bytes, type, fileName) => roster.upload(bytes, type, fileName),
     forget: id => roster.forget(id),
+    settings: values => { roster.set(values); return { keys: aaKeys(), keyEnv: roster.data.settings.aaKeyEnv ?? null } },
+    park: (provider, about) => { roster.park(provider, about); return { parked: roster.data.parked } },
+    unpark: provider => ({ kept: roster.unpark(provider), parked: roster.data.parked }),
     image: query => roster.image(query),
     top: count => ({ ...rankings.about, rows: rankings.top(count) }),
     async refreshRankings () {
@@ -76,6 +93,16 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
       fs.writeFileSync(path.join(folder, 'aa.json'), JSON.stringify(fetched))
       rankings = load(folder)
       return rankings.about
+    },
+    /** Does the provider's key work: `missing` (none set), or what asking the provider for its usage said. */
+    async check (route, ref, fresh = false) {
+      const key = await keyFor(route, ref, resolve)
+      if (!key) return { status: 'missing', at: now() }
+      const kept = checked.get(`${route}:${key.name}`)
+      if (!fresh && kept && now() - kept.at < CHECKED_FOR) return kept.result
+      const result = { ...(await check(route, key.value, options)), key: key.name, at: now() }
+      checked.set(`${route}:${key.name}`, { at: now(), result })
+      return result
     },
     async balance (route, ref) {
       const key = await keyFor(route, ref, resolve)
@@ -103,12 +130,13 @@ export function serve (connection, work) {
   const json = async request => {
     try { return await request.json() } catch { throw new RangeError('the body is JSON') }
   }
+  const provider = query => String(query.get('provider') ?? '')
 
   route(ROUTES.state, ['GET'], () => answer(work.state()))
   route(ROUTES.resolve, ['POST'], async request => answer({ models: work.resolve((await json(request)).models) }))
   route(ROUTES.pick, ['POST'], async request => {
     const body = await json(request)
-    work.pick(body.model, body.art ?? null)
+    work.pick(body.model, { art: body.art, face: body.face })
     return answer({ ok: true })
   })
   route(ROUTES.upload, ['POST'], async (request, query) => {
@@ -117,6 +145,11 @@ export function serve (connection, work) {
     return answer({ id: work.upload(bytes, type, query.get('name') ?? '') })
   })
   route(ROUTES.settings, ['POST'], async request => answer(work.settings(await json(request))))
+  route(ROUTES.park, ['POST'], async request => {
+    const body = await json(request)
+    return answer(work.park(String(body.provider ?? ''), body))
+  })
+  route(ROUTES.unpark, ['POST'], async request => answer(work.unpark(String((await json(request)).provider ?? ''))))
   route(ROUTES.forget, ['POST'], async request => {
     work.forget(String((await json(request)).upload ?? ''))
     return answer({ ok: true })
@@ -130,9 +163,10 @@ export function serve (connection, work) {
   route(ROUTES.rankings, ['GET', 'POST'], async (request, query) => request.method === 'POST'
     ? answer(await work.refreshRankings())
     : answer(work.top(Math.min(100, Math.max(1, Number(query.get('top')) || 20)))))
+  route(ROUTES.check, ['GET'], async (request, query) =>
+    answer(await work.check(provider(query), query.get('ref') ?? undefined, query.get('fresh') === '1')))
   route(ROUTES.balance, ['GET'], async (request, query) =>
-    answer(await work.balance(String(query.get('provider') ?? ''), query.get('ref') ?? undefined)))
+    answer(await work.balance(provider(query), query.get('ref') ?? undefined)))
   route(ROUTES.live, ['GET'], async (request, query) =>
-    answer(await work.live(String(query.get('provider') ?? ''), query.get('ref') ?? undefined)))
+    answer(await work.live(provider(query), query.get('ref') ?? undefined)))
 }
-

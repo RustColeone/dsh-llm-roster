@@ -3,10 +3,12 @@
 
     python3 tools/import-art.py ~/Projects/DiscordStudyBot
 
-For each character (extensions/students/<name>/): avatar.png becomes face.webp (256 px square, the composer's round
-avatar), and each tier gets one card picture (512 x 768): chibi (art/chibi.webp, padded onto a card), middle
-(model-chuugakusei, else stage-2), high (model-koukousei, else stage-3) and university (model-daigakusei, else stage-4).
-art/art.json is not touched: it says which model is which tier.
+For each character (extensions/students/<name>/): avatar.png becomes face.webp (256 px square), and each tier gets one
+card picture (512 x 768): chibi (art/chibi.webp, padded onto a card), middle (model-chuugakusei, else stage-2), high
+(model-koukousei, else stage-3) and university (model-daigakusei, else stage-4); and its own round avatar,
+face-<tier>.webp (192 px), cropped from the card at FACES (centre x, centre y, side, on the 512 x 768 card), so the
+avatar beside DSH's model picker says the tier at a glance. art/art.json is not touched: it says which model is which
+tier.
 """
 import sys
 from pathlib import Path
@@ -20,6 +22,15 @@ TIERS = {  # tier -> source pictures in her art/ folder, first found wins
     "university": ["model-daigakusei.webp", "stage-4.webp"],
 }
 CARD = (512, 768)
+FACE = 192
+# Where each tier's face is on its card: centre x, centre y, side (chosen by eye; check a new picture's crop).
+FACES = {
+    "gpt": {"chibi": (258, 398, 230), "middle": (276, 182, 236), "high": (284, 192, 236), "university": (284, 176, 236)},
+    "claude": {"chibi": (256, 378, 230), "middle": (250, 196, 236), "high": (250, 192, 236), "university": (242, 186, 236)},
+    "gemini": {"chibi": (256, 384, 230), "middle": (252, 214, 236), "high": (262, 196, 236), "university": (266, 196, 236)},
+    "deepseek": {"chibi": (256, 398, 230), "middle": (250, 204, 236), "high": (242, 196, 236), "university": (260, 186, 236)},
+    "grok": {"chibi": (244, 392, 230), "middle": (242, 210, 236), "high": (262, 202, 236), "university": (252, 186, 236)},
+}
 
 
 def card(image: Image.Image) -> Image.Image:
@@ -46,6 +57,15 @@ def chibi(image: Image.Image) -> Image.Image:
     return canvas
 
 
+def crop_face(card_path: Path, box: tuple[int, int, int]) -> Image.Image:
+    """The square around a face on a card, on a soft light background where the card is transparent (the chibi)."""
+    image = Image.open(card_path).convert("RGBA")
+    x, y, side = box
+    background = Image.new("RGBA", image.size, (235, 240, 250, 255))
+    background.alpha_composite(image)
+    return background.crop((x - side // 2, y - side // 2, x + side // 2, y + side // 2)).resize((FACE, FACE), Image.LANCZOS)
+
+
 def main() -> int:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else "~/Projects/DiscordStudyBot").expanduser()
     students = root / "extensions" / "students"
@@ -64,6 +84,8 @@ def main() -> int:
                 continue
             card(Image.open(found)).save(target / f"{tier}.webp", "WEBP", quality=80)
             print(f"{name}/{tier}.webp <- {found.name}")
+        for tier, box in FACES[name].items():
+            crop_face(target / f"{tier}.webp", box).convert("RGB").save(target / f"face-{tier}.webp", "WEBP", quality=85)
     return 0
 
 
