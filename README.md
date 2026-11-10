@@ -148,6 +148,28 @@ DSH's credential store like a provider's key. Or name the environment variable t
 reads `ARTIFICIAL_ANALYSIS_API_KEY`, then `AA_API_TOKEN`. Their terms ask that they be credited wherever their data
 appears, and the roster does.
 
+**Summon.** A gacha has to have a gacha. Summon draws cards from the roster's own pool, just for fun. The ✦ are free,
+nothing is bought and no model is called. A summoned character doesn't give you its model: using one still takes its
+key. The pool is the lineup's models as characters (university students ★5, high-schoolers ★4, the rest ★3), plus 19
+pieces of LLM-themed equipment (Infinite Context, No Rate Limit, Valid JSON, Em Dash, …). The numbers are Fate/Grand
+Order's published summon rates:
+
+| | Character | Equipment |
+| --- | --- | --- |
+| ★5 | 1% | 4% |
+| ★4 | 3% | 12% |
+| ★3 | 40% | 40% |
+
+- A single summon costs 3 ✦. A ×10 costs 30 ✦ and deals 11 cards, at least one of them ★4 or better and at least
+  one a character.
+- Each banner has a pickup ★5, which is 0.8% of that 1%. It is the newest university student unless you choose
+  another. You can add a pickup ★4, which is 1.5% of its 3%.
+- If the pickup ★5 hasn't come in 329 summons on its banner, the 330th is it, once per banner.
+
+Before the cards are dealt, a ring gathers light: rainbow for a ★5 character, gold for a ★4 character or ★5
+equipment. A click skips it, and the animation is off when your system asks for reduced motion. Each card you get
+goes into the album, and a summoned character opens its page.
+
 Models & keys and Rankings are also on DSH's Plugins page, under **dsh-llm-roster**.
 
 ## Settings
@@ -175,6 +197,9 @@ The roster keeps its own files in `$DSH_HOME/llm-roster/` (`~/.dsh/llm-roster/`)
 | `aa.json` | the rankings, once fetched again |
 | `openrouter.json` | the release dates from OpenRouter, once fetched again |
 | `seen.json` | the day each model with no published release date was first seen (let go once one is published) |
+
+What you summon is kept in your browser instead (`localStorage`, under `dsh-llm-roster.summon`), so each browser has
+its own album.
 
 ## How it works
 
@@ -217,7 +242,7 @@ The routes are on DSH's API, behind its sign-in and for its owner only:
 ## Development
 
 ```sh
-npm test                                              # node --test: the server half, no DSH or network needed
+npm test                                              # node --test: the server half and the summon odds, no DSH or network needed
 python3 tools/import-art.py ~/Projects/DiscordStudyBot  # art/ again from a ChimeraArchiveHarness checkout
 python3 tools/draw-art.py --dry-run                   # the other characters' tiers: what it would draw
 python3 tools/draw-art.py --env-file .env             # draw what is missing (OPENAI_API_KEY; needs openai, pillow, pyyaml)

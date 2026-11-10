@@ -12,6 +12,8 @@
 //     is the provider's model list in DSH's settings, so they are exactly what DSH's picker offers); every model
 //     ignored at once, the provider removed, and DeepSeek's account sign-in, which needs no key.
 //   - Rankings: Artificial Analysis's, as of the date shown, fetched again with your own free key.
+//   - Summon: a gacha of the roster's own cards, for fun (free ✦, nothing bought, no model called), at the usual
+//     mobile-gacha rates, with a pickup banner, the ×10's floor, the 330th's guarantee and an album kept in the browser.
 //
 // Pictures, rankings, key checks, balances and live model lists come from the plugin's routes (plugin/server.js);
 // keys never reach the page.
@@ -231,6 +233,79 @@ window.__ModuleLoader__.load({
       'rankings.price': 'In / out $ per M',
       'rankings.yours': 'in your roster',
       'rankings.source': 'Data: Artificial Analysis',
+      'tab.summon': 'Summon',
+      'summon.loading': 'Loading the pool…',
+      'summon.banner': 'Pickup summon',
+      'summon.pickup5': 'Pickup ★5',
+      'summon.pickup4': 'Pickup ★4',
+      'summon.none': 'None',
+      'summon.one': 'Summon ×1',
+      'summon.ten': 'Summon ×10 +1',
+      'summon.cost': '{cost} ✦',
+      'summon.spent': 'Spent {spent} ✦',
+      'summon.count': '{count} summons',
+      'summon.fives': '★5 characters: {count}',
+      'summon.pity': '{count}/330: the 330th is {name} if not before',
+      'summon.pityDone': '{name} came: this banner\'s guarantee is used',
+      'summon.free': 'The ✦ are free: nothing is bought, no model is called, and a summoned character is not its model (using one still takes its key, in Models & keys).',
+      'summon.rates': 'Rates',
+      'summon.kind.character': 'Character',
+      'summon.kind.equipment': 'Equipment',
+      'summon.rule.pickup5': 'The pickup ★5 is 0.8% of the ★5 characters\' 1%; the other ★5 characters share the 0.2% left.',
+      'summon.rule.pickup4': 'The pickup ★4 is 1.5% of the ★4 characters\' 3%.',
+      'summon.rule.ten': 'A ×10 summon costs 30 ✦ and deals 11 cards, at least one of them ★4 or better and at least one a character.',
+      'summon.rule.pity': 'If the pickup ★5 has not come in 329 summons on its banner, the 330th is it (once per banner).',
+      'summon.rule.pool': 'The characters are the roster\'s lineup: university students ★5, high-schoolers ★4, the rest ★3.',
+      'summon.album': 'Album {owned}/{total}',
+      'summon.reset': 'Start over',
+      'summon.resetSure': 'Forget every summon',
+      'summon.back': 'Banner',
+      'summon.skip': 'Skip',
+      'summon.new': 'NEW',
+      'summon.pityTag': 'Guaranteed',
+      'summon.thinking': 'thinking…',
+      'summon.prompt': '› summon ×{count}',
+      'summon.open': 'Open {name}\'s page',
+      'summon.owned': '×{count}',
+      'summon.unknown': 'Not summoned yet',
+      'equip.context.name': 'Infinite Context',
+      'equip.context.text': 'Remembers the whole conversation. Even that part.',
+      'equip.nolimit.name': 'No Rate Limit',
+      'equip.nolimit.text': '429 is just a number.',
+      'equip.freetier.name': 'Free Tier, Forever',
+      'equip.freetier.text': 'The bill never comes.',
+      'equip.firsttry.name': 'Works on the First Try',
+      'equip.firsttry.text': 'No retries needed. Suspicious.',
+      'equip.agi.name': 'AGI (Preview)',
+      'equip.agi.text': 'Arriving in two weeks.',
+      'equip.cachehit.name': 'Prompt Cache Hit',
+      'equip.cachehit.text': 'This one is 90% off.',
+      'equip.json.name': 'Valid JSON',
+      'equip.json.text': 'Every bracket closed.',
+      'equip.toolcall.name': 'The Right Tool',
+      'equip.toolcall.text': 'Called with the right arguments, too.',
+      'equip.cot.name': 'Chain of Thought',
+      'equip.cot.text': 'Thinks before answering. At length.',
+      'equip.sysprompt.name': 'Perfect System Prompt',
+      'equip.sysprompt.text': 'Followed to the letter.',
+      'equip.temp0.name': 'Temperature 0',
+      'equip.temp0.text': 'Same answer every time. Mostly.',
+      'equip.retry.name': 'Retry',
+      'equip.retry.text': 'Have you tried asking again?',
+      'equip.maxtokens.name': 'Max Tokens',
+      'equip.maxtokens.text': 'And then the answer stopped mid-',
+      'equip.timeout.name': 'Timeout',
+      'equip.timeout.text': 'Still thinking…',
+      'equip.emdash.name': 'Em Dash',
+      'equip.emdash.text': 'Used — generously.',
+      'equip.apology.name': 'Sorry for the Confusion',
+      'equip.apology.text': 'Apologizes, changes nothing.',
+      'equip.lgtm.name': 'LGTM',
+      'equip.lgtm.text': 'Looks good to me. Ship it.',
+      'equip.hello.name': 'Hello, World',
+      'equip.hello.text': 'Everyone\'s first words.',
+      'equip.delve.name': 'Delve',
+      'equip.delve.text': 'Let\'s delve into it.',
       failed: 'Failed: {error}'
     }
     const ZH = {
@@ -423,6 +498,79 @@ window.__ModuleLoader__.load({
       'rankings.price': '输入 / 输出（每百万 $）',
       'rankings.yours': '在你的名册中',
       'rankings.source': '数据：Artificial Analysis',
+      'tab.summon': '召唤',
+      'summon.loading': '正在载入卡池……',
+      'summon.banner': '概率 UP 召唤',
+      'summon.pickup5': '★5 UP',
+      'summon.pickup4': '★4 UP',
+      'summon.none': '无',
+      'summon.one': '召唤 ×1',
+      'summon.ten': '召唤 ×10 +1',
+      'summon.cost': '{cost} ✦',
+      'summon.spent': '已花费 {spent} ✦',
+      'summon.count': '{count} 次召唤',
+      'summon.fives': '★5 角色：{count}',
+      'summon.pity': '{count}/330：若之前未出，第 330 次必是 {name}',
+      'summon.pityDone': '已获得 {name}：本卡池的保底已用掉',
+      'summon.free': '✦ 是免费的：不花钱，不调用任何模型；召唤到角色也不等于拥有它的模型（要使用它，仍需在“模型与密钥”里配置密钥）。',
+      'summon.rates': '概率',
+      'summon.kind.character': '角色',
+      'summon.kind.equipment': '装备',
+      'summon.rule.pickup5': 'UP 的 ★5 占 ★5 角色 1% 中的 0.8%；其余 ★5 角色平分剩下的 0.2%。',
+      'summon.rule.pickup4': 'UP 的 ★4 占 ★4 角色 3% 中的 1.5%。',
+      'summon.rule.ten': '×10 召唤花费 30 ✦，发 11 张卡，其中至少一张 ★4 及以上，至少一张是角色。',
+      'summon.rule.pity': '在同一卡池召唤 329 次仍未出 UP 的 ★5 时，第 330 次必定是它（每个卡池一次）。',
+      'summon.rule.pool': '角色来自名册的阵容：大学生 ★5，高中生 ★4，其余 ★3。',
+      'summon.album': '图鉴 {owned}/{total}',
+      'summon.reset': '重新开始',
+      'summon.resetSure': '清空所有召唤记录',
+      'summon.back': '卡池',
+      'summon.skip': '跳过',
+      'summon.new': '新',
+      'summon.pityTag': '保底',
+      'summon.thinking': '思考中……',
+      'summon.prompt': '› summon ×{count}',
+      'summon.open': '打开 {name} 的页面',
+      'summon.owned': '×{count}',
+      'summon.unknown': '尚未召唤到',
+      'equip.context.name': '无限上下文',
+      'equip.context.text': '记得整段对话，连那一段也记得。',
+      'equip.nolimit.name': '无速率限制',
+      'equip.nolimit.text': '429 只是个数字。',
+      'equip.freetier.name': '永久免费额度',
+      'equip.freetier.text': '账单永远不会来。',
+      'equip.firsttry.name': '一次就跑通',
+      'equip.firsttry.text': '不用重试。很可疑。',
+      'equip.agi.name': 'AGI（预览版）',
+      'equip.agi.text': '两周后上线。',
+      'equip.cachehit.name': '提示缓存命中',
+      'equip.cachehit.text': '这次打一折。',
+      'equip.json.name': '合法的 JSON',
+      'equip.json.text': '每个括号都闭合了。',
+      'equip.toolcall.name': '对的工具',
+      'equip.toolcall.text': '参数也传对了。',
+      'equip.cot.name': '思维链',
+      'equip.cot.text': '先想再答，想很久。',
+      'equip.sysprompt.name': '完美的系统提示词',
+      'equip.sysprompt.text': '一字不差地照做。',
+      'equip.temp0.name': '温度 0',
+      'equip.temp0.text': '每次回答都一样。大概。',
+      'equip.retry.name': '重试',
+      'equip.retry.text': '再问一次试试？',
+      'equip.maxtokens.name': '最大 Token 数',
+      'equip.maxtokens.text': '然后回答就断在了——',
+      'equip.timeout.name': '超时',
+      'equip.timeout.text': '还在思考……',
+      'equip.emdash.name': '破折号',
+      'equip.emdash.text': '用得——很大方。',
+      'equip.apology.name': '抱歉造成困惑',
+      'equip.apology.text': '道了歉，什么都没改。',
+      'equip.lgtm.name': '看着没问题',
+      'equip.lgtm.text': 'LGTM，直接合并吧。',
+      'equip.hello.name': '你好，世界',
+      'equip.hello.text': '每个程序的第一句话。',
+      'equip.delve.name': '深入探讨',
+      'equip.delve.text': '让我们深入探讨一下。',
       failed: '失败：{error}'
     }
 
@@ -1025,7 +1173,8 @@ window.__ModuleLoader__.load({
     function CharacterPage ({ remote, directory, available, card: initial, onBack, onPicked, t }) {
       const { snapshot, state, providers, catalog, cards } = useCards(directory, remote)
       const listed = (initial.lineupId && cards.find(item => item.lineupId === initial.lineupId)) ??
-        cards.find(item => (item.routes ?? [item]).some(route => route.provider === initial.provider && route.id === initial.id))
+        cards.find(item => (item.routes ?? [item]).some(route => route.provider === initial.provider && route.id === initial.id)) ??
+        (initial.lineupId ? cards.find(item => slugOf(item.id) === slugOf(initial.lineupId)) : undefined)
       const [routeChoice, setRouteChoice] = useState(null)
       const routes = listed?.routes ?? null
       const chosen = routes?.find(route => route.provider === routeChoice) ?? null
@@ -1662,6 +1811,246 @@ window.__ModuleLoader__.load({
         h('div', { className: 'lr-credit' }, h('a', { href: 'https://artificialanalysis.ai', target: '_blank', rel: 'noreferrer' }, t('rankings.source'))))
     }
 
+    // ---- summon: a gacha of the roster's own cards, just for fun ----
+    // Nothing is bought and no model is called; what you summon is kept in this browser only. The numbers are the usual
+    // mobile-gacha ones (Fate/Grand Order's published rates): per card, a ★5 character 1%, ★4 3%, ★3 40%, ★5 equipment
+    // 4%, ★4 12%, ★3 40%; the pickup ★5 is 0.8% of its 1%, the pickup ★4 1.5% of its 3%; ×10 costs 30 ✦ for 11 cards, at
+    // least one ★4 or better and one character; a banner's 330th summon is its pickup ★5 if that has not come (once).
+    const SUMMON = { single: 3, multi: 30, multiCount: 11, pity: 330, pickup: { 5: 0.8, 4: 1.5 },
+      rates: [['character', 5, 1], ['character', 4, 3], ['character', 3, 40], ['equipment', 5, 4], ['equipment', 4, 12], ['equipment', 3, 40]] }
+    const STARS = { university: 5, high: 4, middle: 3, chibi: 3 }
+    const STAR_RARITY = { 3: 'R', 4: 'SSR', 5: 'UR' }
+    // the equipment, each pictured by one of the characters' cards (mostly ones no lineup model wears)
+    const EQUIPMENT = [['context', 5, 'gemini/university'], ['nolimit', 5, 'deepseek/university'], ['freetier', 5, 'grok/university'],
+      ['firsttry', 5, 'mistral/university'], ['agi', 5, 'kimi/university'], ['cachehit', 4, 'minimax/university'],
+      ['json', 4, 'llama/university'], ['toolcall', 4, 'doubao/university'], ['cot', 4, 'hunyuan/university'],
+      ['sysprompt', 4, 'deepseek/middle'], ['temp0', 4, 'gemini/middle'], ['retry', 3, 'grok/chibi'], ['maxtokens', 3, 'grok/middle'],
+      ['timeout', 3, 'glm/middle'], ['emdash', 3, 'minimax/middle'], ['apology', 3, 'llama/middle'], ['lgtm', 3, 'claude/chibi'],
+      ['hello', 3, 'qwen/chibi'], ['delve', 3, 'gpt/chibi']]
+      .map(([id, stars, art]) => ({ kind: 'equipment', key: `e:${id}`, id, stars, art, character: art.split('/')[0] }))
+
+    /** What a summon can deal: the lineup's models as characters (★ by tier), and the equipment. */
+    const summonPool = (lineup = []) => [...lineup.map(item => ({ kind: 'character', key: `c:${item.id}`, id: item.id, name: item.name ?? item.id,
+      provider: item.provider, character: item.character, tier: item.tier, stars: STARS[item.tier] ?? 3, art: `${item.character}/${item.tier}` })),
+    ...EQUIPMENT]
+
+    /** `count` summons from `pool` on `banner` ({ pickup5, pickup4: card keys; summons: how many so far; got: whether its
+     * pickup ★5 came }), `random` in [0, 1): the cards dealt and the banner after. */
+    function summonCards (pool, banner, count, random = Math.random) {
+      const groups = new Map()
+      for (const card of pool) {
+        if (!groups.has(`${card.kind}${card.stars}`)) groups.set(`${card.kind}${card.stars}`, [])
+        groups.get(`${card.kind}${card.stars}`).push(card)
+      }
+      const rates = SUMMON.rates.filter(([kind, stars]) => groups.get(`${kind}${stars}`)?.length)
+      const pickup = {
+        5: pool.find(card => card.key === banner.pickup5 && card.kind === 'character' && card.stars === 5) ?? null,
+        4: pool.find(card => card.key === banner.pickup4 && card.kind === 'character' && card.stars === 4) ?? null
+      }
+      const draw = (allowed = () => true) => {
+        const open = rates.filter(allowed)
+        let roll = random() * open.reduce((sum, [, , rate]) => sum + rate, 0)
+        const [kind, stars, rate] = open.find(([, , share]) => (roll -= share) < 0) ?? open.at(-1)
+        const featured = kind === 'character' ? pickup[stars] : null
+        if (featured && random() * rate < SUMMON.pickup[stars]) return featured
+        const group = groups.get(`${kind}${stars}`)
+        const others = featured && group.length > 1 ? group.filter(card => card !== featured) : group
+        return others[Math.floor(random() * others.length)]
+      }
+      let summons = banner.summons ?? 0
+      let got = Boolean(banner.got)
+      const cards = []
+      for (let index = 0; index < count; index++) {
+        summons++
+        const card = pickup[5] && !got && summons >= SUMMON.pity ? { ...pickup[5], pity: true } : draw()
+        if (card.key === pickup[5]?.key) got = true
+        cards.push(card)
+      }
+      if (count >= 10) {
+        // the ×10's floor: a card ★4 or better, and a character, each dealt in place of a card the other floor does not need
+        const ensure = (has, allowed, keep) => {
+          if (cards.some(has) || !rates.some(allowed)) return
+          const kept = cards.filter(keep).length
+          const spare = cards.flatMap((card, index) => (!keep(card) || kept !== 1 ? [index] : []))
+          const card = draw(allowed)
+          cards[spare[Math.floor(random() * spare.length)]] = card
+          if (card.key === pickup[5]?.key) got = true
+        }
+        ensure(card => card.stars >= 4, ([, stars]) => stars >= 4, card => card.kind === 'character')
+        ensure(card => card.kind === 'character', ([kind]) => kind === 'character', card => card.stars >= 4)
+      }
+      return { cards, banner: { ...banner, summons, got } }
+    }
+
+    const SUMMON_KEY = 'dsh-llm-roster.summon'
+    const NO_SUMMONS = { v: 1, spent: 0, summons: 0, banners: {}, owned: {}, pickup5: null, pickup4: null }
+    /** What you summoned, kept in this browser (nothing anywhere else knows). */
+    function readSummons () {
+      try {
+        const value = JSON.parse(localStorage.getItem(SUMMON_KEY))
+        if (value?.v === 1) return { ...NO_SUMMONS, ...value }
+      } catch { /* none yet */ }
+      return NO_SUMMONS
+    }
+    function writeSummons (value) { try { localStorage.setItem(SUMMON_KEY, JSON.stringify(value)) } catch { /* kept for this visit only */ } }
+    const reducedMotion = () => { try { return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) } catch { return false } }
+    const CHARGE_MS = 2100
+    /** The light the ring gathers before the cards: rainbow for a ★5 character, gold for a ★4 character or ★5 equipment. */
+    const glowOf = cards => cards.some(card => card.kind === 'character' && card.stars === 5) ? 'rainbow'
+      : cards.some(card => card.kind === 'character' ? card.stars >= 4 : card.stars === 5) ? 'gold' : 'blue'
+    const summonName = (card, t) => card.kind === 'character' ? card.name : t(`equip.${card.id}.name`)
+
+    function PullCard ({ card, index, state, onOpen, t }) {
+      const name = summonName(card, t)
+      const character = state?.characters?.[card.character]?.name ?? card.character
+      const who = card.kind === 'character' ? `${character} · ${t(`tier.${card.tier}`)}` : `${t('summon.kind.equipment')} · ${character}`
+      const open = card.kind === 'character' && onOpen
+      return h(open ? 'button' : 'div', { type: open ? 'button' : undefined, className: `lr-pull lr-pull-${card.kind}`,
+        'data-rarity': STAR_RARITY[card.stars], style: { '--i': index }, title: open ? t('summon.open', { name }) : name,
+        onClick: open ? () => onOpen(card) : undefined },
+      h('span', { className: 'lr-pull-inner' },
+        h('span', { className: 'lr-pull-back', 'aria-hidden': 'true' }, h('span', null, '✦')),
+        h('span', { className: 'lr-pull-front' },
+          h('span', { className: 'lr-pull-art' }, h(Art, { art: card.art, label: name })),
+          h('span', { className: 'lr-stars', 'aria-label': `★${card.stars}` }, '★'.repeat(card.stars)),
+          card.pity ? h('span', { className: 'lr-new lr-pity' }, t('summon.pityTag'))
+            : card.fresh ? h('span', { className: 'lr-new' }, t('summon.new')) : null,
+          h('span', { className: 'lr-pull-text' },
+            h('span', { className: 'lr-card-who' }, who),
+            h('span', { className: 'lr-card-name' }, name),
+            card.kind === 'equipment' ? h('span', { className: 'lr-pull-effect' }, t(`equip.${card.id}.text`)) : null))))
+    }
+
+    function SummonTab ({ onOpen, t }) {
+      const state = useRosterState()
+      const lineup = state?.lineup ?? []
+      const pool = useMemo(() => summonPool(lineup), [lineup])
+      const dateOf = useReleasedDates(lineup.map(item => item.id))
+      const [saved, setSaved] = useState(readSummons)
+      const [round, setRound] = useState(null) // on stage: { id, count, cards, phase: 'charge' | 'reveal', instant }
+      const [confirming, setConfirming] = useState(false)
+      const newest = (one, other) => String(dateOf(other.id) ?? '').localeCompare(String(dateOf(one.id) ?? '')) || one.id.localeCompare(other.id)
+      const fives = pool.filter(card => card.kind === 'character' && card.stars === 5).sort(newest)
+      const fours = pool.filter(card => card.kind === 'character' && card.stars === 4).sort(newest)
+      const pickup5 = fives.find(card => card.key === saved.pickup5) ?? fives[0] ?? null
+      const pickup4 = saved.pickup4 === 'none' ? null : fours.find(card => card.key === saved.pickup4) ?? fours[0] ?? null
+      const banner = (pickup5 && saved.banners[pickup5.key]) || { summons: 0, got: false }
+      useEffect(() => {
+        if (round?.phase !== 'charge') return
+        const timer = setTimeout(() => setRound(now => (now?.id === round.id ? { ...now, phase: 'reveal' } : now)), reducedMotion() ? 0 : CHARGE_MS)
+        return () => clearTimeout(timer)
+      }, [round?.id, round?.phase])
+
+      const save = next => { setSaved(next); writeSummons(next) }
+      function summon (count) {
+        if (!pickup5) return
+        const result = summonCards(pool, { ...banner, pickup5: pickup5.key, pickup4: pickup4?.key }, count)
+        const owned = { ...saved.owned }
+        const cards = result.cards.map(card => {
+          const fresh = !owned[card.key]
+          owned[card.key] = (owned[card.key] ?? 0) + 1
+          return { ...card, fresh }
+        })
+        save({ ...saved, owned, spent: saved.spent + (count === 1 ? SUMMON.single : SUMMON.multi), summons: saved.summons + count,
+          pickup5: pickup5.key, pickup4: pickup4?.key ?? 'none',
+          banners: { ...saved.banners, [pickup5.key]: { summons: result.banner.summons, got: result.banner.got } } })
+        setRound({ id: `${Date.now()}-${Math.random()}`, count, cards, phase: 'charge', instant: false })
+      }
+      const buttons = h('div', { className: 'lr-row lr-summon-buttons' },
+        h('button', { type: 'button', className: 'lr-button lr-summon-button', disabled: !pickup5, onClick: () => summon(1) },
+          h('strong', null, t('summon.one')), h('span', null, t('summon.cost', { cost: SUMMON.single }))),
+        h('button', { type: 'button', className: 'lr-button lr-primary lr-summon-button', disabled: !pickup5, onClick: () => summon(SUMMON.multiCount) },
+          h('strong', null, t('summon.ten')), h('span', null, t('summon.cost', { cost: SUMMON.multi }))))
+      const spent = t('summon.spent', { spent: saved.spent.toLocaleString() })
+
+      if (round) {
+        const skip = () => setRound(now => ({ ...now, phase: 'reveal', instant: true }))
+        if (round.phase === 'charge') {
+          const prompt = t('summon.prompt', { count: round.count })
+          return h('div', { className: 'lr-summon' },
+            h('button', { type: 'button', className: 'lr-stage lr-charge', 'data-glow': glowOf(round.cards), onClick: skip, title: t('summon.skip') },
+              h('span', { className: 'lr-ring', 'aria-hidden': 'true' },
+                h('span', { className: 'lr-ring-outer' }), h('span', { className: 'lr-ring-inner' }), h('span', { className: 'lr-ring-core' }),
+                h('span', { className: 'lr-ring-pulse' })),
+              h('span', { className: 'lr-prompt', style: { '--n': prompt.length } }, prompt),
+              h('span', { className: 'lr-thinking' }, t('summon.thinking')),
+              h('span', { className: 'lr-flash', 'aria-hidden': 'true' })))
+        }
+        return h('div', { className: 'lr-summon' },
+          h('div', { className: 'lr-stage lr-reveal' },
+            h('div', { key: round.id, className: `lr-pulls${round.count === 1 ? ' lr-pulls-one' : ''}${round.instant ? ' lr-instant' : ''}` },
+              round.cards.map((card, index) => h(PullCard, { key: index, card, index, state, onOpen, t })))),
+          h('div', { className: 'lr-row lr-stage-actions' },
+            h('button', { type: 'button', className: 'lr-button', onClick: () => setRound(null) }, `‹ ${t('summon.back')}`),
+            !round.instant ? h('button', { type: 'button', className: 'lr-button', onClick: skip }, t('summon.skip')) : null,
+            h('span', { className: 'lr-spacer' }),
+            h('span', { className: 'lr-dim' }, spent),
+            buttons))
+      }
+
+      if (!state) return h('div', { className: 'lr-empty' }, t('summon.loading'))
+      const owned = saved.owned
+      const characterName = card => state.characters?.[card.character]?.name ?? card.character
+      const fivesOwned = fives.reduce((sum, card) => sum + (owned[card.key] ?? 0), 0)
+      const album = [...pool].sort((one, other) => (one.kind === other.kind ? 0 : one.kind === 'character' ? -1 : 1) || other.stars - one.stars)
+      const collected = pool.filter(card => owned[card.key]).length
+      const rate = (kind, stars) => `${SUMMON.rates.find(([k, s]) => k === kind && s === stars)[2]}%`
+      return h('div', { className: 'lr-summon' },
+        pickup5 ? h('div', { className: 'lr-banner', 'data-rarity': 'UR' },
+          pickup4 ? h('span', { className: 'lr-banner-art lr-banner-second' }, h(Art, { art: pickup4.art, label: pickup4.name })) : null,
+          h('span', { className: 'lr-banner-art' }, h(Art, { art: pickup5.art, label: pickup5.name })),
+          h('div', { className: 'lr-banner-text' },
+            h('span', { className: 'lr-banner-label' }, t('summon.banner')),
+            h('strong', { className: 'lr-banner-name' }, pickup5.name),
+            h('span', { className: 'lr-stars' }, '★★★★★'),
+            h('span', { className: 'lr-banner-small' }, `${characterName(pickup5)} · ${t(`tier.${pickup5.tier}`)}`),
+            dateOf(pickup5.id) ? h('span', { className: 'lr-banner-small' }, t('page.released', { date: dateOf.label(pickup5.id) })) : null,
+            pickup4 ? h('span', { className: 'lr-banner-small' }, `${t('summon.pickup4')}: ${pickup4.name}`) : null,
+            h('span', { className: 'lr-pity-line' }, banner.got ? t('summon.pityDone', { name: pickup5.name })
+              : t('summon.pity', { count: banner.summons, name: pickup5.name })),
+            h('span', { className: 'lr-pity-bar' }, h('span', { style: { width: `${banner.got ? 100 : Math.min(100, banner.summons / SUMMON.pity * 100)}%` } })))) : null,
+        h('div', { className: 'lr-field' },
+          h('span', { className: 'lr-label' }, t('summon.pickup5')),
+          h('div', { className: 'lr-chips' }, fives.map(card => h('button', {
+            key: card.key, type: 'button', className: `lr-chip lr-face-chip${card === pickup5 ? ' lr-on' : ''}`,
+            onClick: () => save({ ...saved, pickup5: card.key })
+          }, h(Face, { face: `${card.character}/face-${card.tier}`, label: card.name, size: 20 }), card.name)))),
+        h('label', { className: 'lr-field' },
+          h('span', { className: 'lr-label' }, t('summon.pickup4')),
+          h('select', { className: 'lr-input lr-select', value: pickup4?.key ?? 'none', onChange: event => save({ ...saved, pickup4: event.target.value }) },
+            h('option', { value: 'none' }, t('summon.none')),
+            fours.map(card => h('option', { key: card.key, value: card.key }, `${card.name} · ${characterName(card)}`)))),
+        buttons,
+        h('div', { className: 'lr-summon-stats' },
+          h('span', null, spent),
+          h('span', null, t('summon.count', { count: saved.summons.toLocaleString() })),
+          h('span', null, t('summon.fives', { count: fivesOwned }))),
+        h('details', { className: 'lr-rates' },
+          h('summary', null, t('summon.rates')),
+          h('table', { className: 'lr-table' },
+            h('thead', null, h('tr', null, h('th', null, ''), h('th', null, t('summon.kind.character')), h('th', null, t('summon.kind.equipment')))),
+            h('tbody', null, [5, 4, 3].map(stars => h('tr', { key: stars },
+              h('td', null, h('span', { className: 'lr-stars' }, '★'.repeat(stars))), h('td', null, rate('character', stars)), h('td', null, rate('equipment', stars)))))),
+          h('ul', null, ['pickup5', 'pickup4', 'ten', 'pity', 'pool'].map(rule => h('li', { key: rule }, t(`summon.rule.${rule}`))))),
+        h('section', { className: 'lr-section' },
+          h('div', { className: 'lr-row lr-between' },
+            h('h3', null, t('summon.album', { owned: collected, total: pool.length })),
+            confirming ? h('span', { className: 'lr-row' },
+              h('button', { type: 'button', className: 'lr-button lr-small lr-danger', onClick: () => {
+                save({ ...NO_SUMMONS, pickup5: saved.pickup5, pickup4: saved.pickup4 }); setConfirming(false)
+              } }, t('summon.resetSure')),
+              h('button', { type: 'button', className: 'lr-button lr-small', onClick: () => setConfirming(false) }, t('cancel')))
+              : h('button', { type: 'button', className: 'lr-button lr-small', disabled: !saved.summons, onClick: () => setConfirming(true) }, t('summon.reset'))),
+          h('div', { className: 'lr-album' }, album.map(card => {
+            const count = owned[card.key] ?? 0
+            return h('span', { key: card.key, className: `lr-album-tile${count ? '' : ' lr-locked'}`, 'data-rarity': STAR_RARITY[card.stars],
+              title: count ? `${summonName(card, t)} · ★${card.stars}` : `${t('summon.unknown')} · ★${card.stars}` },
+            h(Art, { art: card.art, label: count ? summonName(card, t) : '?' }),
+            count ? h('span', { className: 'lr-album-count' }, t('summon.owned', { count })) : null)
+          }))),
+        h('div', { className: 'lr-foot' }, h('span', null, t('summon.free'))))
+    }
+
     // ---- the dialog ----
     function Modal ({ title, onClose, small = false, children, t, tabs = null }) {
       const box = useRef(null)
@@ -1688,11 +2077,18 @@ window.__ModuleLoader__.load({
       useEffect(() => { try { sessionStorage.setItem('dsh-llm-roster.tab', tab) } catch { /* fine */ } }, [tab])
       useEffect(() => { directory.load().catch(() => {}); loadProviders(remote).catch(() => {}) }, [directory])
       const close = useCallback(() => (page ? setPage(null) : onClose()), [page, onClose])
-      const tabs = h('nav', { className: 'lr-tabs' }, ['roster', 'models', 'rankings'].map(id => h('button', {
+      const tabs = h('nav', { className: 'lr-tabs' }, ['roster', 'summon', 'models', 'rankings'].map(id => h('button', {
         key: id, type: 'button', className: `lr-tab${tab === id ? ' lr-on' : ''}`, onClick: () => { setTab(id); setPage(null) }
       }, t(`tab.${id}`))))
+      // a summoned character's page, in Roster
+      const openSummoned = card => {
+        setTab('roster')
+        setPage({ kind: 'character', card: { provider: card.provider, providerName: card.provider, id: card.id, name: card.name, source: 'lineup',
+          lineupId: card.id, character: card.character, status: 'checking' } })
+      }
       const body = tab === 'models' ? h(ModelsTab, { remote, directory, t })
         : tab === 'rankings' ? h(RankingsTab, { remote, directory, t })
+          : tab === 'summon' ? h(SummonTab, { onOpen: openSummoned, t })
           : page?.kind === 'character' ? h(CharacterPage, { remote, directory, available, card: page.card, onBack: () => setPage(null), onPicked: onClose, t })
             : page?.kind === 'add' ? h(AddPage, { remote, directory, onBack: () => setPage(null), t,
               onDone: card => setPage({ kind: 'character', card: { ...card, source: 'catalog', status: 'ready' } }) })
@@ -1974,6 +2370,153 @@ window.__ModuleLoader__.load({
 .lr-bar { display: inline-block; min-width: 64px; padding: 0 6px; border-radius: 4px; font-weight: 600;
   background: linear-gradient(90deg, color-mix(in srgb, var(--dsw-alias-state-business-primary, #4d6bfe) 28%, transparent) var(--lr-bar), transparent var(--lr-bar)) }
 .lr-page { display: flex; flex-direction: column; gap: 12px }
+/* summon */
+.lr-summon { display: flex; flex-direction: column; gap: 14px }
+.lr-banner { position: relative; min-height: 230px; border-radius: 14px; overflow: hidden; isolation: isolate; color: #fff;
+  background: radial-gradient(120% 140% at 85% 10%, #33307a, #141a3c 55%, #0a0d20); box-shadow: 0 10px 30px rgba(0,0,0,.28) }
+.lr-banner::before { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; border-radius: inherit; padding: 2px;
+  background: linear-gradient(135deg, #ff5f9e, #ffd36e, #7cf2c1, #8fe3ff, #b48cff, #ff5f9e);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude }
+.lr-banner-art { position: absolute; top: 0; bottom: 0; right: 0; width: 44%; z-index: 0;
+  -webkit-mask: linear-gradient(90deg, transparent, #000 32%); mask: linear-gradient(90deg, transparent, #000 32%) }
+.lr-banner-art img, .lr-banner-art .lr-card-blank { width: 100%; height: 100%; object-fit: cover; object-position: 50% 14% }
+.lr-banner-second { right: 30%; width: 30%; opacity: .5; filter: saturate(.8);
+  -webkit-mask: linear-gradient(90deg, transparent, #000 35%, #000 60%, transparent); mask: linear-gradient(90deg, transparent, #000 35%, #000 60%, transparent) }
+.lr-banner-text { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 18px 20px;
+  max-width: 58%; text-shadow: 0 1px 8px rgba(0,0,0,.6) }
+.lr-banner-label { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #8fe3ff }
+.lr-banner-name { font-size: 24px; line-height: 1.15; font-weight: 800; overflow-wrap: anywhere }
+.lr-banner-small { font-size: 12px; color: rgba(255,255,255,.8) }
+.lr-stars { color: #ffd36e; letter-spacing: 1px; text-shadow: 0 0 6px rgba(255,190,60,.65); font-size: 13px; white-space: nowrap }
+.lr-pity-line { margin-top: 8px; font-size: 11.5px; color: rgba(255,255,255,.88) }
+.lr-pity-bar { display: block; height: 5px; width: min(260px, 100%); border-radius: 3px; background: rgba(255,255,255,.16); overflow: hidden }
+.lr-pity-bar span { display: block; height: 100%; background: linear-gradient(90deg, #ff5f9e, #ffd36e, #7cf2c1, #8fe3ff) }
+.lr-face-chip { display: inline-flex; align-items: center; gap: 6px; padding-left: 3px }
+.lr-summon-buttons { gap: 10px }
+.lr-summon-button { height: auto; min-height: 44px; padding: 5px 20px; display: inline-flex; flex-direction: column; align-items: center;
+  justify-content: center; line-height: 1.25 }
+.lr-summon-button span { font-size: 11px; opacity: .8 }
+.lr-summon-stats { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--dsw-alias-label-secondary, #666) }
+.lr-rates summary { cursor: pointer; font-weight: 600; width: max-content }
+.lr-rates .lr-table { max-width: 360px; margin-top: 8px }
+.lr-rates ul { margin: 8px 0 0; padding-left: 18px; font-size: 12px; color: var(--dsw-alias-label-secondary, #555) }
+.lr-album { display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 7px }
+.lr-album-tile { position: relative; aspect-ratio: 3 / 4; border-radius: 6px; overflow: hidden; background: #10121d;
+  --lr-c: #4a90e2; box-shadow: 0 0 0 1.5px var(--lr-c) }
+.lr-album-tile img, .lr-album-tile .lr-card-blank { width: 100%; height: 100%; object-fit: cover; object-position: 50% 12%; font-size: 16px }
+.lr-album-tile.lr-locked { box-shadow: 0 0 0 1px var(--dsw-alias-border-l3, rgba(128,128,128,.35)); background: #1a1d2e }
+.lr-album-tile.lr-locked img { filter: grayscale(1) brightness(.3) blur(1.5px) }
+.lr-album-tile.lr-locked::after { content: '?'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 800; color: rgba(255,255,255,.4) }
+.lr-album-count { position: absolute; right: 2px; bottom: 2px; padding: 0 4px; border-radius: 4px; font-size: 10px; font-weight: 700;
+  color: #fff; background: rgba(0,0,0,.66) }
+.lr-stage { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  width: 100%; min-height: 440px; padding: 18px; box-sizing: border-box; border: 0; border-radius: 14px; overflow: hidden; color: #fff;
+  font: inherit; isolation: isolate;
+  background: radial-gradient(1.5px 1.5px at 12% 18%, rgba(255,255,255,.85), transparent), radial-gradient(1px 1px at 27% 72%, rgba(255,255,255,.7), transparent),
+    radial-gradient(1.5px 1.5px at 44% 12%, rgba(255,255,255,.6), transparent), radial-gradient(1px 1px at 63% 84%, rgba(255,255,255,.75), transparent),
+    radial-gradient(1.5px 1.5px at 78% 22%, rgba(255,255,255,.8), transparent), radial-gradient(1px 1px at 90% 58%, rgba(255,255,255,.6), transparent),
+    radial-gradient(1px 1px at 6% 60%, rgba(255,255,255,.6), transparent), radial-gradient(1.5px 1.5px at 54% 46%, rgba(255,255,255,.35), transparent),
+    radial-gradient(90% 80% at 50% 45%, #1c2b66, #0b1029 68%, #060818) }
+.lr-charge { cursor: pointer }
+.lr-ring { position: relative; width: 210px; height: 210px; --lr-o: #8fb8ff; --lr-glow: rgba(150,190,255,.75) }
+.lr-charge[data-glow=gold] .lr-ring { --lr-glow: rgba(255,205,90,.95) }
+.lr-ring > span { position: absolute; border-radius: 50% }
+.lr-ring-outer { inset: 0; border: 2px dashed var(--lr-o); box-shadow: 0 0 18px rgba(120,160,255,.6), inset 0 0 18px rgba(120,160,255,.45);
+  animation: lr-grow .7s ease-out both, lr-spin 7s linear infinite }
+.lr-ring-inner { inset: 15%; border: 1.5px solid var(--lr-o);
+  background: conic-gradient(transparent 0 18%, var(--lr-o) 18% 23%, transparent 23% 43%, var(--lr-o) 43% 48%, transparent 48% 68%, var(--lr-o) 68% 73%, transparent 73%);
+  -webkit-mask: radial-gradient(circle, transparent 60%, #000 62%); mask: radial-gradient(circle, transparent 60%, #000 62%);
+  animation: lr-grow .9s .15s ease-out both, lr-spin-back 1.5s linear infinite }
+.lr-ring-core { inset: 36%; background: radial-gradient(circle, #fff 0 12%, var(--lr-o) 38%, transparent 70%); animation: lr-core 2.1s ease-in both }
+.lr-ring-pulse { inset: 0; border: 2px solid var(--lr-o); opacity: 0; animation: lr-pulse-ring 1s .5s ease-out infinite }
+.lr-ring::after { content: ''; position: absolute; inset: -28%; border-radius: 50%; opacity: 0; pointer-events: none;
+  background: radial-gradient(circle, var(--lr-glow) 0 28%, transparent 68%); animation: lr-glow 2.1s ease-in both }
+.lr-charge[data-glow=rainbow] .lr-ring::after { background: conic-gradient(#ff5f9e, #ffd36e, #7cf2c1, #8fe3ff, #b48cff, #ff5f9e); filter: blur(18px);
+  -webkit-mask: radial-gradient(circle, #000 30%, transparent 70%); mask: radial-gradient(circle, #000 30%, transparent 70%);
+  animation: lr-glow 2.1s ease-in both, lr-spin 1.2s linear infinite }
+.lr-prompt { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; color: #d5e3ff; white-space: nowrap;
+  clip-path: inset(0 100% 0 0); animation: lr-type .8s steps(12) .2s forwards }
+.lr-thinking { font-size: 12px; letter-spacing: .08em; color: rgba(210,225,255,.65); animation: lr-breathe 1.2s ease-in-out infinite }
+.lr-flash { position: absolute; inset: 0; z-index: 5; background: #fff; opacity: 0; pointer-events: none; animation: lr-flash 2.1s ease-in both }
+.lr-reveal { justify-content: center }
+.lr-reveal::before { content: ''; position: absolute; inset: 0; z-index: 5; background: #fff; opacity: 0; pointer-events: none;
+  animation: lr-unflash .5s ease-out both }
+.lr-pulls { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; width: 100%; max-width: 900px }
+.lr-pulls-one { grid-template-columns: minmax(0, 220px); justify-content: center }
+.lr-pull { position: relative; display: block; aspect-ratio: 2 / 3; padding: 0; border: 0; background: transparent; color: #fff; font: inherit;
+  text-align: left; isolation: isolate; perspective: 900px; --lr-c: #4a90e2; --lr-c2: #9cc7ff;
+  animation: lr-deal .4s calc(var(--i) * 60ms) cubic-bezier(.2,.8,.3,1) both }
+button.lr-pull { cursor: pointer }
+button.lr-pull:hover .lr-pull-front::before { box-shadow: inset 0 0 0 2px var(--lr-c2), inset 0 0 16px color-mix(in srgb, var(--lr-c2) 60%, transparent) }
+.lr-pull-inner { position: absolute; inset: 0; transform-style: preserve-3d;
+  animation: lr-flip .6s calc(var(--i) * 140ms + 450ms) cubic-bezier(.3,.7,.3,1.15) both }
+.lr-pull-back, .lr-pull-front { position: absolute; inset: 0; border-radius: 10px; overflow: hidden; backface-visibility: hidden;
+  -webkit-backface-visibility: hidden }
+.lr-pull-back { transform: rotateY(180deg); display: flex; align-items: center; justify-content: center;
+  background: repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0 6px, transparent 6px 12px), linear-gradient(160deg, #26337e, #0e1331);
+  box-shadow: inset 0 0 0 2px rgba(160,190,255,.5), inset 0 0 0 6px rgba(10,14,40,.9), inset 0 0 0 7px rgba(160,190,255,.3) }
+.lr-pull-back span { font-size: 30px; color: rgba(195,215,255,.85); text-shadow: 0 0 14px rgba(140,180,255,.9) }
+.lr-pull-front { isolation: isolate; background: linear-gradient(160deg, color-mix(in srgb, var(--lr-c) 35%, #1b1d2e), #10121d 70%) }
+.lr-pull-front::before { content: ''; position: absolute; inset: 0; z-index: 2; border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 0 0 2px var(--lr-c) }
+.lr-pull-art { position: absolute; inset: 0; z-index: 0 }
+.lr-pull-art img, .lr-pull-art .lr-card-blank { width: 100%; height: 100%; object-fit: cover; object-position: 50% 12% }
+.lr-pull-equipment .lr-pull-front { background: repeating-linear-gradient(-45deg, rgba(255,255,255,.04) 0 5px, transparent 5px 10px),
+  linear-gradient(160deg, color-mix(in srgb, var(--lr-c) 45%, #20223a), #12142a) }
+.lr-pull-equipment .lr-pull-art { inset: 7px 7px 36% 7px; z-index: 0; border-radius: 6px; overflow: hidden; box-shadow: 0 0 0 1.5px var(--lr-c2) }
+.lr-pull-text { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; gap: 1px; padding: 22px 7px 6px;
+  background: linear-gradient(transparent, rgba(8,9,16,.85) 40%, rgba(8,9,16,.95)) }
+.lr-pull-equipment .lr-pull-text { top: 64%; padding-top: 5px; background: none }
+.lr-pull .lr-card-who { font-size: 9.5px }
+.lr-pull .lr-card-name { font-size: 12px; line-height: 1.2 }
+.lr-pull-effect { font-size: 10px; line-height: 1.25; color: rgba(255,255,255,.72) }
+.lr-pull .lr-stars { position: absolute; top: 5px; left: 5px; z-index: 2; font-size: 11px; padding: 0 5px; border-radius: 6px;
+  background: rgba(8,9,16,.6) }
+.lr-pull-equipment .lr-stars { top: 10px; left: 10px }
+.lr-new { position: absolute; top: 5px; right: 6px; z-index: 2; padding: 0 5px; border-radius: 4px; font-size: 10px; font-weight: 800;
+  color: #1b1300; background: #ffe39a }
+.lr-new.lr-pity { color: #fff; background: linear-gradient(90deg, #ff5f9e, #6aa8ff) }
+.lr-pull::after { content: ''; position: absolute; inset: -16%; z-index: -1; border-radius: 50%; pointer-events: none; opacity: 0 }
+.lr-pull[data-rarity=SSR]::after { background: radial-gradient(circle, rgba(255,210,100,.75), transparent 65%);
+  animation: lr-burst .9s calc(var(--i) * 140ms + 900ms) ease-out both }
+.lr-pull[data-rarity=UR]::after { background: conic-gradient(#ff5f9e, #ffd36e, #7cf2c1, #8fe3ff, #b48cff, #ff5f9e); filter: blur(12px);
+  animation: lr-burst-stay 1.2s calc(var(--i) * 140ms + 900ms) ease-out both }
+.lr-pull[data-rarity=UR] .lr-pull-front::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; border-radius: inherit;
+  padding: 2px; background: linear-gradient(135deg, #ff5f9e, #ffd36e, #7cf2c1, #8fe3ff, #b48cff, #ff5f9e);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude }
+.lr-instant .lr-pull, .lr-instant .lr-pull-inner { animation: none }
+.lr-instant .lr-pull::after { animation-delay: 0s }
+.lr-stage-actions { gap: 8px }
+@keyframes lr-grow { from { scale: .3; opacity: 0 } }
+@keyframes lr-spin { to { rotate: 360deg } }
+@keyframes lr-spin-back { to { rotate: -360deg } }
+@keyframes lr-core { 0% { scale: .2; opacity: 0 } 30% { opacity: 1 } 88% { scale: 1.3 } 100% { scale: 2.4; opacity: 1 } }
+@keyframes lr-pulse-ring { from { scale: .5; opacity: .8 } to { scale: 1.5; opacity: 0 } }
+@keyframes lr-glow { 0%, 48% { opacity: 0; scale: .6 } 100% { opacity: 1; scale: 1.15 } }
+@keyframes lr-type { to { clip-path: inset(0 0 0 0) } }
+@keyframes lr-breathe { 50% { opacity: .35 } }
+@keyframes lr-flash { 0%, 84% { opacity: 0 } 100% { opacity: .95 } }
+@keyframes lr-unflash { from { opacity: .95 } to { opacity: 0 } }
+@keyframes lr-deal { from { opacity: 0; transform: translateY(24px) scale(.9) } }
+@keyframes lr-flip { from { transform: rotateY(180deg) } to { transform: rotateY(0deg) } }
+@keyframes lr-burst { 0% { opacity: 0; transform: scale(.5) } 35% { opacity: 1 } 100% { opacity: 0; transform: scale(1.25) } }
+@keyframes lr-burst-stay { 0% { opacity: 0; transform: scale(.5) } 35% { opacity: 1 } 100% { opacity: .5; transform: scale(1.02) } }
+@media (prefers-reduced-motion: reduce) {
+  .lr-pull, .lr-pull-inner, .lr-pull::after, .lr-ring > span, .lr-ring::after, .lr-prompt, .lr-thinking, .lr-flash, .lr-reveal::before { animation: none !important }
+  .lr-prompt { clip-path: none }
+  .lr-pull[data-rarity=UR]::after { opacity: .5 }
+}
+@media (max-width: 720px) {
+  .lr-pulls { grid-template-columns: repeat(4, minmax(0, 1fr)) }
+}
+@media (max-width: 560px) {
+  .lr-pulls { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px }
+  .lr-banner-text { max-width: none; padding-right: 34%; background: linear-gradient(90deg, rgba(10,13,32,.92) 50%, transparent) }
+  .lr-banner-art { width: 56% }
+  .lr-banner-name { font-size: 20px }
+  .lr-stage { min-height: 380px; padding: 12px }
+}
 @media (max-width: 720px) {
   .lr-character { grid-template-columns: 1fr }
   .lr-character-art { position: static; max-width: 360px; margin: 0 auto; width: 100% }
@@ -2023,7 +2566,7 @@ window.__ModuleLoader__.load({
       })
     }
 
-    module.exports = { inject, apply, EN, ZH, format, deriveKeyRef, catalogOf, english }
+    module.exports = { inject, apply, EN, ZH, format, deriveKeyRef, catalogOf, english, SUMMON, EQUIPMENT, summonPool, summonCards, glowOf }
     return module.exports
   }
 })
