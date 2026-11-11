@@ -194,7 +194,7 @@ describe('your changes: beside the pack, never in it, written in when you export
       .map(model => [model.art, model.own]), [['deepseek/image2.webp', false], ['kimi/Kimi pose.webp', false]])
     // taken back, discarded
     work.forget(upload)
-    assert.equal(work.resolve([{ provider: 'openrouter', id: 'moonshotai/kimi-k3' }])[0].art, 'kimi/middle.webp')
+    assert.equal(work.resolve([{ provider: 'openrouter', id: 'moonshotai/kimi-k3' }])[0].art, 'kimi/high.webp') // (K3, a high-schooler)
     work.discardChanges('knights')
     assert.equal(work.resolve([{ provider: 'deepseek-official', id: 'deepseek-v4-pro' }])[0].art, 'deepseek/high.webp')
     assert.equal(work.packs().packs.find(pack => pack.id === 'knights').changes, 0)
@@ -212,31 +212,33 @@ describe('your changes: beside the pack, never in it, written in when you export
 })
 
 describe('the packs that come with the roster', () => {
-  test('Academy and Original Students: yours from the start, Academy in use; one you remove stays removed', () => {
+  test('Academy and Original: yours from the start, Academy in use; one you remove stays removed', () => {
     const work = createRoster(folder)
     const listed = work.packs()
-    assert.deepEqual([DEFAULT, listed.active, listed.packs.map(pack => [pack.id, pack.version])], ['academy', 'academy', [['academy', '1.0.0'], ['original-students', '1.0.0']]])
-    assert.deepEqual(listed.included.map(pack => [pack.file, pack.added, pack.names['zh-cn']]), [['academy', true, '学园'], ['original-students', true, '原版学生']])
+    assert.deepEqual([DEFAULT, listed.active, listed.packs.map(pack => [pack.id, pack.version])], ['academy', 'academy', [['academy', '1.0.0'], ['original', '2.0.0']]])
+    assert.deepEqual(listed.included.map(pack => [pack.file, pack.added, pack.names['zh-cn']]), [['academy', true, '学园'], ['original', true, '原版']])
     // every character, chibi to university student
     const look = work.roster.look()
     for (const character of CHARACTERS) for (const tier of TIERS) assert.match(look.file(look.tierArt(character, tier)), /packs\/academy\//, `${character} ${tier}`)
-    work.removePack('original-students')
+    work.removePack('original')
     assert.deepEqual([createRoster(folder).packs().active, createRoster(folder).packs().packs.map(pack => pack.id)], ['academy', ['academy']])
-    assert.equal(work.addPack('original-students').id, 'original-students')
+    assert.equal(work.addPack('original').id, 'original')
     work.removePack('academy') // (no Academy: the first pack you have)
-    assert.equal(createRoster(folder).packs().active, 'original-students')
+    assert.equal(createRoster(folder).packs().active, 'original')
   })
-  test('Original Students: her stages as the tiers, her portrait at them, her bond pictures and moods named', () => {
-    const look = createRoster(folder).roster.packs.look('original-students')
-    assert.equal(look.id, 'original-students')
+  test('Original: every character\'s stages as the tiers, her portrait at them, her bond pictures and moods named', () => {
+    const look = createRoster(folder).roster.packs.look('original')
+    assert.equal(look.id, 'original')
     assert.deepEqual(TIERS.map(tier => look.tier(tier).name), ['Chibi', 'Stage 2', 'Stage 3', 'Awakened'])
-    for (const character of ['gpt', 'claude', 'gemini', 'deepseek', 'grok']) {
-      assert.deepEqual(look.choices(character, 'art'), [...TIERS.map(tier => `${character}/${tier}.webp`), `${character}/cafe.webp`, `${character}/festival.webp`, `${character}/home.webp`])
+    for (const character of CHARACTERS) {
+      const more = [`${character}/cafe.webp`, `${character}/festival.webp`, `${character}/home.webp`]
+      assert.deepEqual(look.choices(character, 'art'), [...TIERS.map(tier => `${character}/${tier}.webp`), ...more], character)
+      for (const mood of ['happy', 'calm', 'worried', 'sad']) assert.ok(look.choices(character, 'face').includes(`${character}/face-${mood}.webp`), `${character} ${mood}`)
+      assert.deepEqual(look.labels()[`${character}/face-sad.webp`], { name: 'Sad', names: { 'zh-cn': '悲伤' } }, character)
       assert.deepEqual([look.tierFace(character, 'chibi'), look.tierFace(character, 'high')], [`${character}/face-chibi.webp`, `${character}/face.webp`])
-      assert.match(look.file(`${character}/high.webp`), /packs\/original-students\//)
+      for (const tier of TIERS) assert.match(look.file(look.tierArt(character, tier)), /packs\/original\//, `${character} ${tier}`)
+      assert.match(look.file(`${character}/face.webp`), /packs\/original\//, character)
     }
-    assert.equal(look.tierArt('kimi', 'high'), 'kimi/high.webp') // the other characters: the bundled pictures
-    assert.match(look.file('kimi/high.webp'), /art\/kimi\/high\.webp$/)
     assert.deepEqual(look.labels()['claude/festival.webp'], { name: 'Summer festival', names: { 'zh-cn': '夏日祭' } })
   })
 })
@@ -251,8 +253,8 @@ describe('fetched from GitHub', () => {
     assert.deepEqual(sourceOf('https://raw.githubusercontent.com/someone/packs/main/knights/pack.json'),
       { zip: 'https://codeload.github.com/someone/packs/zip/main', within: 'knights', hint: 'knights' })
     assert.deepEqual(sourceOf('https://example.com/dl/knights-v2.zip?x=1'), { zip: 'https://example.com/dl/knights-v2.zip?x=1', within: '', hint: 'knights-v2' })
-    assert.deepEqual(sourceOf('https://github.com/RustColeone/dsh-llm-roster/blob/main/packs/original-students.zip'),
-      { zip: 'https://raw.githubusercontent.com/RustColeone/dsh-llm-roster/main/packs/original-students.zip', within: '', hint: 'original-students' })
+    assert.deepEqual(sourceOf('https://github.com/RustColeone/dsh-llm-roster/blob/main/packs/original.zip'),
+      { zip: 'https://raw.githubusercontent.com/RustColeone/dsh-llm-roster/main/packs/original.zip', within: '', hint: 'original' })
     assert.throws(() => sourceOf('file:///etc/passwd'), /https/)
     assert.throws(() => sourceOf('https://github.com/someone'), /names a repository/)
   })
@@ -285,7 +287,7 @@ describe('the routes', () => {
     const call = connect(createRoster(folder))
     const json = async response => ({ status: response.status, body: await response.json() })
     assert.equal((await json(await call('POST', `${ROUTES.packImport}?name=knights.zip`, { body: knights(), type: 'application/zip' }))).body.id, 'knights')
-    assert.deepEqual((await json(await call('GET', ROUTES.packs))).body.packs.map(pack => pack.id), ['academy', 'knights', 'original-students'])
+    assert.deepEqual((await json(await call('GET', ROUTES.packs))).body.packs.map(pack => pack.id), ['academy', 'knights', 'original'])
     // (a pack not in use shows its own pictures, for its preview)
     assert.equal((await call('GET', `${ROUTES.image}?art=claude/knight.png&pack=knights`)).headers.get('content-type'), 'image/png')
     const used = (await json(await call('POST', ROUTES.packs, { body: { use: 'knights' } }))).body

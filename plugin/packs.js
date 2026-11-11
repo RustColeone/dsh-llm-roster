@@ -13,7 +13,7 @@
 // before the bundled ones. The pictures in a character's folder are hers to choose from on her page.
 //
 // Your packs are kept in DSH's home (llm-roster/packs/<id>/): the ones that come with the roster (Academy, the bundled
-// art; Original Students, packs/original-students.zip), new empty ones, and the ones you import or fetch from GitHub.
+// art; Original, packs/original.zip), new empty ones, and the ones you import or fetch from GitHub.
 // A pack is never written to once kept. What you change while you use it (a model's picture you choose, a picture you
 // upload) is kept beside it, as a pack of its own (llm-roster/changes/<id>/: a pack.json of `models`, and the pictures),
 // worn over it; exporting the pack writes the two together into the .zip: its pack.json with your choices, and every
@@ -273,7 +273,7 @@ export class Packs {
     try { return fs.readdirSync(this.home, { withFileTypes: true }).filter(entry => entry.isDirectory() && ID.test(entry.name)).map(entry => entry.name).sort() } catch { return [] }
   }
 
-  /** The pack in use: `id` if you have it, else the default (Original Students), else your first, else none (the
+  /** The pack in use: `id` if you have it, else the default (Academy), else your first, else none (the
    * bundled pictures alone). */
   active (id) {
     const ids = this.ids()

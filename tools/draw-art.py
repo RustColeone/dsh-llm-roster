@@ -5,12 +5,14 @@
     python tools/draw-art.py                                    # everything not drawn yet
     python tools/draw-art.py --characters kimi --tiers high --force   # draw one again
     python tools/draw-art.py --faces-only                       # crop every avatar again (after tuning `faces`)
+    python tools/draw-art.py --original                         # the Original pack's pictures (tools/original-pack.py)
 
 Each tier of each character is drawn from her standing art (and, for the chibi, the chibi style reference first), in
 the style and with the prompts of characters.yml, the same as ChimeraArchiveHarness draws the other five. The drawing
 is kept in tools/.drawn/<name>/<tier>.png (not shipped), and from it the card (art/<name>/<tier>.webp, 512 x 768; a
-chibi on a transparent card) and the avatar (art/<name>/face-<tier>.webp, 192 px). References are downloaded once into
-tools/.references/. Needs `openai`, `pillow` and `pyyaml`; the key is OPENAI_API_KEY, from the environment or the file
+chibi on a transparent card) and the avatar (art/<name>/face-<tier>.webp, 192 px). With --original it draws the Original
+pack's pictures instead (characters.yml `original`: her stages, bond pictures and mood faces), kept in
+tools/.drawn/<name>/<kind>.png alone: tools/original-pack.py makes that pack's cards and faces of them. References are downloaded once into tools/.references/. Needs `openai`, `pillow` and `pyyaml`; the key is OPENAI_API_KEY, from the environment or the file
 named by --env-file. Every call is printed with the tokens it used, so the cost is known.
 """
 from __future__ import annotations
@@ -59,9 +61,9 @@ def reference(label: str, url: str) -> Path:
     return target
 
 
-def prompt_for(plan: dict, name: str, tier: str) -> str:
+def prompt_for(plan: dict, name: str, tier: str, kinds: str = "tiers") -> str:
     who = {key: str(value) for key, value in plan["characters"][name].items()}
-    return " ".join([plan["style"].format(**who), plan["tiers"][tier]["prompt"].format(**who)])
+    return " ".join([plan["style"].format(**who), plan[kinds][tier]["prompt"].format(**who)])
 
 
 def card(drawn: Path, tier: str) -> Image.Image:
@@ -114,7 +116,8 @@ def load_key(env_file: Path | None) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--characters", default="", help="comma-separated names (default: every character)")
-    parser.add_argument("--tiers", default="", help="comma-separated tiers (default: every tier)")
+    parser.add_argument("--tiers", default="", help="comma-separated tiers, or with --original its kinds (default: every one)")
+    parser.add_argument("--original", action="store_true", help="draw the Original pack's pictures, not Academy's tiers")
     parser.add_argument("--force", action="store_true", help="draw again what is already drawn")
     parser.add_argument("--dry-run", action="store_true", help="only say what would be drawn")
     parser.add_argument("--faces-only", action="store_true", help="only crop the avatars again, from the drawings kept")
@@ -122,7 +125,8 @@ def main() -> int:
     arguments = parser.parse_args()
     plan = yaml.safe_load(PLAN.read_text(encoding="utf-8"))
     names = [item for item in arguments.characters.split(",") if item] or list(plan["characters"])
-    tiers = [item for item in arguments.tiers.split(",") if item] or list(plan["tiers"])
+    kinds = "original" if arguments.original else "tiers"
+    tiers = [item for item in arguments.tiers.split(",") if item] or list(plan[kinds])
     if arguments.faces_only:
         for name in names:
             for tier in tiers:
@@ -133,8 +137,8 @@ def main() -> int:
             if arguments.force or not (DRAWN / name / f"{tier}.png").is_file()]
     if arguments.dry_run:
         for name, tier in jobs:
-            options = plan["tiers"][tier]
-            print(f"{name}/{tier}: {options['size']} {options['quality']}\n  {prompt_for(plan, name, tier)}\n")
+            options = plan[kinds][tier]
+            print(f"{name}/{tier}: {options['size']} {options['quality']}\n  {prompt_for(plan, name, tier, kinds)}\n")
         print(f"{len(jobs)} picture(s) to draw")
         return 0
     key = load_key(Path(arguments.env_file) if arguments.env_file else None)
@@ -145,7 +149,7 @@ def main() -> int:
     client = OpenAI(api_key=key, timeout=300)
     totals = {"pictures": 0, "input_tokens": 0, "output_tokens": 0}
     for index, (name, tier) in enumerate(jobs, 1):
-        options = plan["tiers"][tier]
+        options = plan[kinds][tier]
         about = plan["characters"][name]
         paths = ([reference("chibi-style", plan["chibi_reference"])] if options.get("chibi_reference") else []) + \
             [reference(name, about["image"])]
@@ -157,7 +161,7 @@ def main() -> int:
         extra = {"background": options["background"]} if options.get("background") else {}
         started = time.monotonic()
         try:
-            response = client.images.edit(model=plan["model"], image=images, prompt=prompt_for(plan, name, tier),
+            response = client.images.edit(model=plan["model"], image=images, prompt=prompt_for(plan, name, tier, kinds),
                                           size=options["size"], quality=options["quality"], output_format="png", **extra)
         except Exception as error:  # say it and go on (an empty account stops everything after it too)
             print(f"[{index}/{len(jobs)}] {name}/{tier}: FAILED {type(error).__name__}: {str(error)[:300]}", flush=True)
@@ -170,7 +174,8 @@ def main() -> int:
             continue
         (DRAWN / name).mkdir(parents=True, exist_ok=True)
         (DRAWN / name / f"{tier}.png").write_bytes(data)
-        ship(plan, name, tier)
+        if kinds == "tiers":
+            ship(plan, name, tier)
         usage = getattr(response, "usage", None)
         used = {"input_tokens": getattr(usage, "input_tokens", 0) or 0, "output_tokens": getattr(usage, "output_tokens", 0) or 0}
         totals["pictures"] += 1

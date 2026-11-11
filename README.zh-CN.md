@@ -22,7 +22,8 @@ dsh plugin --profile web add github:RustColeone/dsh-llm-roster
 
 - 该模型所在层级的角色立绘，以及该层级的稀有度；
 - 该模型的 Artificial Analysis 智能指数，以及它在他们测评模型中的排名；
-- 一个 **…** 按钮，用于打开角色页面。
+- 一个 **…** 按钮，用于打开角色页面；
+- 当最近调用该模型（或其服务商的密钥）失败时，会出现红色 **⚠**，悬停可查看原因（见下文**最近调用失败原因**）。
 
 点击一张可用卡即可把会话切换到该模型。还不能使用的卡会说明原因：
 
@@ -32,9 +33,11 @@ dsh plugin --profile web add github:RustColeone/dsh-llm-roster
 | **API 密钥被拒绝** | 名册向该服务商查询使用情况时，它拒绝了这个密钥。 |
 | **未启用** | 密钥可用，但该模型还不是该服务商“使用中”的模型之一。它的页面可以添加。 |
 
-每个密钥都会通过向服务商查询使用情况来测试：如果它报告余额就查余额，否则查询该密钥可调用的模型。结果会保留十分钟，**测试密钥**按钮会重新查询。在 DSH 中登录 DeepSeek 账号后，DeepSeek 模型无需密钥。它们会通过账号使用，DeepSeek 卡片的页面也可以让你选择使用账号还是 API 密钥。你可以按服务商筛选，或只显示可用模型。
+每个密钥都会通过向服务商查询使用情况来测试：如果它报告余额就查余额，否则查询该密钥可调用的模型。结果会保留十分钟，**测试密钥**按钮会重新查询。在 DSH 中登录 DeepSeek 账号后，DeepSeek 模型无需密钥。它们会通过账号使用，DeepSeek 卡片的页面也可以让你选择使用账号还是 API 密钥。
 
-你可以按服务商、排名或发布日期排序。按发布日期排序时，最新的排在前面，每张卡都会显示日期。模型的发布日期按以下顺序确定：
+名册默认打开**可用**：你现在能用的模型。**全部**显示所有角色，以及每个角色需要什么；某个服务商的筛选标签则只显示它的模型。
+
+你可以按服务商、排名或发布日期排序。按服务商排序时，每个服务商名字一行（▸ DeepSeek ───）排在它的卡片前。**按服务商分组**会把这些分组行关掉或重新打开，名册会在当前浏览器中记住你的选择。DeepSeek 账号和她的 API 密钥在那里算作同一个服务商：每个 DeepSeek 模型只有一张卡，通过其中一个使用，卡上会标明是哪一个。按发布日期排序时，最新的排在前面，每张卡都会显示日期。模型的发布日期按以下顺序确定：
 
 1. 如果 Artificial Analysis 测评了该模型，用他们的日期。
 2. OpenRouter 上架该模型的那天，无论你通过哪个服务商使用它（Volcengine 的 `doubao-seed-2-1-turbo-260628` 会使用 OpenRouter 上 Seed 2.1 Turbo 的日期）。
@@ -60,7 +63,7 @@ dsh plugin --profile web add github:RustColeone/dsh-llm-roster
   - 她的模型会在该服务商提供的模型中按名称匹配，因此 OpenRouter 的 `anthropic/claude-opus-5.5` 就是 Anthropic 的 `claude-opus-5-5`。前面的家族名和结尾的版本标记不算，所以 Volcengine 的 `doubao-seed-2-1-turbo-260628` 就是 Seed 2.1 Turbo（如果有多个版本，取最新）。
   - 如果服务商不提供某个模型，会显示**这里没有**。对于默认通过 OpenRouter 使用的角色，如果某阵容模型 OpenRouter 没有列出，也会这样显示。
   - 因此，只有 OpenRouter 密钥也能使用所有角色：GPT、Claude、Kimi、GLM 等等。
-- **服务商：** 服务商的密钥，可测试并查看余额。
+- **服务商：** 服务商的密钥，可测试并查看余额，以及最近它的调用失败原因（会标出这个模型的那条）。
 - **使用这个模型**；如果该模型尚未启用，则显示**加入并使用这个模型**。
 
 **+ 卡片**用于添加阵容中没有的模型。选择一个服务商，或新建一个 OpenAI 兼容接口（尚未配置的服务商也会被添加，并带有密钥字段）。输入模型 ID，或从目录或该服务商的实时列表中挑选；再命名，并选择它的立绘和头像。它会加入该服务商的“使用中”模型，因此 DSH 的选择器也会提供它。
@@ -83,14 +86,26 @@ OpenAI 兼容接口指任何使用 OpenAI Chat Completions API 的服务：中�
 
 Doubao 是字节跳动的 Seed 系列。OpenRouter 列出了 Seed 2.1 Turbo、2.0 Code、2.0 Lite 和 2.0 Mini。字节跳动的旗舰模型 Seed 2.1 Pro 只在其自有云 Volcengine Ark 上提供，所以它的卡片会显示**这里没有**。要使用它，可在 Doubao 的页面把 Ark 添加为 OpenAI 兼容接口（Base URL 为 `https://ark.cn-beijing.volces.com/api/v3`，填你的 Ark 密钥），并让她通过这个接口使用。Ark 自己的 ID（例如 `doubao-seed-2-1-pro-260628`）会匹配到阵容并保留其层级。Artificial Analysis 没有测评 Seed 系列模型，所以这些卡片没有排行。
 
-[`plugin/models.json`](plugin/models.json) 说明了哪个主流模型对应哪个角色和层级（GPT-6 Luna 是 Q版，GPT-6.1 Sol 是高中生，Claude Fable 是大学生，Kimi K3.1 Pro 是高中生……），这些模型就是名册的阵容。其他模型按 ID（`gpt…`、`claude…`、`kimi…`、`glm…`、`qwen…`、`sonar…` 等，也包含 OpenRouter 的 `vendor/` 前缀后面的部分）或服务商匹配。层级根据 ID 中的词判断：flash、mini 和 haiku 是 Q版；pro 和 opus 是高中生；prime、fable 和 deep research 是大学生，等等。
+[`plugin/models.json`](plugin/models.json) 说明了哪个主流模型对应哪个角色和层级（GPT-6 Luna 是 Q版，GPT-6.1 Sol 是高中生，Claude Fable 是大学生，Kimi K3 是高中生、K3.1 Pro 是大学生……），这些模型就是名册的阵容。还有少量模型在那里按模式命名（Kimi K3 256K，`kimi-k3*256k*`，是 Q版）。其他模型按 ID（`gpt…`、`claude…`、`kimi…`、`glm…`、`qwen…`、`sonar…` 等，也包含 OpenRouter 的 `vendor/` 前缀后面的部分）或服务商匹配。层级根据 ID 中的词判断：flash、mini 和 haiku 是 Q版；pro 和 opus 是高中生；prime、fable 和 deep research 是大学生，等等。
+
+上一代模型会先被排除，直到你选择它们：Kimi for Coding（`kimi-for-coding*`）。提供整个目录的服务商会把它们放在**模型与密钥**的**忽略**下，并在卡片下方计数；把一个移到**使用中**，它的卡就会回来。
 
 提供整个目录的服务商（例如没有模型列表的 OpenRouter，有数百个模型）只显示名册认识的角色模型。一条提示会统计其余模型，这些模型仍会出现在 DSH 的选择器中，并链接到**模型与密钥**供你选择要用的。
 
 **模型与密钥。** 你在 DSH 中配置的每个服务商都有一张卡片：
 
 - **API 密钥。** 你可以粘贴密钥，它会只写存储到 DSH 的凭据存储中，和 DSH 模型页保存密钥的方式完全一样。也可以指定保存密钥的环境变量，即设置该服务商的 `apiKeyEnv`。一个圆点会显示密钥是否已设置以及来源。**测试密钥**会向服务商询问密钥是否可用。
-- **余额**，用于 API 会报告余额的服务商：DeepSeek、OpenRouter 和 Moonshot。OpenAI、Anthropic、Google 和 xAI 对普通密钥不报告余额。
+- **余额**，用于 API 会报告余额的服务商：DeepSeek、OpenRouter 和 Moonshot。
+- **支出或剩余额度**，用于 OpenAI、Anthropic 和 xAI，卡片一打开就显示在 API 密钥下方。这些服务商只告诉有权读取它的密钥；这类密钥通常不能调用模型（一个 Anthropic 组织密钥需要 DSH 不指定的工作区），所以它有专属字段，因为很少用到而折叠在 API 密钥下方：**▸ 管理员密钥（消费）** 或 **▸ 管理密钥（余额）**，并会标明是否已设置。它是可选的；可以粘贴它（像 API 密钥一样，只写存储在 DSH 的凭据存储中），也可以设置它的变量。名册只用它读取；没有它时，才用 API 密钥询问。无权读取的密钥不会显示任何内容，也不计为失败；它的 **测试密钥** 会说明原因，以及是用哪个密钥询问的。
+
+  | 服务商 | 显示 | 消费密钥 | 变量 |
+  | --- | --- | --- | --- |
+  | OpenAI | 本月支出（其 Costs API） | 管理员密钥，或具有 `api.usage.read` 权限的密钥 | `OPENAI_ADMIN_KEY` |
+  | Anthropic | 本月支出（其 cost report） | 管理员密钥，或获准读取成本的组织范围密钥 | `ANTHROPIC_ADMIN_KEY` |
+  | xAI | 剩余预付额度 | 团队的管理密钥 | `XAI_MANAGEMENT_KEY`（或 `XAI_MANAGEMENT_API_KEY`） |
+
+  Google 对任何密钥都不告知这些数字：Gemini 的支出只能在 AI Studio 和 Google Cloud 的账单页看到。消费密钥能做的事不只是读取成本；名册只用它读取，而且在服务商允许限制密钥的地方（xAI 的管理密钥可以），请把它限制为只能查看账单。
+- **最近调用失败原因**，见下文。
 - **使用中和已忽略的模型，以胶囊标签显示。** 点击即可把模型从一个状态移到另一个状态。
   - “使用中”就是 DSH 设置中该服务商的模型列表（pi-ai 服务商是 `providers.<route>.models`，DeepSeek 是 `models`），所以“使用中”的模型正是 DSH 模型选择器和名册提供的模型。没有列表的服务商会使用其整个目录，直到你第一次把某个模型移出。
   - “忽略”中显示**拉取目录**找到的内容：DSH 安装的目录，不发起网络请求。
@@ -102,7 +117,9 @@ Doubao 是字节跳动的 Seed 系列。OpenRouter 列出了 Seed 2.1 Turbo、2.
   - **对 pi-ai 服务商来说**，没有模型列表的服务商会提供其整个目录。因此全部忽略会把该服务商暂时搁置：它从 DSH 设置中移除，但其密钥引用和模型列表保留在名册文件中。**重新使用**会原样放回。
 - **移除服务商**确认后会把你添加的服务商从 DSH 设置中移除。它还可以删除 DSH 中为该服务商存储的密钥。DSH 自带配置中的服务商不能在这里移除或搁置。
 
-**DeepSeek 账号**显示你是否已登录。登录后，DeepSeek 模型不需要 API 密钥。
+**DeepSeek 账号**显示你是否已登录。登录后，DeepSeek 模型不需要 API 密钥，卡片还会显示 DSH 自己读取到的账号余额（充值和赠送），与**设置 → 账号**一致。
+
+**最近调用失败原因。** 名册会监视 DSH 发出的每次模型调用（原样转发 DSH 的 `llm/stream`），并保留失败的那些及其原因：DSH 给出的错误码（密钥不被接受、配额或余额用尽、被限流、超时……）、HTTP 状态码和服务商返回的消息，按服务商和模型保存。密钥检查失败也会保留。它们会显示在**模型与密钥**的服务商卡片上、角色页面上（会标出她的模型），以及卡片上的红色 **⚠**。当之后再有一次调用成功，这些记录就会消失：该模型的失败记录，以及属于整个服务商的记录（其密钥、余额、速率、服务）。**清除**可以手动让它们消失。你主动停止的调用不算失败。它们保存在 DSH 主目录中（`failures.json`，每个服务商最新 12 条），服务商消息里任何看起来像密钥的内容都会被隐藏。
 
 **添加服务商……**可以添加 DSH 能路由但尚未配置的服务商，或新建 OpenAI 兼容接口。接口的密钥由 DSH 自己测试，并用它保存的密钥列出其模型。
 
@@ -145,7 +162,7 @@ Artificial Analysis 不再发布 Coding 或 Agentic 指数（他们的 API 返�
 **立绘包。** 角色的样子，以及角色和层级的名称，都来自立绘包。立绘包不会改变模型是谁（她的角色、层级和稀有度、阵容），只会改变她的装扮和命名。名册自带两个立绘包，从它第一次启动起就是你的：
 
 - **学园（Academy）**，学生立绘包，在你另选其他之前一直使用：全部十四个角色，从 Q版到初中生、高中生、大学生，按 ZipZipPipe 的设计绘制。它也是内置图片（`art/`）：任何立绘包缺少的内容都来自这里。
-- **原版学生（Original Students）**，额外的一个：最初在 ChimeraArchiveHarness 中画成的五名学生（GPT、Claude、Gemini、DeepSeek 和 Grok）。她的立绘阶段就是这些层级（二阶段、三阶段，以及觉醒的第四阶段），她的 Q版就是 Q版。她的羁绊图片（咖啡厅、居家、夏日祭）可作为她页面中的更多卡面选择，她的表情头像也可作为更多头像。另外九个角色使用学园的图片。它以 .zip 形式提供（[`packs/original-students.zip`](packs)）。
+- **原版（Original）**，额外的一个：全部十四个角色都以各自的立绘阶段作为层级（二阶段、三阶段，以及觉醒的第四阶段），各自的 Q版就是 Q版。她们的羁绊图片（咖啡厅、居家、夏日祭）是她页面中的更多卡面选择，她们的表情头像（开心、平静、担心、悲伤）也可作为更多头像。最初的五个（GPT、Claude、Gemini、DeepSeek 和 Grok）与 ChimeraArchiveHarness 最初画的一样；另外九个角色是用同样的提示词为这个立绘包绘制的。它以 .zip 形式提供（[`packs/original.zip`](packs)）。（0.5.3 之前的名册会把它添加为**原版学生**，只有最初五个；那个会保留在你的立绘包里，直到你移除。）
 
 在**名册**标签页的**立绘包**菜单中可以随时切换，也可以在那里**+ 新建空白立绘包……**。所有卡面、头像、图鉴和召唤会一起更换。**立绘包**标签页会列出你拥有的立绘包：
 
@@ -238,7 +255,7 @@ knights/
 
 要手工制作立绘包，可以先导出一个（或新建一个空白立绘包，选择图片后导出），改成你喜欢的样子，重新压缩并导入。要分享立绘包，把它的文件夹放到 GitHub 上；任何人都可以通过链接拉取。你拥有的立绘包保存在 `~/.dsh/llm-roster/packs/<name>/`，你的改动保存在 `~/.dsh/llm-roster/changes/<name>/`；立绘包的文件也可以在那里直接编辑，名册下次打开时会显示这些改动。
 
-**新角色。** 立绘包只能为名册认识的角色换装，不能新增角色。角色是谁、哪些模型属于哪个角色、在哪个层级，都在名册自己的列表 [`plugin/models.json`](plugin/models.json) 中，你可以自行添加。在 `characters` 下添加她，写上默认服务商、她的模型 ID 模式和她的服务商，并按层级把她的模型放进 `lineup`：
+**新角色。** 立绘包只能为名册认识的角色换装，不能新增角色。角色是谁、哪些模型属于哪个角色、在哪个层级，都在名册自己的列表 [`plugin/models.json`](plugin/models.json) 中，你可以自行添加。在 `characters` 下添加她，写上默认服务商、她的模型 ID 模式和她的服务商，并按层级把她的模型放进 `lineup`（不想单独成为卡片的模型按其 ID 或模式写进 `models`；想先排除、选中后才出现的写进 `ignored`）：
 
 ```json
 "characters": {
@@ -278,6 +295,7 @@ knights/
 | `aa.json` | 排行数据（重新拉取后） |
 | `openrouter.json` | 来自 OpenRouter 的发布日期（重新拉取后） |
 | `seen.json` | 每个没有公开发布日期的模型首次出现的日期（公开日期发布后即不再保留） |
+| `failures.json` | 最近调用失败的原因，按服务商和模型保存，直到之后有调用成功 |
 
 召唤记录保存在你的浏览器中（`localStorage` 的 `dsh-llm-roster.summon` 下），所以每个浏览器有自己的图鉴。
 
@@ -286,17 +304,18 @@ knights/
 | 文件 | 作用 |
 | --- | --- |
 | [`plugin/client.js`](plugin/client.js) | 网页端部分（使用 DSH 的 React）。它把头像放进 `conversation.input.right` 插槽，并渲染名册对话框和“插件”页面。它通过 `modelDirectories.directoryFor(session).select()` 切换模型，通过 `remote.settings.mutate` 写入模型列表和 `apiKeyEnv`，通过 `remote.credentials.set` 保存密钥，并通过 `remote.llm.discoverModels` 读取目录。 |
-| [`plugin/index.js`](plugin/index.js) | DSH 插件（`llm-roster`）。它把路由挂载到 DSH 的 API 上，并先通过 DSH 的凭据存储解析密钥，再尝试环境变量。 |
+| [`plugin/index.js`](plugin/index.js) | DSH 插件（`llm-roster`）。它把路由挂载到 DSH 的 API 上，先通过 DSH 的凭据存储解析密钥，再尝试环境变量，并监视 DSH 的模型调用（`llm/stream`，原样转发）以了解失败原因。 |
+| [`plugin/failures.js`](plugin/failures.js) | 最近调用失败原因：按服务商和模型保存、计数，调用成功后放掉。 |
 | [`plugin/server.js`](plugin/server.js) | 下面的路由。 |
 | [`plugin/roster.js`](plugin/roster.js) | 每个模型对应哪个角色和层级、阵容、每个模型所用的立绘和头像、当前使用的立绘包、搁置的服务商，以及每个角色经哪个服务商使用。 |
-| [`plugin/models.json`](plugin/models.json) | 每个模型对应哪个角色：各角色的 ID、服务商和默认服务商，按层级排的阵容，用于判断层级的词，以及没有任何列表收录的阵容模型发布日期。 |
+| [`plugin/models.json`](plugin/models.json) | 每个模型对应哪个角色：各角色的 ID、服务商和默认服务商，按层级排的阵容，按模式指定的更多模型，先排除直到被选择才出现的模型，用于判断层级的词，以及没有任何列表收录的阵容模型发布日期。 |
 | [`plugin/packs.js`](plugin/packs.js) | 立绘包：读取（按文件名读取名称和图片，你的改动叠加其上，再叠加在内置图片之上）、从 .zip 或 GitHub 链接保存、添加名册自带的立绘包、新建空白立绘包、保存你的改动，以及在导出时把这些改动写入立绘包。 |
 | [`plugin/zip.js`](plugin/zip.js) | .zip 文件，使用 Node 自带的 zlib 读写：不写出归档之外的文件，不接受加密或 ZIP64 条目，并限制大小。 |
 | [`plugin/rankings.js`](plugin/rankings.js) | Artificial Analysis 列表：把模型匹配到对应 slug、排名、排行榜，以及重新拉取列表（有 Pro 密钥时拉取 Pro 列表）。 |
-| [`plugin/providers.js`](plugin/providers.js) | 每个服务商的余额和实时列表接口，固定使用官方地址，以及基于这些接口的密钥检查。 |
+| [`plugin/providers.js`](plugin/providers.js) | 每个服务商的余额、支出（使用有权读取的密钥）和实时列表接口，固定使用官方地址，以及基于这些接口的密钥检查。 |
 | [`art/`](art) | 内置立绘包 *学园*：[`pack.json`](art/pack.json) 和每个角色的图片文件夹。鸣谢见 [`art/CREDITS.md`](art/CREDITS.md)。 |
-| [`packs/`](packs) | 名册自带的立绘包，以 .zip 文件形式存在：[`original-students.zip`](packs/original-students.zip)，由 [`students-pack.py`](tools/students-pack.py) 制作。其鸣谢在 .zip 内（`CREDITS.md`）。 |
-| [`tools/`](tools) | [`import-art.py`](tools/import-art.py) 导入五个 ChimeraArchiveHarness 角色。[`draw-art.py`](tools/draw-art.py) 根据 [`characters.yml`](tools/characters.yml) 使用 OpenAI 图像模型绘制其他角色。[`students-pack.py`](tools/students-pack.py) 制作 Original Students 立绘包。[`aa-snapshot.mjs`](tools/aa-snapshot.mjs) 刷新排行和发布日期快照。 |
+| [`packs/`](packs) | 名册自带的立绘包，以 .zip 文件形式存在：[`original.zip`](packs/original.zip)，由 [`original-pack.py`](tools/original-pack.py) 制作。其鸣谢在 .zip 内（`CREDITS.md`）。 |
+| [`tools/`](tools) | [`import-art.py`](tools/import-art.py) 导入五个 ChimeraArchiveHarness 角色。[`draw-art.py`](tools/draw-art.py) 根据 [`characters.yml`](tools/characters.yml) 使用 OpenAI 图像模型绘制其他角色（学园的层级；使用 `--original` 时是原版立绘包的阶段、羁绊图片和表情头像）。[`original-pack.py`](tools/original-pack.py) 制作原版立绘包。[`aa-snapshot.mjs`](tools/aa-snapshot.mjs) 刷新排行和发布日期快照。 |
 | [`data/`](data) | 随插件发布的快照：Artificial Analysis 的排行，以及 OpenRouter 的发布日期。 |
 
 密钥永远不会传到页面。密钥检查、余额查询或实时列表由服务端完成，使用 DSH 为该服务商的凭据引用解析出的密钥。它只会被发送到该服务商的官方地址，绝不会发送到页面指定的地址。你自己的 OpenAI 兼容接口由 DSH 自己在设置中的地址上访问。
@@ -321,8 +340,10 @@ knights/
 | `GET /api/llm-roster.released` | 所有已知的发布日期（按模型 slug，Artificial Analysis 的优先于 OpenRouter），以及模型首次出现的日期 |
 | `POST /api/llm-roster.released` | `{ids}` → `{dates: {id: {date, seen}}}`：一组模型的发布日期；没有公开日期的模型会以今天作为首次出现日期 |
 | `GET/POST /api/llm-roster.rankings` | 排行榜（`?top=`、`&sort=released` 按最新、`&efforts=1` 查看所有思考强度），或重新拉取发布日期和排行 |
+| `GET/POST /api/llm-roster.failures` | 最近调用失败原因，最新的在前；`{clear: provider \| null}` 清除它们 |
 | `GET /api/llm-roster.check` | `?provider=<route>&ref=<credential reference>&fresh=1`：密钥是否可用（`ok`、`missing`、`rejected`、`error`、`untested`） |
 | `GET /api/llm-roster.balance` | `?provider=<route>&ref=<credential reference>` |
+| `GET /api/llm-roster.usage` | `?provider=<route>&ref=<credential reference>&fresh=1`：账户本月支出或剩余额度，用消费/管理密钥读取；没有时用 API 密钥（`ok` 并带有 `spent` 和/或 `credit` 以及所用的 `key`、`missing`、`rejected`、`error`、`untested`） |
 | `GET /api/llm-roster.live` | `?provider=<route>&ref=<credential reference>` |
 
 ## 开发
@@ -333,7 +354,8 @@ python3 tools/import-art.py ~/Projects/DiscordStudyBot  # 从 ChimeraArchiveHarn
 python3 tools/draw-art.py --dry-run                   # 其他角色的层级：预览将绘制的内容
 python3 tools/draw-art.py --env-file .env             # 绘制缺失的内容（OPENAI_API_KEY；需要 openai、pillow、pyyaml）
 python3 tools/draw-art.py --faces-only                # 在 characters.yml 中调整 `faces` 后重新裁剪头像
-python3 tools/students-pack.py ~/Projects/DiscordStudyBot  # 重新生成 packs/original-students.zip（需要 pillow）
+python3 tools/draw-art.py --original --env-file .env  # 其他角色的原版立绘包图片
+python3 tools/original-pack.py ~/Projects/DiscordStudyBot  # 重新生成 packs/original.zip（需要 pillow）
 AA_API_TOKEN=... node tools/aa-snapshot.mjs           # 在 data/ 中生成新快照（即使没有密钥也会生成发布日期）
 ```
 

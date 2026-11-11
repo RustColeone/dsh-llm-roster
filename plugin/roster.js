@@ -7,7 +7,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { ID, Packs, PICTURES, pictureFile } from './packs.js'
+import { fits, ID, Packs, PICTURES, pictureFile } from './packs.js'
 import { formsOf, undated } from './rankings.js'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -66,9 +66,18 @@ export function defaultArt (provider, model) {
   // (also as another provider lists it: Volcengine's `doubao-seed-2-0-lite-260215` is the lineup's `seed-2.0-lite`)
   const exact = MODELS.lineup[bare(model)] ?? formsOf(slug(model)).map(form => SLUGGED.get(form)).find(Boolean)
   if (exact) return exact
+  // (a model outside the lineup that models.json names, by its id or a pattern: the first that fits)
+  const named = Object.entries(MODELS.models ?? {}).find(([pattern]) => pattern !== '_' && fits(pattern, namesOf(model)))
+  if (named) return named[1]
   const character = characterOf(provider, model)
   return character ? `${character}/${tierOf(model)}` : null
 }
+
+/** The models the roster leaves out until you choose them (models.json's `ignored`: last generation's), by id or
+ * pattern. */
+export const IGNORED = (MODELS.ignored ?? []).filter(pattern => typeof pattern === 'string' && pattern)
+/** Whether the roster leaves a model out until you choose it. */
+export const ignoredByDefault = model => IGNORED.some(pattern => fits(pattern, namesOf(model)))
 
 /** The roster's lineup: the mainstream models of models.json, each from its character's home provider (through
  * OpenRouter, as `vendor/model`, for a character whose home it is). */

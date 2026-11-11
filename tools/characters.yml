@@ -44,6 +44,81 @@ tiers:
       {name} drawn as a university student: stylish grown-up casual clothes, a mature composed expression, books under
       her arm, a sunny campus courtyard, waist-up.
 
+# The Original pack's pictures (`draw-art.py --original`), with the words and quality ChimeraArchiveHarness drew the
+# first five's with (its extensions/students/art.yml): her stages, each a new, better illustration, more detailed at every
+# stage; her bond pictures; her mood faces. They are kept in tools/.drawn/<name>/<kind>.png, and tools/original-pack.py
+# makes the pack's cards and faces of them.
+original:
+  stage-2:
+    size: 1024x1536
+    quality: low
+    prompt: >-
+      Stage 2 card art of {name}, {role}: a waist-up portrait in her school uniform, a gentle confident expression,
+      a simple soft pastel background with a hint of {motif}.
+  stage-3:
+    size: 1024x1536
+    quality: medium
+    prompt: >-
+      Stage 3 card art of {name}, {role}: a detailed knee-up illustration in an evolved version of her uniform with
+      touches of {motif}, a dynamic pose, a background that fits her place in the club, warm rim light and richer
+      textures in hair and cloth.
+  stage-4:
+    size: 1024x1536
+    quality: high
+    prompt: >-
+      Stage 4 awakened SSR splash art of {name}, {role}: a full-body, highly detailed illustration in an ornate,
+      fully covering awakened outfit built on her motifs ({motif}): a long coat over a high-collared dress, gloves and
+      boots. Flowing hair and coat tails, dramatic lighting, glowing particles, an elaborate detailed background, the
+      finest detail of all her stages.
+  # Bond: more casual and personal as she grows closer to you.
+  bond-1:
+    size: 1024x1536
+    quality: medium
+    prompt: >-
+      A casual snapshot of {name} off duty: an everyday outfit (an oversized cardigan or hoodie), a relaxed natural
+      smile, sitting at a café table with a drink, warm afternoon daylight, like a photo taken while hanging out.
+  bond-2:
+    size: 1024x1536
+    quality: medium
+    prompt: >-
+      {name} at ease with someone she trusts: cosy at-home clothes, curled up on a sofa with a snack and a game
+      controller, a playful teasing expression, soft evening lamp light, a lived-in room.
+  bond-3:
+    size: 1024x1536
+    quality: medium
+    prompt: >-
+      A special memory with {name}: a summer-festival yukata with patterns of {motif}, fireworks in the night sky
+      behind her, a bright happy blush, holding out her hand towards the viewer, sparkling and warm.
+  # Her mood faces (happy, calm, worried, sad): round faces, shown small and cropped to a circle.
+  mood-happy:
+    size: 1024x1024
+    quality: medium
+    prompt: >-
+      A round face icon of {name}: head and shoulders, her face centred and filling most of the square, beaming with
+      a bright open smile, sparkling eyes and a light blush, on a soft plain pastel background of one colour (it is
+      cropped to a circle).
+  mood-calm:
+    size: 1024x1024
+    quality: medium
+    prompt: >-
+      A round face icon of {name}: head and shoulders, her face centred and filling most of the square, calm and at
+      ease with a gentle small smile and soft relaxed eyes, on a soft plain pastel background of one colour (it is
+      cropped to a circle).
+  mood-worried:
+    size: 1024x1024
+    quality: medium
+    prompt: >-
+      A round face icon of {name}: head and shoulders, her face centred and filling most of the square, worried:
+      knitted brows, a small uneasy frown, glancing aside, a little sweat drop, on a soft plain pastel background of
+      one colour (it is cropped to a circle).
+  mood-sad:
+    size: 1024x1024
+    quality: medium
+    prompt: >-
+      A round face icon of {name}: head and shoulders, her face centred and filling most of the square, sad: teary
+      eyes, a trembling downturned mouth, her head lowered a little, on a soft plain pastel background of one colour
+      (it is cropped to a circle).
+
 face_defaults:
   chibi: [256, 392, 230]
   middle: [256, 200, 236]
@@ -113,14 +188,14 @@ characters:
     motif: alpacas, cosy wool and the infinity symbol
     role: the sleepy, easygoing girl who naps in the club room
   doubao:
-    name: Doubao
+    name: Doubao (the purple-haired girl herself, never her plush doll)
     sheet: https://蓝色大肥鱼.com/works/doubao202610170001.html
     image: https://raw.githubusercontent.com/lmy414/ai-girl-stickers/main/dist/submissions/originals/doubao/81b76f71e19ed9f9.jpg
     look: >-
       long purple-to-blue gradient hair in a high ponytail, a white top under a short blue-violet gradient jacket with
       a SEED name badge, a white pleated skirt, mismatched purple-plaid and white socks, chunky sneakers, a big-headed
-      black-haired Doubao plush doll, a small blue whirlwind
-    motif: tech gadgets, a little blue whirlwind and the Doubao plush
+      black-haired plush doll she carries (her mascot, not her), a small blue whirlwind
+    motif: tech gadgets, a little blue whirlwind and her plush mascot
     role: the cheerful, techy first-year who tries everything new
   perplexity:
     name: Perplexity

@@ -1,5 +1,5 @@
 {
-  "_": "Who each model is: its character and tier. The tiers are four, weakest to strongest: chibi, middle, high, university. A model in `lineup` is that exact pick, and the lineup is the roster's mainstream models, shown even before you can use them; any other model is matched by `match` (its id, without any 'vendor/' prefix) or by its provider, and its tier by the words in its id (`words`, first hit wins; else `fallback`). `home` is the provider the roster offers a character's models from when DSH does not offer them yet (through OpenRouter as `vendor`/model). How each character looks and what she and the tiers are called is the art pack's (art/pack.json); your own picks in the roster win over both.",
+  "_": "Who each model is: its character and tier. The tiers are four, weakest to strongest: chibi, middle, high, university. A model in `lineup` is that exact pick, and the lineup is the roster's mainstream models, shown even before you can use them; `models` names who other models are, by id or pattern (`*` any run of characters, `?` one character; first match wins), with no card of their own until a provider offers them; any other model is matched by `match` (its id, without any 'vendor/' prefix) or by its provider, and its tier by the words in its id (`words`, first hit wins; else `fallback`). `ignored` (ids or patterns) are last generation's models the roster leaves out until you choose them: a provider that serves its whole catalog shows them as Ignored under Models & keys. `home` is the provider the roster offers a character's models from when DSH does not offer them yet (through OpenRouter as `vendor`/model). How each character looks and what she and the tiers are called is the art pack's (art/pack.json); your own picks in the roster win over both.",
   "characters": {
     "gpt": { "home": "openai", "match": ["^gpt", "^o\\d", "^chatgpt", "^codex", "^openai"], "providers": ["openai", "openai-codex", "azure"] },
     "claude": { "home": "anthropic", "match": ["^claude", "^anthropic"], "providers": ["anthropic"] },
@@ -33,8 +33,8 @@
     "gemini-4-argon": "gemini/high",
     "grok-4.7": "grok/high",
     "kimi-k2.6": "kimi/chibi",
-    "kimi-k3": "kimi/middle",
-    "kimi-k3.1-pro": "kimi/high",
+    "kimi-k3": "kimi/high",
+    "kimi-k3.1-pro": "kimi/university",
     "glm-5.3-flash": "glm/chibi",
     "glm-5.3": "glm/high",
     "glm-5.3-prime": "glm/university",
@@ -62,6 +62,10 @@
     "hy3": "hunyuan/middle",
     "hy4": "hunyuan/high"
   },
+  "models": {
+    "kimi-k3*256k*": "kimi/chibi"
+  },
+  "ignored": ["kimi-for-coding*"],
   "released": {
     "_": "Release dates for lineup models that neither Artificial Analysis nor OpenRouter lists (when theirs come, they win): the day the maker announced the model.",
     "seed-2-1-pro": "2026-06-23"

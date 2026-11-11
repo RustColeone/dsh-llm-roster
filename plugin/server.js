@@ -1,6 +1,6 @@
 // The roster's server half: it keeps your picks of art and avatar, serves the pictures and the Artificial Analysis
-// rankings, and asks providers about your account (does the key work, its balance, the models it can call) with the key
-// DSH keeps for them, which never leaves the server.
+// rankings, and asks providers about your account (does the key work, its balance, the models it can call, what the
+// account spent where the key may read it) with the key DSH keeps for them, which never leaves the server.
 //
 // Routes, on DSH's own API (behind its sign-in, for its owner only):
 //
@@ -33,22 +33,28 @@
 //     GET  /api/llm-roster.released   every release date known, by model slug, and the days models were first seen
 //     POST /api/llm-roster.released   { ids } → { dates: { id: { date, seen } } }: the release dates of a list of models
 //                                     (a model of no published date: the day it was first seen here, kept)
+//     GET  /api/llm-roster.failures   why calls failed: each provider's model calls and key checks, the newest first
+//     POST /api/llm-roster.failures   { clear: '<provider>' | null }: let them go (a provider's, or every one)
 //     GET  /api/llm-roster.check      ?provider=<route>&ref=<credential reference>&fresh=1: does the key work
 //     GET  /api/llm-roster.balance    ?provider=<route>&ref=<credential reference>
+//     GET  /api/llm-roster.usage      ?provider=<route>&ref=<credential reference>&fresh=1: what the account spent this
+//                                     month, or has left, read with the spend key (else the API key): `ok`, `missing`,
+//                                     `rejected`, `error`
 //     GET  /api/llm-roster.live       ?provider=<route>&ref=<credential reference>: the models the provider lists
 import fs from 'node:fs'
 import path from 'node:path'
-import { balance, check, keyFor, liveModels, offered } from './providers.js'
+import { balance, check, keyFor, liveModels, offered, PROVIDERS, usage } from './providers.js'
 import { ALIASES, dateInId, fetchRankings, fetchReleased, formsOf, load, loadReleased, Seen, slugOf, undated } from './rankings.js'
+import { Failures } from './failures.js'
 import { fetchPack, filesOf } from './packs.js'
-import { CHARACTERS, lineup, MODELS, RARITY, releasedInLineup, Roster, TIERS } from './roster.js'
+import { CHARACTERS, IGNORED, lineup, MODELS, RARITY, releasedInLineup, Roster, TIERS } from './roster.js'
 
 export const ROUTES = {
   state: '/api/llm-roster.state', resolve: '/api/llm-roster.resolve', pick: '/api/llm-roster.pick',
   upload: '/api/llm-roster.upload', forget: '/api/llm-roster.forget', settings: '/api/llm-roster.settings',
   park: '/api/llm-roster.park', unpark: '/api/llm-roster.unpark', route: '/api/llm-roster.route', image: '/api/llm-roster.image',
-  rankings: '/api/llm-roster.rankings', check: '/api/llm-roster.check', balance: '/api/llm-roster.balance',
-  live: '/api/llm-roster.live', released: '/api/llm-roster.released', packs: '/api/llm-roster.packs',
+  rankings: '/api/llm-roster.rankings', check: '/api/llm-roster.check', balance: '/api/llm-roster.balance', usage: '/api/llm-roster.usage',
+  live: '/api/llm-roster.live', released: '/api/llm-roster.released', packs: '/api/llm-roster.packs', failures: '/api/llm-roster.failures',
   packImport: '/api/llm-roster.pack-import', packExport: '/api/llm-roster.pack-export'
 }
 const MAX_PACK = 128 * 1024 * 1024 // a pack's .zip, at most
@@ -72,8 +78,10 @@ export function spelled (model) {
 
 /** The plugin's state and work, without DSH: what the routes call (and the tests). `resolve(name)` reads a credential
  * reference (DSH's store, then the environment). */
-export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async name => process.env[name], fetch, now = Date.now } = {}) {
+export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async name => process.env[name], fetch, now = Date.now, dshVersion = null } = {}) {
   const roster = new Roster(folder)
+  // why calls failed: model calls (watched by the plugin, `llm/stream`) and key checks, until they succeed again
+  const failures = new Failures(folder, { now })
   // the packs that come with the roster are yours from the start, to switch to (once: one you remove stays removed);
   // a roster before 0.5.2 kept your picks in its own file: they become your changes to the pack in use
   try { roster.seedPacks(); roster.migrate() } catch { /* no place to keep them: the bundled pack alone */ }
@@ -98,6 +106,7 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
   // settings, then the usual names. A key pasted on the page is stored under the first.
   const aaKeys = () => [...new Set([roster.data.settings.aaKeyEnv, aaKeyEnv, ...AA_KEYS].filter(Boolean))]
   const checked = new Map() // `${provider}:${key name}` → { at, result }
+  const asked = new Map() // the same, of what a key was told of the account's spend
 
   /** A model's name as people know it: Artificial Analysis's (without the effort it was measured at), else its id
    * spelled as a name (`moonshotai/kimi-k2.6` → `Kimi K2.6`). */
@@ -134,7 +143,12 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
         art: roster.artOf(item.provider, item.id).art, face: roster.faceOf(item.provider, item.id), ...(onOpenRouter(item) ? {} : { listed: false }) })),
       parked: roster.data.parked,
       routes: roster.data.routes,
+      // the models left out until you choose them (last generation's), by id or pattern
+      ignored: IGNORED,
       rankings: { ...rankings.about, keys: aaKeys(), keyEnv: roster.data.settings.aaKeyEnv ?? null, released_as_of: released.as_of },
+      failures: failures.list(),
+      // DSH's own version (its DeepSeek account asks for it with the account's balance)
+      dsh: { version: dshVersion },
       providers: offered()
     }),
     resolve (models) {
@@ -165,6 +179,9 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
     unpark: provider => ({ kept: roster.unpark(provider), parked: roster.data.parked }),
     route: (character, provider) => { roster.route(character, provider); return { routes: roster.data.routes } },
     image: query => roster.image(query),
+    failures,
+    /** Let go of the failures kept: a provider's, or (null) every one. */
+    clearFailures: provider => { failures.clear(provider ? String(provider) : null); return { failures: failures.list() } },
     top: (count, sort, efforts) => ({ ...rankings.about, rows: rankings.top(count, sort, { efforts }) }),
     // ---- art packs ----
     packs: () => ({ active: roster.active, packs: roster.packs.list(roster.active), included: roster.packs.includedList() }),
@@ -230,12 +247,31 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
       if (!fresh && kept && now() - kept.at < CHECKED_FOR) return kept.result
       const result = { ...(await check(route, key.value, options)), key: key.name, at: now() }
       checked.set(`${route}:${key.name}`, { at: now(), result })
+      // a key the provider refused, or a provider not reached, is kept as a failure; a key that works lets them go
+      if (result.status === 'ok') failures.succeeded(route)
+      else if (result.status === 'rejected' || result.status === 'error') {
+        failures.failed({ provider: route, code: result.status === 'rejected' ? 'KEY_REJECTED' : 'UNREACHABLE', message: result.detail ?? '', source: 'check' })
+      }
       return result
     },
     async balance (route, ref) {
       const key = await keyFor(route, ref, resolve)
       if (!key) return { offered: offered()[route]?.balance ?? false, balances: [], missing: true }
       return { ...(await balance(route, key.value, options)), key: key.name }
+    },
+    /** What the account spent this month, or has left, read with the provider's spend key (its admin or management
+     * key), else with its API key: `missing` (neither set), or what asking said (it stands a while, as a check does). Not
+     * a failure, whatever it says: a key that calls the models may well not read the spend. */
+    async usage (route, ref, fresh = false) {
+      const spec = PROVIDERS[route]?.usage
+      if (!spec) return { status: 'untested' }
+      const key = await keyFor(route, null, resolve, spec.keys) ?? await keyFor(route, ref, resolve)
+      if (!key) return { status: 'missing' }
+      const kept = asked.get(`${route}:${key.name}`)
+      if (!fresh && kept && now() - kept.at < CHECKED_FOR) return kept.result
+      const result = { ...(await usage(route, key.value, { ...options, now })), key: key.name, at: now() }
+      asked.set(`${route}:${key.name}`, { at: now(), result })
+      return result
     },
     async live (route, ref) {
       const key = await keyFor(route, ref, resolve)
@@ -317,10 +353,15 @@ export function serve (connection, work) {
   route(ROUTES.released, ['GET', 'POST'], async request => request.method === 'POST'
     ? answer(work.datesFor((await json(request)).ids))
     : answer(work.releasedDates()))
+  route(ROUTES.failures, ['GET', 'POST'], async request => request.method === 'POST'
+    ? answer(work.clearFailures((await json(request)).clear ?? null))
+    : answer({ failures: work.failures.list() }))
   route(ROUTES.check, ['GET'], async (request, query) =>
     answer(await work.check(provider(query), query.get('ref') ?? undefined, query.get('fresh') === '1')))
   route(ROUTES.balance, ['GET'], async (request, query) =>
     answer(await work.balance(provider(query), query.get('ref') ?? undefined)))
+  route(ROUTES.usage, ['GET'], async (request, query) =>
+    answer(await work.usage(provider(query), query.get('ref') ?? undefined, query.get('fresh') === '1')))
   route(ROUTES.live, ['GET'], async (request, query) =>
     answer(await work.live(provider(query), query.get('ref') ?? undefined)))
 }

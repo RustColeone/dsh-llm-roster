@@ -6,10 +6,10 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, test } from 'node:test'
 import { dshHome } from '../plugin/index.js'
-import { balance, check, keyFor, liveModels } from '../plugin/providers.js'
+import { balance, check, keyFor, liveModels, usage } from '../plugin/providers.js'
 import { compact, dateInId, formsOf, load, loadReleased, releasedDates, slugOf, split } from '../plugin/rankings.js'
 import { pictureFile } from '../plugin/packs.js'
-import { defaultArt, CHARACTERS, characterOf, lineup, Roster, tierOf } from '../plugin/roster.js'
+import { defaultArt, CHARACTERS, characterOf, ignoredByDefault, lineup, Roster, tierOf } from '../plugin/roster.js'
 import { createRoster, ROUTES, serve, spelled } from '../plugin/server.js'
 
 let folder
@@ -38,6 +38,12 @@ describe('who a model is', () => {
     assert.equal(defaultArt('openai', 'gpt-6.1-sol'), 'gpt/high')
     assert.equal(defaultArt('anthropic', 'claude-fable-5-1'), 'claude/university')
     assert.equal(defaultArt('deepseek-official', 'deepseek-v4-pro'), 'deepseek/high')
+  })
+  test('Kimi: K3 a high-schooler, K3.1 Pro a university student, K3 256K (by pattern) a chibi; Kimi for Coding left out', () => {
+    assert.deepEqual(['kimi-k3', 'moonshotai/kimi-k3.1-pro', 'kimi-k3-256k', 'moonshotai/kimi-k3-0716-256k'].map(id => defaultArt('moonshotai', id)),
+      ['kimi/high', 'kimi/university', 'kimi/chibi', 'kimi/chibi'])
+    assert.deepEqual(['kimi-for-coding', 'kimi-for-coding-highspeed', 'kimi-k3', 'kimi-k3-256k'].map(ignoredByDefault), [true, true, false, false])
+    assert.equal(defaultArt('kimi-coding', 'kimi-for-coding'), 'kimi/middle') // (still hers, when you choose it)
   })
   test('other models by their id, and through OpenRouter', () => {
     assert.equal(defaultArt('openai', 'gpt-5-mini'), 'gpt/chibi')
@@ -68,7 +74,7 @@ describe('who a model is', () => {
     assert.equal(found.find(item => item.id === 'deepseek-flash').provider, 'deepseek-official')
     assert.equal(found.find(item => item.id === 'gemini-4-argon').provider, 'google')
     // the characters at home on OpenRouter, by its `vendor/model` ids
-    assert.deepEqual(found.find(item => item.id === 'moonshotai/kimi-k3.1-pro'), { id: 'moonshotai/kimi-k3.1-pro', provider: 'openrouter', character: 'kimi', tier: 'high' })
+    assert.deepEqual(found.find(item => item.id === 'moonshotai/kimi-k3.1-pro'), { id: 'moonshotai/kimi-k3.1-pro', provider: 'openrouter', character: 'kimi', tier: 'university' })
     for (const character of ['kimi', 'glm', 'qwen', 'mistral', 'minimax', 'llama', 'doubao', 'perplexity', 'hunyuan']) {
       assert.ok(found.some(item => item.character === character && item.provider === 'openrouter' && item.id.includes('/')), character)
     }
@@ -391,6 +397,36 @@ describe('providers', () => {
     assert.deepEqual(await check('anthropic', 'k', { fetch }), { status: 'ok', models: 1 })
     assert.deepEqual(await check('my-gateway', 'k', { fetch }), { status: 'untested' })
   })
+  test('what an account spent this month, or has left, as its admin key is told', async () => {
+    const now = () => Date.UTC(2026, 10, 10, 15)
+    const { fetch, asked } = fakeFetch({
+      // OpenAI: by day, paged
+      'https://api.openai.com/v1/organization/costs': url => new URL(url).searchParams.get('page') === 'p2'
+        ? { object: 'page', data: [{ object: 'bucket', start_time: 1, end_time: 2, results: [{ amount: { value: 0.75, currency: 'usd' } }] }], has_more: false, next_page: null }
+        : { object: 'page', data: [{ object: 'bucket', start_time: 1, end_time: 2, results: [{ amount: { value: 10.5, currency: 'usd' } }, { amount: { value: 1.004, currency: 'usd' } }] },
+          { object: 'bucket', start_time: 2, end_time: 3, results: [] }], has_more: true, next_page: 'p2' },
+      // Anthropic: in cents, as decimal strings
+      'https://api.anthropic.com/v1/organizations/cost_report': { data: [{ starting_at: '2026-11-01T00:00:00Z', ending_at: '2026-11-02T00:00:00Z',
+        results: [{ amount: '123.45', currency: 'USD' }, { amount: '1000', currency: 'USD' }] }], has_more: false, next_page: null },
+      // xAI: the key's team, then its prepaid balance (a purchase counts as less)
+      'https://management-api.x.ai/auth/management-keys/validation': { apiKeyId: 'a', scope: 'SCOPE_TEAM', scopeId: 'team-1', teamId: 'team-1' },
+      'https://management-api.x.ai/v1/billing/teams/team-1/prepaid/balance': { changes: [], total: { val: '-4550' } }
+    })
+    assert.deepEqual(await usage('openai', 'admin', { fetch, now }), { status: 'ok', spent: { amount: 12.25, currency: 'USD', since: '2026-11-01' } })
+    assert.equal(new URL(asked[0].url).searchParams.get('start_time'), String(Date.UTC(2026, 10, 1) / 1000))
+    assert.equal(asked[0].headers.authorization, 'Bearer admin')
+    assert.deepEqual(await usage('anthropic', 'admin', { fetch, now }), { status: 'ok', spent: { amount: 11.23, currency: 'USD', since: '2026-11-01' } })
+    assert.equal(new URL(asked.at(-1).url).searchParams.get('starting_at'), '2026-11-01T00:00:00Z')
+    assert.equal(asked.at(-1).headers['x-api-key'], 'admin')
+    assert.deepEqual(await usage('xai', 'manage', { fetch, now }), { status: 'ok', credit: { amount: 45.5, currency: 'USD' } })
+    assert.equal(asked.at(-1).headers.authorization, 'Bearer manage')
+    assert.deepEqual(await usage('google', 'k', { fetch, now }), { status: 'untested' }) // Google tells it to no key
+    // refused, or not a team's
+    const refused = fakeFetch({ 'https://api.openai.com/': () => Response.json({ error: { message: 'Insufficient permissions' } }, { status: 403 }),
+      'https://management-api.x.ai/auth/': { scope: 'SCOPE_ORGANIZATION', scopeId: 'org-1' } })
+    assert.deepEqual(await usage('openai', 'k', { fetch: refused.fetch, now }), { status: 'rejected', detail: 'HTTP 403: Insufficient permissions' })
+    assert.equal((await usage('xai', 'k', { fetch: refused.fetch, now })).status, 'error')
+  })
 })
 
 describe('the routes', () => {
@@ -410,7 +446,7 @@ describe('the routes', () => {
       'https://api.deepseek.com/models': { data: [{ id: 'deepseek-flash' }, { id: 'deepseek-v4-pro' }] } })
     const call = connect(createRoster(folder, { fetch, resolve: async name => name === 'DEEPSEEK_API_KEY' ? 'k' : undefined }))
     const json = async response => ({ status: response.status, body: await response.json() })
-    assert.deepEqual(Object.keys((await json(await call('GET', ROUTES.state))).body).sort(), ['characters', 'lineup', 'pack', 'parked', 'providers', 'rankings', 'routes', 'tiers'])
+    assert.deepEqual(Object.keys((await json(await call('GET', ROUTES.state))).body).sort(), ['characters', 'dsh', 'failures', 'ignored', 'lineup', 'pack', 'parked', 'providers', 'rankings', 'routes', 'tiers'])
     // the provider a character's lineup goes through
     assert.deepEqual((await json(await call('POST', ROUTES.route, { body: { character: 'gpt', provider: 'openrouter' } }))).body.routes, { gpt: 'openrouter' })
     assert.deepEqual((await json(await call('POST', ROUTES.route, { body: { character: 'gpt', provider: 'openai' } }))).body.routes, {}) // her own again

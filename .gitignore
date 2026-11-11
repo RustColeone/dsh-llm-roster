@@ -4,3 +4,7 @@ node_modules/
 __pycache__/
 tools/.references/
 tools/.drawn/
+debug/
+.env
+.env
+.env.*

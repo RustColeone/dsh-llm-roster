@@ -27,7 +27,9 @@ can tell at a glance which model you are on. It is ringed in the tier's rarity c
 
 - the character's art for the model's tier, and the rarity of that tier;
 - the model's Artificial Analysis Intelligence Index, and its rank among the models they measure;
-- a **…** button that opens the character's page.
+- a **…** button that opens the character's page;
+- a red **⚠** when a call to its model (or its provider's key) failed lately, with why on hover (see **Why calls
+  failed lately**, below).
 
 A click on a ready card switches the session to that model. A card that can't be used yet says why:
 
@@ -40,9 +42,15 @@ A click on a ready card switches the session to that model. A card that can't be
 Each key is tested by asking the provider for usage: its balance where it reports one, otherwise the models the key
 can call. A result is kept for ten minutes, and the **Test key** button asks again. DeepSeek models need no key when
 you're signed in to a DeepSeek account in DSH. They then come through the account, and a DeepSeek card's page lets
-you choose the account or the API key instead. You can filter by provider or to available models only.
+you choose the account or the API key instead.
 
-You can sort by provider, by rank, or by release date. In the release-date sort, newest comes first and each card
+The roster opens on **Available**: the models you can use now. **All** shows every character, with what each one
+needs, and a provider's chip shows its models alone.
+
+You can sort by provider, by rank, or by release date. By provider, a line with each provider's name (▸ DeepSeek ───)
+heads its cards. **Divide by provider** turns the lines off and on again, and the roster keeps your choice in this
+browser. DeepSeek's account and her API key are one provider there: each DeepSeek model is one card, through the one or
+the other, and its card says which. In the release-date sort, newest comes first and each card
 shows its date. A model's release date is, in this order:
 
 1. Artificial Analysis's, where they measure it.
@@ -86,7 +94,8 @@ OpenRouter has stopped listing, and that carries no date in its id, also gets th
   - A model it doesn't offer says **Not offered there**. So does a lineup model OpenRouter doesn't list, for a
     character who comes through OpenRouter by default.
   - So with only an OpenRouter key, every character can still be played: GPT, Claude, Kimi, GLM and the rest.
-- **Provider:** the provider's key, with a test and the balance.
+- **Provider:** the provider's key, with a test and the balance, and why its calls failed lately (this model's
+  marked).
 - **Use this model**, or **Add and use this model** for one not in use yet.
 
 **The + card** adds a model the lineup doesn't have. Choose a provider, or a new OpenAI-compatible endpoint (a
@@ -123,10 +132,15 @@ Ark key) and send her through it. Ark's own ids, such as `doubao-seed-2-1-pro-26
 keep its tiers. Artificial Analysis doesn't measure the Seed models, so their cards have no rankings.
 
 [`plugin/models.json`](plugin/models.json) says which mainstream model is which character and tier (GPT-6 Luna a chibi, GPT-6.1
-Sol a high-schooler, Claude Fable a university student, Kimi K3.1 Pro a high-schooler, …), and those models are the
-roster's lineup. Any other model is matched by its id (`gpt…`, `claude…`, `kimi…`, `glm…`, `qwen…`, `sonar…`, …, also
+Sol a high-schooler, Claude Fable a university student, Kimi K3 a high-schooler and K3.1 Pro a university student, …),
+and those models are the roster's lineup. A few more are named there by pattern (Kimi's K3 256K, `kimi-k3*256k*`, is
+a chibi). Any other model is matched by its id (`gpt…`, `claude…`, `kimi…`, `glm…`, `qwen…`, `sonar…`, …, also
 behind OpenRouter's `vendor/` prefix) or by its provider. It gets its tier from the words in its id: flash, mini and
 haiku are chibis; pro and opus are high-schoolers; prime, fable and deep research are university students; and so on.
+
+Last generation's models are left out until you choose them: Kimi for Coding's (`kimi-for-coding*`). A provider that
+serves its whole catalog shows them under Ignored on Models & keys, and counts them below the cards; moving one to
+Used brings its card back.
 
 A provider that serves its whole catalog (OpenRouter with no model list, which has hundreds) shows only the models the
 roster knows as characters. A note counts the rest, which DSH's picker still offers, and links to Models & keys to
@@ -137,8 +151,25 @@ choose the ones you use.
 - **API key.** You can paste a key, which is stored write-only in DSH's credential store, exactly as DSH's Models page
   stores it. Or you can name the environment variable that holds it, which sets the provider's `apiKeyEnv`. A dot says
   whether the key is set and where it comes from. **Test key** asks the provider whether it works.
-- **Balance**, for providers whose API reports one: DeepSeek, OpenRouter and Moonshot. OpenAI, Anthropic, Google and
-  xAI don't report one for ordinary keys.
+- **Balance**, for providers whose API reports one: DeepSeek, OpenRouter and Moonshot.
+- **Spend or credit**, for OpenAI, Anthropic and xAI, shown under the API key as soon as the card opens. These
+  providers tell it only to a key allowed to read it, which usually may not call the models (an Anthropic
+  organization key needs a workspace DSH doesn't name), so it gets a field of its own, folded away under the API key
+  since it's seldom needed: **▸ Admin key (spend)** or **▸ Management key (credit)**, which says when one is set. It's
+  optional; paste it (stored write-only in DSH's credential store, like the API key)
+  or set its variable. The roster only reads with it; without one, it asks with the API key. A key that may not read it
+  shows nothing and isn't kept as a failure; its **Test key** says why, and which key it asked with.
+
+  | Provider | Shows | Spend key | Variable |
+  | --- | --- | --- | --- |
+  | OpenAI | spent this month (its Costs API) | an admin key, or a key with the `api.usage.read` permission | `OPENAI_ADMIN_KEY` |
+  | Anthropic | spent this month (its cost report) | an Admin key, or an organization-scoped key allowed to read costs | `ANTHROPIC_ADMIN_KEY` |
+  | xAI | prepaid credit left | a team's management key | `XAI_MANAGEMENT_KEY` (or `XAI_MANAGEMENT_API_KEY`) |
+
+  Google tells neither to any key: Gemini's spend is on AI Studio's and Google Cloud's billing pages only. A spend key
+  can do more than read costs; the roster only reads with it, and where the provider lets a key be limited (xAI's
+  management keys can be), limit it to billing.
+- **Why calls failed lately**, below.
 - **Used and Ignored models, as pills.** A click moves a model from one to the other.
   - Used is the provider's model list in DSH's settings (`providers.<route>.models` for pi-ai providers, `models` for
     DeepSeek), so the Used models are exactly what DSH's model picker and the roster offer. A provider with no list
@@ -158,7 +189,17 @@ choose the ones you use.
 - **Remove provider** takes a provider you added out of DSH's settings, after a confirmation. It can also delete the
   key stored for it in DSH. Providers that are part of DSH's own setup can't be removed or set aside here.
 
-**DeepSeek account** shows whether you're signed in. Signed in, DeepSeek's models need no API key.
+**DeepSeek account** shows whether you're signed in. Signed in, DeepSeek's models need no API key, and the card shows
+the account's balance (topped up and granted) as DSH itself reads it, the same as Settings → Account.
+
+**Why calls failed lately.** The roster watches every model call DSH makes (it passes DSH's `llm/stream` along
+untouched) and keeps the ones that failed, with why: DSH's code for it (key not accepted, out of quota or balance,
+rate limited, timed out, …), the HTTP status and the provider's message, by provider and model. A failed key check is
+kept too. They show on the provider's card in Models & keys, on a character's page (her model's marked), and as a red
+**⚠** on a card. A call that succeeds again lets them go: that model's failures, and the ones that were the
+provider's as a whole (its key, its balance, its rate, its service). **Clear** lets them go by hand. A call you stopped
+is no failure. They are kept in DSH's home (`failures.json`, the newest 12 for each provider), with anything that looks
+like a key in a provider's message hidden.
 
 **Add a provider…** adds any provider DSH can route but you haven't set up yet, or a new OpenAI-compatible endpoint.
 An endpoint's key is tested by DSH itself, which lists its models with the key it keeps.
@@ -228,11 +269,12 @@ Two packs come with the roster, and are yours from the first time it starts:
 - **Academy**, the student pack, in use until you choose another: every one of the fourteen characters from chibi to
   middle-schooler, high-schooler and university student, drawn after ZipZipPipe's designs. It is also the bundled
   pictures (`art/`): what any pack doesn't have comes from them.
-- **Original Students**, an extra: the five students (GPT, Claude, Gemini, DeepSeek and Grok) as ChimeraArchiveHarness
-  first drew them. Her art stages are the tiers (Stage 2, Stage 3, and the awakened Stage 4), and her chibi is the
-  chibi. Her bond pictures (a café, at home, a summer festival) are more cards to choose from on her page, and her mood
-  faces more avatars. The other nine characters wear Academy's pictures. It ships as
-  [`packs/original-students.zip`](packs).
+- **Original**, an extra: every one of the fourteen characters in her art stages, the tiers (Stage 2, Stage 3, and
+  the awakened Stage 4), with her chibi as the chibi. Her bond pictures (a café, at home, a summer festival) are more
+  cards to choose from on her page, and her mood faces (happy, calm, worried, sad) more avatars. The first five (GPT,
+  Claude, Gemini, DeepSeek and Grok) are as ChimeraArchiveHarness first drew them; the other nine were drawn for this
+  pack with the same prompts. It ships as [`packs/original.zip`](packs). (A roster before 0.5.3 added it as **Original Students**,
+  with the first five alone; that one stays in your packs until you remove it.)
 
 **Switch packs on the go** with the **Art pack** menu on the Roster tab, or start a **New empty pack** there. Every
 card, avatar, gallery and the summon change at once. The **Art packs** tab lists your packs:
@@ -354,7 +396,8 @@ be edited there too, and the roster shows them the next time it opens.
 **A new character.** A pack dresses the characters the roster knows; it can't add one. Who the characters are, which
 models are each one's and at which tier, is the roster's own list, [`plugin/models.json`](plugin/models.json), and you
 can add to it yourself. Add her under `characters`, with her home provider, the patterns of her model ids and her
-providers, and put her models in `lineup` by tier:
+providers, and put her models in `lineup` by tier (a model you don't want as a card of its own, by id or pattern, in
+`models`; one to leave out until chosen in `ignored`):
 
 ```json
 "characters": {
@@ -398,6 +441,7 @@ The roster keeps its own files in `$DSH_HOME/llm-roster/` (`~/.dsh/llm-roster/`)
 | `aa.json` | the rankings, once fetched again |
 | `openrouter.json` | the release dates from OpenRouter, once fetched again |
 | `seen.json` | the day each model with no published release date was first seen (let go once one is published) |
+| `failures.json` | why calls failed lately, by provider and model, until a call succeeds again |
 
 What you summon is kept in your browser instead (`localStorage`, under `dsh-llm-roster.summon`), so each browser has
 its own album.
@@ -407,17 +451,18 @@ its own album.
 | File | What it does |
 | --- | --- |
 | [`plugin/client.js`](plugin/client.js) | The web half (React from DSH). It puts the avatar in the `conversation.input.right` slot and renders the roster dialog and the Plugins page. It switches models through `modelDirectories.directoryFor(session).select()`. It writes model lists and `apiKeyEnv` with `remote.settings.mutate`, stores keys with `remote.credentials.set`, and reads catalogs with `remote.llm.discoverModels`. |
-| [`plugin/index.js`](plugin/index.js) | The DSH plugin (`llm-roster`). It mounts the routes on DSH's API and resolves keys through DSH's credential store, then the environment. |
+| [`plugin/index.js`](plugin/index.js) | The DSH plugin (`llm-roster`). It mounts the routes on DSH's API, resolves keys through DSH's credential store, then the environment, and watches DSH's model calls (`llm/stream`, passed along untouched) for why they fail. |
+| [`plugin/failures.js`](plugin/failures.js) | Why calls failed lately: kept by provider and model, counted, let go when a call succeeds again. |
 | [`plugin/server.js`](plugin/server.js) | The routes, below. |
 | [`plugin/roster.js`](plugin/roster.js) | Which character and tier each model is, the lineup, the picture and avatar each one wears, the pack in use, set-aside providers, and the provider each character goes through. |
-| [`plugin/models.json`](plugin/models.json) | Who each model is: each character's ids, providers and home provider, the lineup by tier, the words that tell a tier, and the release dates of lineup models no list has. |
+| [`plugin/models.json`](plugin/models.json) | Who each model is: each character's ids, providers and home provider, the lineup by tier, more models by pattern, the ones left out until chosen, the words that tell a tier, and the release dates of lineup models no list has. |
 | [`plugin/packs.js`](plugin/packs.js) | Art packs: reading one (its names and pictures by file, with your changes over it, over the bundled pictures), keeping one from a .zip or a GitHub link, adding the ones that come with the roster, making an empty one, your changes, and exporting a pack with them. |
 | [`plugin/zip.js`](plugin/zip.js) | .zip files, read and written with Node's own zlib: no file outside the archive, no encrypted or ZIP64 entries, and size limits. |
 | [`plugin/rankings.js`](plugin/rankings.js) | The Artificial Analysis list: matching a model to its slug, ranks, the leaderboard, and fetching the list again (the Pro list with a Pro key). |
-| [`plugin/providers.js`](plugin/providers.js) | Each provider's balance and live-list endpoints, at fixed official addresses, and the key check built on them. |
+| [`plugin/providers.js`](plugin/providers.js) | Each provider's balance, spend (with a key allowed to read it) and live-list endpoints, at fixed official addresses, and the key check built on them. |
 | [`art/`](art) | The bundled art pack, *Academy*: [`pack.json`](art/pack.json) and a folder of pictures per character. Credits are in [`art/CREDITS.md`](art/CREDITS.md). |
-| [`packs/`](packs) | The packs that come with the roster, as .zip files: [`original-students.zip`](packs/original-students.zip), made by [`students-pack.py`](tools/students-pack.py). Its credits are in the .zip (`CREDITS.md`). |
-| [`tools/`](tools) | [`import-art.py`](tools/import-art.py) brings in the five ChimeraArchiveHarness characters. [`draw-art.py`](tools/draw-art.py) draws the others from [`characters.yml`](tools/characters.yml) with OpenAI's image model. [`students-pack.py`](tools/students-pack.py) makes the Original Students pack. [`aa-snapshot.mjs`](tools/aa-snapshot.mjs) refreshes the rankings and release-date snapshots. |
+| [`packs/`](packs) | The packs that come with the roster, as .zip files: [`original.zip`](packs/original.zip), made by [`original-pack.py`](tools/original-pack.py). Its credits are in the .zip (`CREDITS.md`). |
+| [`tools/`](tools) | [`import-art.py`](tools/import-art.py) brings in the five ChimeraArchiveHarness characters. [`draw-art.py`](tools/draw-art.py) draws the others from [`characters.yml`](tools/characters.yml) with OpenAI's image model (Academy's tiers, and with `--original` the Original pack's stages, bond pictures and mood faces). [`original-pack.py`](tools/original-pack.py) makes the Original pack. [`aa-snapshot.mjs`](tools/aa-snapshot.mjs) refreshes the rankings and release-date snapshots. |
 | [`data/`](data) | The shipped snapshots: Artificial Analysis's rankings, and OpenRouter's release dates. |
 
 Keys never reach the page. A key check, a balance or a live list is asked by the server, using the key DSH resolves
@@ -444,8 +489,10 @@ The routes are on DSH's API, behind its sign-in and for its owner only:
 | `GET /api/llm-roster.released` | every release date known, by model slug (Artificial Analysis's over OpenRouter's), and the days models were first seen |
 | `POST /api/llm-roster.released` | `{ids}` → `{dates: {id: {date, seen}}}`: the release dates of a list of models, a model of no published date stamped as first seen today |
 | `GET/POST /api/llm-roster.rankings` | the leaderboard (`?top=`, `&sort=released` for the newest, `&efforts=1` for every effort), or fetch the release dates and the rankings again |
+| `GET/POST /api/llm-roster.failures` | why calls failed lately, the newest first; `{clear: provider \| null}` lets them go |
 | `GET /api/llm-roster.check` | `?provider=<route>&ref=<credential reference>&fresh=1`: does the key work (`ok`, `missing`, `rejected`, `error`, `untested`) |
 | `GET /api/llm-roster.balance` | `?provider=<route>&ref=<credential reference>` |
+| `GET /api/llm-roster.usage` | `?provider=<route>&ref=<credential reference>&fresh=1`: what the account spent this month, or has left, read with the spend key, else the API key (`ok` with `spent` and/or `credit` and the `key` read with, `missing`, `rejected`, `error`, `untested`) |
 | `GET /api/llm-roster.live` | `?provider=<route>&ref=<credential reference>` |
 
 ## Development
@@ -456,7 +503,8 @@ python3 tools/import-art.py ~/Projects/DiscordStudyBot  # art/ again from a Chim
 python3 tools/draw-art.py --dry-run                   # the other characters' tiers: what it would draw
 python3 tools/draw-art.py --env-file .env             # draw what is missing (OPENAI_API_KEY; needs openai, pillow, pyyaml)
 python3 tools/draw-art.py --faces-only                # crop the avatars again after tuning `faces` in characters.yml
-python3 tools/students-pack.py ~/Projects/DiscordStudyBot  # packs/original-students.zip again (needs pillow)
+python3 tools/draw-art.py --original --env-file .env  # the other characters' Original pictures
+python3 tools/original-pack.py ~/Projects/DiscordStudyBot  # packs/original.zip again (needs pillow)
 AA_API_TOKEN=... node tools/aa-snapshot.mjs           # new snapshots in data/ (release dates even with no key)
 ```
 

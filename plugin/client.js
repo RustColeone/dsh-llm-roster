@@ -8,7 +8,8 @@
 //     refused, not in use). Each card's … opens its page: its art and gallery, its stats, and its equipment (art,
 //     avatar, the provider's key, whether it is in use). The + card adds a model the lineup does not have.
 //   - Models & keys (also under Plugins → dsh-llm-roster): each provider's key (stored write-only, as DSH's Models page
-//     stores it) or the variable holding it, a test of it, its balance, and its models as pills, Used or Ignored (Used
+//     stores it) or the variable holding it, a test of it, its balance (the DeepSeek account's, as DSH reads it), why
+//     its calls failed lately (until one succeeds again), and its models as pills, Used or Ignored (Used
 //     is the provider's model list in DSH's settings, so they are exactly what DSH's picker offers); every model
 //     ignored at once, the provider removed, and DeepSeek's account sign-in, which needs no key.
 //   - Rankings: Artificial Analysis's leaderboard, as of the date shown (each model, or every effort, sorted by any
@@ -40,8 +41,8 @@ window.__ModuleLoader__.load({
       state: 'api/llm-roster.state', resolve: 'api/llm-roster.resolve', pick: 'api/llm-roster.pick',
       upload: 'api/llm-roster.upload', forget: 'api/llm-roster.forget', settings: 'api/llm-roster.settings',
       park: 'api/llm-roster.park', unpark: 'api/llm-roster.unpark', route: 'api/llm-roster.route', image: 'api/llm-roster.image',
-      rankings: 'api/llm-roster.rankings', check: 'api/llm-roster.check', balance: 'api/llm-roster.balance',
-      live: 'api/llm-roster.live', released: 'api/llm-roster.released', packs: 'api/llm-roster.packs',
+      rankings: 'api/llm-roster.rankings', check: 'api/llm-roster.check', balance: 'api/llm-roster.balance', usage: 'api/llm-roster.usage',
+      live: 'api/llm-roster.live', released: 'api/llm-roster.released', packs: 'api/llm-roster.packs', failures: 'api/llm-roster.failures',
       packImport: 'api/llm-roster.pack-import', packExport: 'api/llm-roster.pack-export'
     }
     const RARITY = { R: 1, SR: 2, SSR: 3, UR: 4 }
@@ -69,9 +70,12 @@ window.__ModuleLoader__.load({
       'tier.custom': 'Your own',
       'roster.all': 'All',
       'roster.available': 'Available',
+      'roster.filterBy': 'Filter by',
+      'roster.sortBy': 'Sort by',
       'roster.sort.provider': 'By provider',
       'roster.sort.rank': 'By rank',
       'roster.sort.released': 'By release date',
+      'roster.lines': 'Divide by provider',
       'roster.releasedNote': 'Release dates: Artificial Analysis\'s, else the day OpenRouter listed the model (as of {date}); ~ marks the day a newer model was first seen here.',
       'page.released': 'Released {date}',
       'released.seen': 'First seen here on {date}: no published release date yet',
@@ -83,6 +87,7 @@ window.__ModuleLoader__.load({
       'roster.hint': 'A card switches this session to its model; … opens its page. Effort is in DSH\'s model picker.',
       'roster.more': 'Details',
       'roster.add': 'Add a model',
+      'roster.noneAvailable': 'No model here can be used yet. All shows every character, and what each one needs.',
       'roster.addHint': 'One the roster does not have',
       'status.ready': 'Ready',
       'status.unused': 'Not in use',
@@ -189,6 +194,31 @@ window.__ModuleLoader__.load({
       'parked.hint': 'Set aside with its key and models as they were; nothing of it is in DSH\'s picker.',
       'parked.restore': 'Use again',
       'account.title': 'DeepSeek account',
+      'account.balance': 'Balance: {amounts}',
+      'account.topped': 'topped up {amount}',
+      'account.granted': 'granted {amount}',
+      'account.balanceFailed': 'Its balance could not be read just now (DSH\'s Settings → Account shows it).',
+      'failures.title': 'Why calls failed lately',
+      'failures.clear': 'Clear',
+      'failures.check': '(key check)',
+      'failures.hint': 'Kept until a call to this provider succeeds again.',
+      'failures.last': 'Last call failed: {why}. {message}',
+      'failures.code.QUOTA': 'Out of quota or balance',
+      'failures.code.ACCOUNT_QUOTA': 'No balance on the account',
+      'failures.code.RATE_LIMIT': 'Rate limited',
+      'failures.code.INVALID_CREDENTIAL': 'Key not accepted',
+      'failures.code.KEY_REJECTED': 'Key rejected',
+      'failures.code.UNREACHABLE': 'Provider not reached',
+      'failures.code.CONTEXT_WINDOW_EXCEEDED': 'Too long for the model',
+      'failures.code.EMPTY_RESPONSE': 'Empty answer',
+      'failures.code.AUTH': 'Key not accepted',
+      'failures.code.MISSING_CREDENTIAL': 'No key',
+      'failures.code.ACCOUNT_SIGN_IN_REQUIRED': 'Sign-in needed',
+      'failures.code.SERVER': 'The provider failed',
+      'failures.code.TIMEOUT': 'Timed out',
+      'failures.code.TRANSPORT': 'Connection failed',
+      'failures.code.UNKNOWN_MODEL': 'No such model',
+      'failures.code.INVALID_REQUEST': 'Request refused',
       'account.signedIn': 'Signed in to your DeepSeek account: its models need no API key.',
       'account.signedOut': 'Not signed in to a DeepSeek account. Sign in from DSH\'s Settings → Account to use DeepSeek without an API key.',
       'key.title': 'API key',
@@ -217,8 +247,15 @@ window.__ModuleLoader__.load({
       'balance.granted': 'granted {amount}',
       'balance.topped': 'topped up {amount}',
       'balance.used': 'used {amount}',
+      'usage.admin': 'Admin key (spend)',
+      'usage.adminHint': 'Optional. {name} tells what the account spent only to a key allowed to read it, such as an admin key made in its console, which may not call the models. The roster only reads with it; without one, it asks with the API key above.',
+      'usage.management': 'Management key (credit)',
+      'usage.managementHint': 'Optional. {name} tells the credit left only to a team\'s management key, made in its console, which may not call the models. The roster only reads with it; without one, it asks with the API key above.',
+      'usage.spent': 'Spent this month:',
+      'usage.credit': 'Credit left:',
       'used.title': 'Used ({count})',
       'used.all': 'The provider\'s whole catalog is in use ({count}). Click a model to narrow it down.',
+      'used.leftOut': 'Its last generation\'s models ({count}) are left out until you choose them.',
       'ignored.title': 'Ignored ({count})',
       'ignored.none': 'Nothing else found yet: fetch the catalog or the provider\'s live list.',
       'ignored.filter': 'Filter',
@@ -397,6 +434,8 @@ window.__ModuleLoader__.load({
       'tier.custom': '自定义',
       'roster.all': '全部',
       'roster.available': '可用',
+      'roster.filterBy': '筛选',
+      'roster.sortBy': '排列',
       'roster.sort.provider': '按服务商',
       'roster.sort.rank': '按排名',
       'roster.sort.released': '按发布时间',
@@ -575,6 +614,40 @@ window.__ModuleLoader__.load({
       'packs.countsOf': '{names} 的 {pictures} 张图片',
       'packs.countsNone': '它没有自己的图片：在你选择之前，会使用内置立绘包的图片。',
       'packs.folder': '保存在 {folder}。',
+      'usage.managementHint': '可选。{name} 只把剩余余额告诉在其控制台创建的团队管理密钥；该密钥不能调用模型。名册只用它读取；没有它时，就用上面的 API 密钥查询。',
+      'usage.adminHint': '可选。{name} 只把账户消费情况告诉有权读取的密钥，例如在其控制台创建的管理员密钥；该密钥不能调用模型。名册只用它读取；没有它时，就用上面的 API 密钥查询。',
+      'usage.management': '管理密钥（余额）',
+      'usage.admin': '管理员密钥（消费）',
+      'roster.lines': '按服务商分组',
+      'used.leftOut': '该服务商上一代的 {count} 个模型需你选择后才会启用。',
+      'roster.noneAvailable': '这里还没有可用的模型。「全部」会显示所有角色，以及各自需要什么。',
+      'usage.credit': '剩余余额：',
+      'usage.spent': '本月消费：',
+      'failures.code.INVALID_REQUEST': '请求被拒绝',
+      'failures.code.UNKNOWN_MODEL': '无此模型',
+      'failures.code.TRANSPORT': '连接失败',
+      'failures.code.TIMEOUT': '超时',
+      'failures.code.SERVER': '服务商出错',
+      'failures.code.ACCOUNT_SIGN_IN_REQUIRED': '需要登录',
+      'failures.code.MISSING_CREDENTIAL': '没有密钥',
+      'failures.code.AUTH': '密钥不被接受',
+      'failures.code.EMPTY_RESPONSE': '空回复',
+      'failures.code.CONTEXT_WINDOW_EXCEEDED': '超出上下文长度',
+      'failures.code.UNREACHABLE': '无法连接服务商',
+      'failures.code.KEY_REJECTED': '密钥被拒绝',
+      'failures.code.INVALID_CREDENTIAL': '密钥不被接受',
+      'failures.code.RATE_LIMIT': '被限流',
+      'failures.code.ACCOUNT_QUOTA': '账号无余额',
+      'failures.code.QUOTA': '配额或余额不足',
+      'failures.last': '上次调用失败：{why}。{message}',
+      'failures.hint': '保留到该服务商下一次调用成功为止。',
+      'failures.check': '（密钥检查）',
+      'failures.clear': '清除',
+      'failures.title': '最近调用失败原因',
+      'account.balanceFailed': '刚刚没能读取它的余额（DSH 的「设置 → 账号」里可以查看）。',
+      'account.granted': '赠送 {amount}',
+      'account.topped': '充值 {amount}',
+      'account.balance': '余额：{amounts}',
       'packs.create': '创建',
       'packs.newName': '新立绘包的名称',
       'packs.new': '+ 新建空白立绘包……',
@@ -796,7 +869,7 @@ window.__ModuleLoader__.load({
     // resolved: `provider/model` → the server's word on it (art, face, character, tier, name, rankings)
     // state: the server's state; providers: DSH's settings and provider directory; checks: provider → its key's check
     const resolved = new Map()
-    let shared = { version: 0, generation: 0, state: null, providers: null, checks: {}, routeModels: {}, released: null, packs: null }
+    let shared = { version: 0, generation: 0, state: null, providers: null, checks: {}, usage: {}, routeModels: {}, released: null, packs: null, account: null }
     const listeners = new Set()
     const bump = (changes = {}) => { shared = { ...shared, ...changes, version: shared.version + 1 }; for (const listener of listeners) listener() }
     const sharedStore = { subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
@@ -818,6 +891,15 @@ window.__ModuleLoader__.load({
       }
     }
     async function loadState () { bump({ state: await get(API.state) }); return shared.state }
+    /** Why calls failed lately (the server keeps them until a call succeeds again): read again into the state. */
+    async function loadFailures () {
+      const { failures } = await get(API.failures)
+      if (shared.state) bump({ state: { ...shared.state, failures } })
+      return failures
+    }
+    /** The failures kept for a provider (and, with `model`, the ones of that model or of the provider as a whole). */
+    const failuresOf = (state, provider, model = null) => (state?.failures ?? []).filter(found => found.provider === provider &&
+      (model === null || !found.model || found.model === model || found.model === bare(model)))
     /** The art packs you have, the one in use, and the ones that come with the roster. */
     async function loadPacks () { bump({ packs: await get(API.packs) }); return shared.packs }
     function usePacks () {
@@ -907,8 +989,41 @@ window.__ModuleLoader__.load({
         }
       } catch (error) { found = { status: 'error', detail: errorText(error) } }
       bump({ checks: { ...shared.checks, [provider]: found } })
+      // (the server keeps a check that failed as a failure, and lets them go when one works: read them again)
+      if (shared.state && !(providerInfo(shared.providers, provider).entry?.declared && remote)) loadFailures().catch(() => {})
       return found
     }
+
+    /** What the account spent this month, or has left, read with the provider's spend key, else its API key (the server
+     * asks; what it was told stands a while). Only `ok` is shown unasked: a key that calls the models may well not read
+     * the spend, and that is no failure. */
+    async function askUsage (provider, ref, fresh = false) {
+      bump({ usage: { ...shared.usage, [provider]: { ...(shared.usage[provider] ?? {}), pending: true } } })
+      let found
+      try { found = await get(`${API.usage}?provider=${encodeURIComponent(provider)}&ref=${encodeURIComponent(ref ?? '')}${fresh ? '&fresh=1' : ''}`) } catch (error) { found = { status: 'error', detail: errorText(error) } }
+      bump({ usage: { ...shared.usage, [provider]: found } })
+      return found
+    }
+
+    /** A pattern as `ls` matches one (`*` any run of characters, `?` one, `[ab]` one of them), as a RegExp. */
+    function globOf (pattern) {
+      let out = ''
+      const text = String(pattern).toLowerCase()
+      for (let at = 0; at < text.length; at++) {
+        const char = text[at]
+        const end = char === '[' ? text.indexOf(']', at + 2) : -1
+        if (char === '*') out += '[^/]*'
+        else if (char === '?') out += '[^/]'
+        else if (end > 0) { const body = text.slice(at + 1, end).replace(/\\/g, '\\\\'); out += `[${/^[!^]/.test(body) ? `^${body.slice(1)}` : body}]`; at = end }
+        else out += char.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      }
+      return new RegExp(`^${out}$`)
+    }
+    /** Whether the roster leaves a model out until you choose it (models.json's `ignored`: last generation's). */
+    const ignoredByDefault = (state, id) => (state?.ignored ?? []).some(pattern =>
+      [globOf(pattern), globOf(String(pattern).toLowerCase().replace(/[^a-z0-9*?[\]!-]+/g, '-'))].some(rule => rule.test(bare(id)) || rule.test(slugOf(id))))
+    /** A provider's Used models when it has no list of its own: its whole catalog, but for the ones left out until chosen. */
+    const usedByDefault = (state, catalog) => catalog.filter(model => !ignoredByDefault(state, model.id))
 
     /** A model id as it is matched across providers: no vendor, lowercase, words joined by dashes (OpenRouter's
      * `anthropic/claude-opus-5.5` is Anthropic's `claude-opus-5-5`). */
@@ -994,7 +1109,7 @@ window.__ModuleLoader__.load({
         await writeSettings(remote, info.entry.settingsNs, [{ op: 'set', path: [...info.entry.settingsPath], value: profile }])
         return
       }
-      const current = info.used ?? catalog.map(found => ({ id: found.id }))
+      const current = info.used ?? usedByDefault(shared.state, catalog).map(found => ({ id: found.id }))
       if (current.some(found => modelId(found) === model.id)) return
       await writeSettings(remote, info.entry.settingsNs, [{ op: 'set', path: [...info.entry.settingsPath, 'models'], value: [...current, entryOf] }])
     }
@@ -1028,7 +1143,8 @@ window.__ModuleLoader__.load({
         const merged = [], deepseek = new Map()
         for (const model of catalog) {
           const card = { ...model, source: 'catalog' }
-          if (big.has(model.provider) && !formsOf(model.id).some(form => known.has(form))) { hidden[model.provider] = (hidden[model.provider] ?? 0) + 1; continue }
+          const leftOut = ignoredByDefault(state, model.id) && !(providerInfo(providers, model.provider).used ?? []).some(used => modelId(used) === model.id)
+          if (leftOut || (big.has(model.provider) && !formsOf(model.id).some(form => known.has(form)))) { hidden[model.provider] = (hidden[model.provider] ?? 0) + 1; continue }
           if (!DEEPSEEK_ROUTES.includes(model.provider)) { merged.push(card); continue }
           const found = deepseek.get(bare(model.id))
           if (found) { found.routes.push(card); continue }
@@ -1059,7 +1175,7 @@ window.__ModuleLoader__.load({
           lineup.push({ ...card, providerName: providerName(via, snapshot, providers) })
         }
         return { cards: [...merged, ...lineup], hidden }
-      }, [catalog, state?.lineup, providers, current?.provider, current?.model, JSON.stringify(routes), routeModels])
+      }, [catalog, state?.lineup, state?.ignored, providers, current?.provider, current?.model, JSON.stringify(routes), routeModels])
       // the models of the providers characters go through, and once each, whether the keys work
       const through = [...new Set(Object.values(routes))]
       useEffect(() => {
@@ -1114,6 +1230,7 @@ window.__ModuleLoader__.load({
       const blocked = card.status !== 'ready'
       const hint = { unused: t('status.unusedHint'), nokey: card.provider.startsWith('deepseek') ? t('status.nokeyDeepseek') : t('status.nokeyHint'),
         rejected: t('status.rejectedHint'), absent: t('status.absentHint', { provider: card.providerName }) }[card.status]
+      const failed = failuresOf(state, card.provider, card.id)[0]
       return h('div', { className: 'lr-card lr-tilt', 'data-rarity': rarity, 'data-current': current ? '' : undefined,
         'data-status': card.status, style: { '--n': index } },
       h('button', { type: 'button', className: 'lr-card-main', disabled: busy, title: `${card.providerName} · ${card.id}`,
@@ -1131,6 +1248,8 @@ window.__ModuleLoader__.load({
           sort === 'released' ? h('span', { className: 'lr-date', title: found?.releasedSeen ? t('released.seen', { date: found.released }) : undefined },
             dateLabel(found?.released, found?.releasedSeen) ?? '—')
             : aa ? h('span', { title: t('roster.rank', { rank: aa.rank, of: aa.of }) }, `AA ${aa.intelligence} · #${aa.rank}`) : null))),
+      failed ? h('span', { className: 'lr-failed', title: t('failures.last', { why: failureName(failed.code, t), message: failed.message }),
+        'aria-label': t('failures.last', { why: failureName(failed.code, t), message: failed.message }) }, '⚠') : null,
       h('button', { type: 'button', className: 'lr-more', title: t('roster.more'), 'aria-label': `${t('roster.more')}: ${name}`,
         onClick: () => onMore(card) }, '…'),
       rarity === 'UR' || rarity === 'SSR' ? h('span', { className: 'lr-holo', 'aria-hidden': 'true' }) : null,
@@ -1144,17 +1263,34 @@ window.__ModuleLoader__.load({
         h('a', { href: 'https://artificialanalysis.ai', target: '_blank', rel: 'noreferrer' }, 'artificialanalysis.ai'))
     }
 
+    // the roster's filter and sort, as you left them (while DSH's page is open): Available first, by provider; and
+    // whether a line heads each provider's cards in that sort (yours to turn off, kept in this browser)
+    const LINES_KEY = 'dsh-llm-roster.lines'
+    const shownAs = { filter: 'available', sort: 'provider', lines: (() => { try { return localStorage.getItem(LINES_KEY) !== 'off' } catch { return true } })() }
     function RosterTab ({ remote, directory, available, onPicked, onPage, onTab, t }) {
-      const { snapshot, state, cards, hidden } = useCards(directory, remote)
+      const { snapshot, state, cards, hidden, providers: configured } = useCards(directory, remote)
       const lookup = useResolved(cards)
-      const [filter, setFilter] = useState('all')
-      const [sort, setSort] = useState('provider')
+      const [chosen, setChosen] = useState(shownAs)
+      const setFilter = filter => { shownAs.filter = filter; setChosen({ ...shownAs }) }
+      const setSort = sort => { shownAs.sort = sort; setChosen({ ...shownAs }) }
+      const setLines = lines => {
+        shownAs.lines = lines; setChosen({ ...shownAs })
+        try { localStorage.setItem(LINES_KEY, lines ? 'on' : 'off') } catch { /* for this visit only */ }
+      }
+      const { sort, lines } = chosen
       const [busy, setBusy] = useState(null)
       const [failure, setFailure] = useState(null)
       const current = snapshot.pending ?? snapshot.current
-      const providers = [...new Map(cards.map(card => [card.provider, card.providerName])).entries()]
+      // a provider's cards, to filter and line up by; DeepSeek's account and its API key are one (a model of hers is one
+      // card, through the one or the other: its card says which)
+      const deepseekName = (found => found === 'deepseek-official' ? 'DeepSeek' : found)(providerName('deepseek-official', snapshot, configured))
+      const groupOf = card => card.provider === ACCOUNT ? 'deepseek-official' : card.provider
+      const providers = [...new Map(cards.map(card => [groupOf(card), groupOf(card) === 'deepseek-official' ? deepseekName : card.providerName])).entries()]
+      const nameOf = new Map(providers)
+      // (a provider chosen before that has no cards now: Available)
+      const filter = ['all', 'available'].includes(chosen.filter) || providers.some(([id]) => id === chosen.filter) ? chosen.filter : 'available'
 
-      const shown = cards.filter(card => filter === 'all' || (filter === 'available' ? card.status === 'ready' : card.provider === filter))
+      const shown = cards.filter(card => filter === 'all' || (filter === 'available' ? card.status === 'ready' : groupOf(card) === filter))
       const strength = card => [RARITY[rarityOf(lookup(card), state)] ?? 0, lookup(card)?.aa?.intelligence ?? -1]
       if (sort === 'rank') {
         shown.sort((one, other) => (STATUS_ORDER[one.status] > 0) - (STATUS_ORDER[other.status] > 0) ||
@@ -1165,7 +1301,7 @@ window.__ModuleLoader__.load({
           (lookup(other)?.aa?.intelligence ?? -1) - (lookup(one)?.aa?.intelligence ?? -1))
       } else {
         const order = new Map(providers.map(([id], index) => [id, index]))
-        shown.sort((one, other) => order.get(one.provider) - order.get(other.provider) ||
+        shown.sort((one, other) => order.get(groupOf(one)) - order.get(groupOf(other)) ||
           STATUS_ORDER[one.status] - STATUS_ORDER[other.status] ||
           strength(other)[0] - strength(one)[0] || strength(other)[1] - strength(one)[1])
       }
@@ -1184,23 +1320,46 @@ window.__ModuleLoader__.load({
         return h('div', { className: 'lr-empty' }, t('roster.loading'))
       }
       return h('div', { className: 'lr-roster' },
-        h('div', { className: 'lr-toolbar' },
-          h('div', { className: 'lr-chips' },
-            [['all', t('roster.all')], ['available', t('roster.available')], ...providers].map(([id, label]) => h('button', {
-              key: id, type: 'button', className: `lr-chip${filter === id ? ' lr-on' : ''}`, onClick: () => setFilter(id)
-            }, label))),
-          h('div', { className: 'lr-chips' },
-            ['provider', 'rank', 'released'].map(id => h('button', {
-              key: id, type: 'button', className: `lr-chip${sort === id ? ' lr-on' : ''}`, onClick: () => setSort(id)
-            }, t(`roster.sort.${id}`)))),
-          h(PackSwitch, { t })),
+        // three rows, each where it always is: the filters, the sorts, then the provider lines' box and the art pack (the box
+        // keeps its place in the other sorts, unseen, so nothing moves under the pointer)
+        h('div', { className: 'lr-toolbar lr-roster-tools' },
+          h('div', { className: 'lr-tools-row' },
+            h('span', { className: 'lr-label lr-tools-label', id: 'lr-filter-by' }, t('roster.filterBy')),
+            h('div', { className: 'lr-chips', role: 'group', 'aria-labelledby': 'lr-filter-by' },
+              [['all', t('roster.all')], ['available', t('roster.available')], ...providers].map(([id, label]) => h('button', {
+                key: id, type: 'button', className: `lr-chip${filter === id ? ' lr-on' : ''}`, onClick: () => setFilter(id)
+              }, label)))),
+          h('div', { className: 'lr-tools-row' },
+            h('span', { className: 'lr-label lr-tools-label', id: 'lr-sort-by' }, t('roster.sortBy')),
+            h('div', { className: 'lr-chips', role: 'group', 'aria-labelledby': 'lr-sort-by' },
+              ['provider', 'rank', 'released'].map(id => h('button', {
+                key: id, type: 'button', className: `lr-chip${sort === id ? ' lr-on' : ''}`, onClick: () => setSort(id)
+              }, t(`roster.sort.${id}`))))),
+          h('div', { className: 'lr-roster-options' },
+            h('label', { className: 'lr-check-row lr-lines', 'data-shown': sort === 'provider' ? '' : undefined, 'aria-hidden': sort === 'provider' ? undefined : 'true' },
+              h('input', { type: 'checkbox', checked: lines, disabled: sort !== 'provider', tabIndex: sort === 'provider' ? undefined : -1,
+                onChange: event => setLines(event.target.checked) }), t('roster.lines')),
+            h(PackSwitch, { t }))),
         failure ? h('div', { className: 'lr-error', role: 'alert' }, failure) : null,
+        !shown.length && filter === 'available' ? h('div', { className: 'lr-note lr-row lr-between' },
+          h('span', null, t('roster.noneAvailable')),
+          h('span', { className: 'lr-row' },
+            h('button', { type: 'button', className: 'lr-button lr-small', onClick: () => setFilter('all') }, t('roster.all')),
+            onTab ? h('button', { type: 'button', className: 'lr-button lr-small', onClick: () => onTab('models') }, t('tab.models')) : null)) : null,
         h('div', { className: 'lr-grid' },
-          shown.map((card, index) => h(Card, {
-            key: `${card.provider}/${card.id}`, card, found: lookup(card), state, t, busy: busy !== null, sort, index,
-            current: current?.provider === card.provider && current?.model === card.id,
-            onPick: pick, onMore: chosen => onPage({ kind: 'character', card: chosen })
-          })),
+          shown.flatMap((card, index) => [
+            // by provider: a line before each provider's cards, with its name, to find them by
+            sort === 'provider' && lines && (index === 0 || groupOf(card) !== groupOf(shown[index - 1]))
+              ? h('div', { key: `group:${groupOf(card)}`, className: 'lr-group', role: 'separator', 'data-provider': groupOf(card) },
+                h('span', { className: 'lr-group-arrow', 'aria-hidden': 'true' }, '▸'), h('span', null, nameOf.get(groupOf(card))),
+                h('span', { className: 'lr-group-line', 'aria-hidden': 'true' }))
+              : null,
+            h(Card, {
+              key: `${card.provider}/${card.id}`, card, found: lookup(card), state, t, busy: busy !== null, sort, index,
+              current: current?.provider === card.provider && current?.model === card.id,
+              onPick: pick, onMore: chosen => onPage({ kind: 'character', card: chosen })
+            })
+          ].filter(Boolean)),
           h('button', { type: 'button', className: 'lr-card lr-add-card lr-tilt', style: { '--n': shown.length }, onClick: () => onPage({ kind: 'add' }) },
             h('span', { className: 'lr-plus' }, '+'), h('strong', null, t('roster.add')), h('span', null, t('roster.addHint')))),
         Object.entries(hidden).map(([provider, count]) => h('div', { key: provider, className: 'lr-note lr-row lr-between' },
@@ -1270,7 +1429,7 @@ window.__ModuleLoader__.load({
 
     // ---- a provider's key: status, paste, variable, test, balance ----
     function KeySection ({ remote, info, t }) {
-      const { checks } = useShared()
+      const { checks, usage: spends } = useShared()
       const state = useRosterState()
       const [described, setDescribed] = useState(null)
       const [keyDraft, setKeyDraft] = useState('')
@@ -1281,6 +1440,11 @@ window.__ModuleLoader__.load({
       const [balance, setBalance] = useState(null)
       const found = checks[info.provider]
       useEffect(() => setEnvDraft(info.named ?? ''), [info.named])
+      // what the account spent, or has left, where the provider tells it to this key (asked once, again on a test)
+      const spendable = Boolean(state?.providers?.[info.provider]?.usage) && info.configured
+      const spend = spends[info.provider]
+      useEffect(() => { if (spendable && !spend) askUsage(info.provider, info.ref).catch(() => {}) }, [spendable, info.provider, info.ref, Boolean(spend)])
+      const askSpend = ref => { if (spendable) askUsage(info.provider, ref, true).catch(() => {}) }
       const describe = useCallback(async () => {
         try {
           const refs = [...new Set([info.ref, ...(info.named ? [] : info.entry?.nativeAuth?.env ?? [])])].filter(name => REF.test(name)).slice(0, 64)
@@ -1304,7 +1468,7 @@ window.__ModuleLoader__.load({
         }
         unwrap(await remote.credentials.set(info.ref, value))
         setKeyDraft(''); setNote(t('key.saved'))
-        await describe(); await checkKey(info.provider, info.ref, true, remote)
+        await describe(); await checkKey(info.provider, info.ref, true, remote); askSpend(info.ref)
       })
       const saveEnv = () => run(async () => {
         const name = envDraft.trim()
@@ -1313,9 +1477,9 @@ window.__ModuleLoader__.load({
         const ops = info.configured ? [name ? { op: 'set', path, value: name } : { op: 'unset', path }] : [{ op: 'set', path, value: { apiKeyEnv: name } }]
         await writeSettings(remote, info.entry.settingsNs, ops)
         setNote(name ? t('key.envSaved', { name }) : null)
-        await checkKey(info.provider, name || info.ref, true, remote)
+        await checkKey(info.provider, name || info.ref, true, remote); askSpend(name || info.ref)
       })
-      const test = () => run(async () => { await checkKey(info.provider, info.ref, true, remote) })
+      const test = () => run(async () => { await checkKey(info.provider, info.ref, true, remote); askSpend(info.ref) })
       const askBalance = () => run(async () => {
         setBalance(await get(`${API.balance}?provider=${encodeURIComponent(info.provider)}&ref=${encodeURIComponent(info.ref)}`))
       })
@@ -1324,6 +1488,11 @@ window.__ModuleLoader__.load({
       const checkText = found?.status ? (found.status === 'ok' && found.models ? t('check.okModels', { count: found.models })
         : t(`check.${found.status}`, { detail: found.detail ?? '' })) : null
       const editable = info.writable && Boolean(info.entry)
+      const cash = money => money.currency === 'USD' ? `$${money.amount.toFixed(2)}` : `${money.amount.toFixed(2)} ${money.currency}`
+      const spent = spend?.status === 'ok' ? [
+        spend.spent ? h('div', { key: 'spent' }, t('usage.spent'), ' ', h('strong', null, cash(spend.spent))) : null,
+        spend.credit ? h('div', { key: 'credit' }, t('usage.credit'), ' ', h('strong', null, cash(spend.credit))) : null
+      ].filter(Boolean) : []
       return h('div', { className: 'lr-field lr-key' },
         h('span', { className: 'lr-label' }, t('key.title')),
         h('span', { className: 'lr-key-status', 'data-status': status },
@@ -1353,13 +1522,130 @@ window.__ModuleLoader__.load({
                 Number.isFinite(item.used) && item.used ? t('balance.used', { amount: money(item.used) }) : null
               ].filter(Boolean).join(' · ')))),
           balance.note ? h('div', { className: 'lr-dim' }, balance.note) : null) : null,
+        spent.length ? h('div', { className: 'lr-balance lr-spend' }, spent) : null,
         note ? h('div', { className: 'lr-note' }, note) : null,
-        failure ? h('div', { className: 'lr-error', role: 'alert' }, failure) : null)
+        failure ? h('div', { className: 'lr-error', role: 'alert' }, failure) : null,
+        spendable ? h(UsageKey, { remote, info, usage: state.providers[info.provider].usage, name: info.entry?.displayName || info.provider, t }) : null)
     }
 
-    function AccountNote ({ snapshot, t }) {
+    /** The provider's spend key (its admin or management key), which may read what the account spent or has left but
+     * may not call the models: pasted (kept write-only in DSH's credential store, under the first name the server reads)
+     * or in the environment. The roster only reads with it; without one, it asks with the API key. What it reads shows
+     * under the API key; only a test says why it was not read. Folded away until opened: it is seldom needed. */
+    function UsageKey ({ remote, info, usage, name, t }) {
+      const found = useShared().usage[info.provider]
+      const [open, setOpen] = useState(false)
+      const [described, setDescribed] = useState(null)
+      const [keyDraft, setKeyDraft] = useState('')
+      const [tested, setTested] = useState(false)
+      const [busy, setBusy] = useState(false)
+      const [failure, setFailure] = useState(null)
+      const keys = usage.keys
+      const describe = useCallback(async () => {
+        try {
+          const answer = unwrap(await remote.credentials.describe(keys.filter(key => REF.test(key))))
+          setDescribed(keys.map(key => ({ name: key, ...answer[key] })).find(item => item.configured) ?? { name: keys[0], configured: false })
+        } catch { setDescribed({ name: keys[0], unknown: true }) }
+      }, [keys.join()])
+      useEffect(() => { describe() }, [describe])
+      const run = async work => {
+        setBusy(true); setFailure(null)
+        try { await work() } catch (error) { setFailure(t('failed', { error: errorText(error) })) } finally { setBusy(false) }
+      }
+      const test = () => run(async () => { await askUsage(info.provider, info.ref, true); setTested(true) })
+      const saveKey = () => run(async () => {
+        const value = keyDraft.trim()
+        if (!value) return
+        unwrap(await remote.credentials.set(keys[0], value))
+        setKeyDraft(''); await describe()
+        await askUsage(info.provider, info.ref, true); setTested(true)
+      })
+      const status = described?.unknown ? 'unknown' : described?.configured ? (described.source === 'env' || described.source === 'environment' ? 'env' : 'stored') : 'missing'
+      // (a test says which key it read with: this one, or the API key when this one is not set)
+      const said = tested && found?.status && !found.pending
+        ? `${found.key ? `${found.key}: ` : ''}${t(`check.${found.status}`, { detail: found.detail ?? '' })}` : null
+      return h('div', { className: 'lr-usage', 'data-open': open ? '' : undefined },
+        h('button', { type: 'button', className: 'lr-usage-toggle', 'aria-expanded': open, onClick: () => setOpen(!open) },
+          h('span', { className: 'lr-usage-arrow', 'aria-hidden': 'true' }, open ? '▾' : '▸'),
+          h('span', { className: 'lr-label' }, t(`usage.${usage.kind}`)),
+          described?.configured ? h('span', { className: 'lr-dim' }, ` · ${t(`key.${status}`)}`) : null),
+        open ? h(React.Fragment, null,
+          h('span', { className: 'lr-dim' }, t(`usage.${usage.kind}Hint`, { name })),
+          h('span', { className: 'lr-key-status', 'data-status': status },
+            h('span', { className: 'lr-dot' }), h('code', null, described?.name ?? keys[0]), ' ', t(`key.${status}`),
+            said ? h('span', { className: 'lr-check', 'data-check': found.status }, ' · ', said) : null),
+          h('div', { className: 'lr-row' },
+            h('input', { className: 'lr-input', type: 'password', autoComplete: 'new-password', placeholder: t('key.paste'),
+              value: keyDraft, disabled: busy, onChange: event => setKeyDraft(event.target.value),
+              onKeyDown: event => { if (event.key === 'Enter') saveKey() } }),
+            h('button', { type: 'button', className: 'lr-button', disabled: busy || !keyDraft.trim(), onClick: saveKey }, t('key.save')),
+            h('button', { type: 'button', className: 'lr-button', disabled: busy || Boolean(found?.pending), onClick: test },
+              busy && found?.pending ? t('key.testing') : t('key.test'))),
+          failure ? h('div', { className: 'lr-error', role: 'alert' }, failure) : null) : null)
+    }
+
+    /** Whether you are signed in to a DeepSeek account; `withBalance`: and its balance (for the account's own card or a
+     * model it serves, not an API key's: that has its own). */
+    function AccountNote ({ snapshot, t, withBalance = false }) {
       const signedIn = (snapshot?.groups ?? []).some(group => group.id === ACCOUNT && group.models?.length)
-      return h('div', { className: 'lr-note', 'data-account': signedIn ? 'in' : 'out' }, signedIn ? t('account.signedIn') : t('account.signedOut'))
+      const balance = useAccountBalance(signedIn && withBalance, t)
+      const money = wallet => `${wallet.currency === 'USD' ? '$' : '¥'}${wallet.balance}`
+      return h('div', { className: 'lr-note', 'data-account': signedIn ? 'in' : 'out' },
+        signedIn ? t('account.signedIn') : t('account.signedOut'),
+        balance?.status === 'ready' ? h('div', { className: 'lr-account-balance' }, t('account.balance', {
+          amounts: [...balance.value.map(wallet => t('account.topped', { amount: money(wallet) })),
+            ...balance.bonusWallets.map(wallet => t('account.granted', { amount: money(wallet) }))].join(' · ') || money({ currency: 'CNY', balance: '0' })
+        })) : balance?.status === 'failed' ? h('div', { className: 'lr-dim' }, t('account.balanceFailed')) : null)
+    }
+    /** The DeepSeek account's balance, as DSH reads it (its account service, with DSH's own version): its topped-up and
+     * granted wallets; null while not asked or unknown. */
+    function useAccountBalance (signedIn, t) {
+      const { account, state } = useShared()
+      const [found, setFound] = useState(null)
+      const version = state?.dsh?.version
+      useEffect(() => {
+        if (!account?.getBalance || !signedIn || !version) return
+        let live = true
+        account.getBalance({ version, locale: String(t('lang')).split('-')[0], timezoneOffsetSeconds: -new Date().getTimezoneOffset() * 60 })
+          .then(result => { if (live) setFound(result?.ok ? result.value : { status: 'failed' }) })
+          .catch(() => { if (live) setFound({ status: 'failed' }) })
+        return () => { live = false }
+      }, [account, signedIn, version])
+      return found
+    }
+
+    // ---- why calls failed lately ----
+    /** A provider's failures kept (its model calls and key checks), the newest first, until a call succeeds again; this
+     * model's marked. A Clear button lets them go. */
+    function FailureLog ({ provider, model = null, t }) {
+      const state = useRosterState()
+      const [busy, setBusy] = useState(false)
+      const found = failuresOf(state, provider)
+      if (!found.length) return null
+      const clear = async () => {
+        setBusy(true)
+        try { const answer = await post(API.failures, { clear: provider }); bump({ state: { ...shared.state, failures: answer.failures } }) } catch { /* as it was */ } finally { setBusy(false) }
+      }
+      return h('div', { className: 'lr-failures', role: 'status' },
+        h('div', { className: 'lr-row lr-between' },
+          h('span', { className: 'lr-label' }, t('failures.title')),
+          h('button', { type: 'button', className: 'lr-button lr-small', disabled: busy, onClick: clear }, t('failures.clear'))),
+        h('ul', null, found.map((entry, index) => h('li', { key: index, 'data-mine': model && entry.model && bare(entry.model) === bare(model) ? '' : undefined },
+          h('span', { className: 'lr-failure-code' }, failureName(entry.code, t)),
+          entry.status ? h('span', { className: 'lr-dim' }, ` HTTP ${entry.status}`) : null,
+          entry.model ? h('code', null, ` ${entry.model}`) : entry.source === 'check' ? h('span', { className: 'lr-dim' }, ` ${t('failures.check')}`) : null,
+          entry.count > 1 ? h('span', { className: 'lr-dim' }, ` ×${entry.count}`) : null,
+          h('span', { className: 'lr-dim lr-failure-when' }, ` · ${whenOf(entry.at)}`),
+          entry.message ? h('div', { className: 'lr-failure-message' }, entry.message) : null))),
+        h('div', { className: 'lr-dim' }, t('failures.hint')))
+    }
+    /** A failure's code as people read it (DSH's codes; others as they are). */
+    const failureName = (code, t) => { const word = t(`failures.code.${code}`); return word === `failures.code.${code}` ? code : word }
+    /** A time as people read it: today's by the clock, else its day. */
+    const whenOf = at => {
+      const day = new Date(at)
+      if (Number.isNaN(day.getTime())) return ''
+      return day.toDateString() === new Date().toDateString() ? day.toTimeString().slice(0, 5) : day.toISOString().slice(0, 10)
     }
 
     // ---- a character's page ----
@@ -1501,7 +1787,8 @@ window.__ModuleLoader__.load({
             card.source === 'lineup' && card.character ? h(Through, { remote, state, providers, snapshot, character: card.character, t }) : null,
             h('section', { className: 'lr-section' },
               h('h3', null, `${t('page.provider')}: ${card.providerName}`),
-              card.provider.startsWith('deepseek') ? h(AccountNote, { snapshot, t }) : null,
+              card.provider.startsWith('deepseek') ? h(AccountNote, { snapshot, t, withBalance: card.provider === ACCOUNT }) : null,
+              h(FailureLog, { provider: card.provider, model: card.id, t }),
               card.provider !== ACCOUNT && info.entry ? h(KeySection, { remote, info, t }) : null))),
         picker ? h(PicturePicker, { kind: picker, model: { provider: card.provider, id: card.id, name }, onClose: () => setPicker(null), t }) : null)
     }
@@ -1746,7 +2033,9 @@ window.__ModuleLoader__.load({
 
       // Used: the profile's model list; without one, the provider's whole catalog (as DSH's picker shows it).
       const catalog = catalogNames ?? []
-      const usedIds = info.used ? info.used.map(modelId) : catalog.map(model => model.id)
+      const state = useRosterState()
+      const leftOut = info.used ? [] : catalog.filter(model => ignoredByDefault(state, model.id))
+      const usedIds = info.used ? info.used.map(modelId) : usedByDefault(state, catalog).map(model => model.id)
       const usedSet = new Set(usedIds)
       // Ignored: newest first (or by name), so a long list (OpenRouter's) opens on the models that just came out
       const ignored = (found ?? []).filter(model => !usedSet.has(model.id))
@@ -1770,7 +2059,7 @@ window.__ModuleLoader__.load({
         } catch (error) { await post(API.unpark, { provider: entry.provider }); throw error } finally { await loadState() }
       }
       const move = (id, toUsed) => run(async () => {
-        const current = info.used ?? catalog.map(model => ({ id: model.id }))
+        const current = info.used ?? usedByDefault(state, catalog).map(model => ({ id: model.id }))
         if (toUsed) {
           const model = found?.find(item => item.id === id) ?? { id }
           const entryOf = model.live
@@ -1808,6 +2097,7 @@ window.__ModuleLoader__.load({
             h('button', { type: 'button', className: 'lr-button', onClick: () => setRemoving(false) }, t('cancel')))) : null,
         entry.provider === 'deepseek-official' ? h(AccountNote, { snapshot, t }) : null,
         h(KeySection, { remote, info, t }),
+        h(FailureLog, { provider: entry.provider, t }),
         h('div', { className: 'lr-field' },
           h('div', { className: 'lr-row lr-between' },
             h('span', { className: 'lr-label' }, t('used.title', { count: usedIds.length })),
@@ -1816,7 +2106,8 @@ window.__ModuleLoader__.load({
                 onClick: () => run(() => writeModels(undefined)) }, t('models.useAll')),
               h('button', { type: 'button', className: 'lr-button lr-small', disabled: busy || !info.writable || !canIgnoreAll,
                 title: canIgnoreAll ? undefined : t('models.ignoreAllFixed'), onClick: () => run(ignoreAll) }, t('models.ignoreAll')))),
-          info.used ? null : h('div', { className: 'lr-dim' }, t('used.all', { count: usedIds.length })),
+          info.used ? null : h('div', { className: 'lr-dim' }, t('used.all', { count: usedIds.length }),
+            leftOut.length ? ` ${t('used.leftOut', { count: leftOut.length })}` : null),
           h('div', { className: 'lr-pills' }, usedIds.map(id => h('span', { key: id, className: 'lr-pill lr-used' },
             h('button', { type: 'button', className: 'lr-pill-face', title: `${t('page.avatar')}: ${t('page.change')}`, 'aria-label': `${t('page.avatar')}: ${id}`,
               onClick: () => setFaceFor({ provider: entry.provider, id, name: nameOf(id) }) },
@@ -1901,7 +2192,8 @@ window.__ModuleLoader__.load({
         account ? h('section', { className: 'lr-provider', 'data-provider': ACCOUNT },
           h('header', { className: 'lr-provider-head' }, h('span', { className: 'lr-provider-name' }, t('account.title')),
             h('code', { className: 'lr-dim' }, ACCOUNT)),
-          h(AccountNote, { snapshot, t }),
+          h(AccountNote, { snapshot, t, withBalance: true }),
+          h(FailureLog, { provider: ACCOUNT, t }),
           h('div', { className: 'lr-pills' }, (snapshot.groups.find(group => group.id === ACCOUNT)?.models ?? [])
             .map(model => h('span', { key: model.id, className: 'lr-pill lr-used lr-static' }, model.name ?? model.id)))) : null,
         configured.map(info => h(ProviderCard, { key: `${info.entry.settingsNs}:${info.provider}`, remote, info, snapshot,
@@ -2727,6 +3019,11 @@ window.__ModuleLoader__.load({
 .lr-chip.lr-on { border-color: var(--dsw-alias-state-business-primary, #4d6bfe); color: var(--dsw-alias-state-business-primary, #4d6bfe);
   background: var(--dsw-alias-state-business-secondary, rgba(77,107,254,.1)) }
 .lr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: 12px }
+.lr-group { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 13px; font-weight: 600;
+  color: var(--dsw-alias-label-secondary, #555) }
+.lr-group:first-child { margin-top: 0 }
+.lr-group-arrow { font-size: 11px; color: var(--dsw-alias-label-tertiary, #888) }
+.lr-group-line { flex: 1; border-top: 1px solid var(--dsw-alias-border-l4, rgba(128,128,128,.35)) }
 .lr-card { position: relative; aspect-ratio: 2 / 3; border-radius: 12px; overflow: hidden; isolation: isolate; color: #fff;
   --lr-c: #4a90e2; --lr-c2: #9cc7ff; box-shadow: 0 0 0 2px var(--lr-c), 0 6px 18px rgba(0,0,0,.25); transition: transform .12s, box-shadow .12s;
   background: linear-gradient(160deg, color-mix(in srgb, var(--lr-c) 35%, #1b1d2e), #10121d 70%) }
@@ -2832,6 +3129,13 @@ window.__ModuleLoader__.load({
 .lr-confirm { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 10px;
   background: var(--dsw-alias-interactive-bg-hover-danger, rgba(217,48,37,.08)) }
 .lr-check-row { display: flex; gap: 6px; align-items: center; font-size: 12px }
+.lr-lines { cursor: pointer; color: var(--dsw-alias-label-secondary, #555) }
+.lr-lines:not([data-shown]) { visibility: hidden }
+.lr-roster-tools { flex-direction: column; flex-wrap: nowrap; justify-content: flex-start; align-items: stretch }
+.lr-tools-row { display: flex; align-items: flex-start; gap: 10px }
+.lr-tools-label { flex: 0 0 auto; min-width: 4.5em; line-height: 26px; white-space: nowrap }
+.lr-tools-row > .lr-chips { flex: 1 1 auto; min-width: 0 }
+.lr-roster-options { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; min-height: 30px }
 .lr-field { display: flex; flex-direction: column; gap: 6px }
 .lr-label { font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary, #555) }
 .lr-key-status { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 12px }
@@ -2859,6 +3163,12 @@ window.__ModuleLoader__.load({
 .lr-danger { color: var(--dsw-alias-state-error-primary, #d93025) }
 .lr-danger-solid { color: #fff; border-color: transparent; background: var(--dsw-alias-state-error-primary, #d93025) }
 .lr-balance { display: flex; flex-direction: column; gap: 2px; font-size: 12.5px }
+.lr-usage { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; padding-top: 8px;
+  border-top: .5px dashed var(--dsw-alias-border-l4, rgba(128,128,128,.4)) }
+.lr-usage .lr-key-status[data-status=missing] .lr-dot { background: var(--dsw-alias-border-l4, rgba(128,128,128,.6)) }
+.lr-usage-toggle { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; padding: 0; border: none;
+  background: none; font: inherit; color: inherit; cursor: pointer }
+.lr-usage-arrow { width: 10px; font-size: 11px; color: var(--dsw-alias-label-tertiary, #888) }
 .lr-pills { display: flex; flex-wrap: wrap; gap: 6px }
 .lr-pill { display: inline-flex; align-items: center; gap: 4px; height: 28px; border-radius: 14px; font: inherit; font-size: 12px;
   color: inherit; background: transparent; border: .5px solid var(--dsw-alias-border-l4, rgba(128,128,128,.5)) }
@@ -2932,6 +3242,16 @@ window.__ModuleLoader__.load({
 .lr-included { display: flex; flex-direction: column; gap: 6px; padding-bottom: 6px;
   border-bottom: .5px solid var(--dsw-alias-border-l1, rgba(128,128,128,.18)) }
 .lr-included-pack { display: flex; align-items: center; justify-content: space-between; gap: 12px }
+.lr-account-balance { margin-top: 4px; font-weight: 600 }
+.lr-failures { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: 8px; font-size: 12px;
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #d93025) 7%, transparent);
+  border: .5px solid color-mix(in srgb, var(--dsw-alias-state-error-primary, #d93025) 30%, transparent) }
+.lr-failures ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px }
+.lr-failures li[data-mine] { padding-left: 6px; box-shadow: inset 2px 0 var(--dsw-alias-state-error-primary, #d93025) }
+.lr-failure-code { font-weight: 600; color: var(--dsw-alias-state-error-primary, #d93025) }
+.lr-failure-message { color: var(--dsw-alias-label-secondary, #555); overflow-wrap: anywhere }
+.lr-failed { position: absolute; top: 6px; right: 40px; z-index: 3; width: 22px; height: 22px; border-radius: 50%; display: grid;
+  place-items: center; font-size: 12px; background: rgba(217,48,37,.9); color: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4) }
 .lr-pack-switch { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap }
 .lr-pack-switch .lr-select { flex: 0 1 auto; width: auto; min-width: 9em; max-width: 16em; height: 28px }
 .lr-pack-switch .lr-pack-name { flex: 0 1 14em; height: 28px }
@@ -3286,6 +3606,11 @@ button.lr-pull:hover .lr-pull-front::before { box-shadow: inset 0 0 0 2px var(--
       ctx.effect(() => ctx.locale.register(NS, { en: EN, zh: ZH }), 'llm-roster: words')
       ctx.effect(() => installTilt(), 'llm-roster: the cards\' feel')
       const remoteFaces = ['remote', 'remote.settings', 'remote.credentials', 'remote.llm', 'remote.session']
+      // the DeepSeek account's balance, as DSH reads it (an injection of its own: a DSH without it keeps the rest)
+      ctx.inject(['remote', 'remote.account'], scope => {
+        bump({ account: scope.remote.account })
+        scope.effect(() => () => bump({ account: null }), 'llm-roster: the DeepSeek account')
+      })
       // the avatar, just left of the composer's model picker
       ctx.inject(['modelDirectories', 'sessions', ...remoteFaces], scope => {
         const models = scope.modelDirectories, sessions = scope.sessions
@@ -3298,7 +3623,7 @@ button.lr-pull:hover .lr-pull-front::before { box-shadow: inset 0 0 0 2px var(--
         for (const event of ['settings/document-updated', 'credentials/record-updated', 'credentials/reference-updated']) {
           scope.effect(() => scope.remote.$on?.(event, () => {
             if (shared.providers) loadProviders(scope.remote).catch(() => {})
-            if (event.startsWith('credentials/')) bump({ checks: {} })
+            if (event.startsWith('credentials/')) bump({ checks: {}, usage: {} })
           }), `llm-roster: ${event}`)
         }
       })
