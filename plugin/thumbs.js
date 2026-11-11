@@ -1,6 +1,7 @@
 // Thumbnails of the art packs' pictures, for what shows them small (the roster's cards, the album, the summon's cards,
-// the pickers); the full pictures are for a character's page, the banner and the viewer. They are made with sharp, when
-// it is installed (an optional dependency: without it, every picture is served whole), kept in DSH's home
+// the pickers); the full pictures are for a character's page, the banner and the viewer. They are made with
+// @napi-rs/image, when it is installed (an optional dependency, prebuilt, with no install script: pnpm refuses one that
+// has one; without it, every picture is served whole), kept in DSH's home
 // (llm-roster/thumbs/), each named by its picture's file, size and time, so a changed picture gets a new one; a pack's
 // are made in the background as it is added or chosen, and any other as it is first asked for.
 import crypto from 'node:crypto'
@@ -11,17 +12,17 @@ export const WIDTH = 320 // wide enough for a card twice over on a sharp screen
 const QUALITY = 80
 const KEPT = 2000 // thumbnails kept at most (the oldest go first)
 
-let found // the sharp module, once looked for (null: none)
-const sharpModule = async () => {
+let found // @napi-rs/image's Transformer, once looked for (null: none)
+const imageModule = async () => {
   if (found === undefined) {
-    try { found = (await import('sharp')).default ?? null } catch { found = null }
+    try { found = (await import('@napi-rs/image')).Transformer ?? null } catch { found = null }
   }
   return found
 }
 
 export class Thumbs {
-  /** `load`: how sharp is found (for the tests: one that finds none). */
-  constructor (folder, { load = sharpModule } = {}) {
+  /** `load`: how the image library is found (for the tests: one that finds none). */
+  constructor (folder, { load = imageModule } = {}) {
     this.root = folder ? path.join(folder, 'thumbs') : null
     this.load = load
     this.making = new Map() // a thumbnail's file → its making
@@ -30,8 +31,8 @@ export class Thumbs {
     this.warming = false
   }
 
-  /** The thumbnail's file for a picture's (`file`): made now if need be; null to serve the picture itself (no sharp, a
-   * picture already small, an animated GIF, or one it cannot read). */
+  /** The thumbnail's file for a picture's (`file`): made now if need be; null to serve the picture itself (no image
+   * library, a picture already small, an animated GIF, or one it cannot read). */
   async of (file) {
     if (!this.root || !file || /\.gif$/i.test(file) || this.whole.has(file)) return null
     let stat
@@ -41,13 +42,15 @@ export class Thumbs {
     if (fs.existsSync(target)) return target
     if (this.making.has(target)) return this.making.get(target)
     const making = (async () => {
-      const sharp = await this.load()
-      if (!sharp) return null
-      const about = await sharp(file).metadata()
+      const Transformer = await this.load()
+      if (!Transformer) return null
+      const bytes = fs.readFileSync(file)
+      const about = await new Transformer(bytes).metadata()
       if (!about.width || about.width <= WIDTH) { this.whole.add(file); return null }
+      const small = await new Transformer(bytes).resize(WIDTH).webp(QUALITY)
       fs.mkdirSync(this.root, { recursive: true })
       const temporary = `${target}.${process.pid}.tmp`
-      await sharp(file).resize({ width: WIDTH }).webp({ quality: QUALITY }).toFile(temporary)
+      fs.writeFileSync(temporary, small)
       fs.renameSync(temporary, target)
       return target
     })().catch(() => null).finally(() => this.making.delete(target))

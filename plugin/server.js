@@ -19,7 +19,7 @@
 //     POST /api/llm-roster.unpark     { provider } → what was kept of it
 //     POST /api/llm-roster.route      { character, provider | null }: the provider her lineup goes through
 //     GET  /api/llm-roster.image      ?art=<folder>/<file> (a picture of the pack in use: `deepseek/high.webp`; or of the
-//                                     pack `&pack=<id>`); `&size=thumb`: its thumbnail (320 wide, when sharp is there)
+//                                     pack `&pack=<id>`); `&size=thumb`: its thumbnail (320 wide, when @napi-rs/image is there)
 //     GET  /api/llm-roster.packs      your art packs, the one in use, and the ones that come with the roster
 //     POST /api/llm-roster.packs      { use: '<id>' } | { create: '<name>' } | { remove: '<id>' } | { discard: '<id>' } |
 //                                     { fetch: '<GitHub or .zip link>' } | { add: '<file>' }: one that comes with the

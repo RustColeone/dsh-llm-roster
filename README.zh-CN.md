@@ -265,7 +265,7 @@ knights/
 
 `.webp` 能让立绘包最小（内置卡面每张约 100–450 KB，质量 86）；`.png`、`.jpg` 和 `.gif` 也可以。.zip 中的一张图片最大 16 MB，你上传的图片最大 4 MB。
 
-**缩略图。** 在图片显示得很小的地方（名册卡片、图鉴、召唤卡片、选择器），名册会发送宽 320 的缩略图，用 [sharp](https://sharp.pixelplumbing.com) 从原图生成并保存在 DSH 主目录（`llm-roster/thumbs/`）。立绘包的缩略图会在添加或选择该立绘包时于后台生成，其他图片在首次显示时生成；图片变化后会生成新的缩略图。她的页面、召唤横幅和图鉴查看器会显示原图本身。sharp 是可选依赖，在名册有对应机器构建的地方随名册一起安装（Linux、macOS 和 Windows 的 x64 与 Arm）；没有它时，每张图片都会原样发送。
+**缩略图。** 在图片显示得很小的地方（名册卡片、图鉴、召唤卡片、选择器），名册会发送宽 320 的缩略图，用 [@napi-rs/image](https://image.napi.rs) 从原图生成并保存在 DSH 主目录（`llm-roster/thumbs/`）。立绘包的缩略图会在添加或选择该立绘包时于后台生成，其他图片在首次显示时生成；图片变化后会生成新的缩略图。她的页面、召唤横幅和图鉴查看器会显示原图本身。@napi-rs/image 是可选依赖，在名册有对应机器构建的地方随名册一起安装（Linux、macOS 和 Windows 的 x64 与 Arm）；没有它时，每张图片都会原样发送。
 
 要手工制作立绘包，可以先导出一个（或新建一个空白立绘包，选择图片后导出），改成你喜欢的样子，重新压缩并导入。要分享立绘包，把它的文件夹放到 GitHub 上；任何人都可以通过链接拉取。你拥有的立绘包保存在 `~/.dsh/llm-roster/packs/<name>/`，你的改动保存在 `~/.dsh/llm-roster/changes/<name>/`；立绘包的文件也可以在那里直接编辑，名册下次打开时会显示这些改动。
 
@@ -322,7 +322,7 @@ knights/
 | [`plugin/client.js`](plugin/client.js) | 网页端部分（使用 DSH 的 React）。它把头像放进 `conversation.input.right` 插槽，并渲染名册对话框和“插件”页面。它通过 `modelDirectories.directoryFor(session).select()` 切换模型，通过 `remote.settings.mutate` 写入模型列表和 `apiKeyEnv`，通过 `remote.credentials.set` 保存密钥，并通过 `remote.llm.discoverModels` 读取目录。 |
 | [`plugin/index.js`](plugin/index.js) | DSH 插件（`llm-roster`）。它把路由挂载到 DSH 的 API 上，先通过 DSH 的凭据存储解析密钥，再尝试环境变量，并监视 DSH 的模型调用（`llm/stream`，原样转发）以了解失败原因。 |
 | [`plugin/stars.js`](plugin/stars.js) | 召唤的赚取 ✦：由成功的模型调用掉落，在召唤中扣除，通过作弊码增加。 |
-| [`plugin/thumbs.js`](plugin/thumbs.js) | 图片的缩略图：用 sharp（安装时）生成，保存在 DSH 主目录中。 |
+| [`plugin/thumbs.js`](plugin/thumbs.js) | 图片的缩略图：用 @napi-rs/image（安装时）生成，保存在 DSH 主目录中。 |
 | [`plugin/failures.js`](plugin/failures.js) | 最近调用失败原因：按服务商和模型保存、计数，调用成功后放掉。 |
 | [`plugin/server.js`](plugin/server.js) | 下面的路由。 |
 | [`plugin/roster.js`](plugin/roster.js) | 每个模型对应哪个角色和层级、阵容、每个模型所用的立绘和头像、当前使用的立绘包、搁置的服务商，以及每个角色经哪个服务商使用。 |
@@ -368,7 +368,7 @@ knights/
 ## 开发
 
 ```sh
-npm install                                           # sharp，用于缩略图（可选：没有它时相关测试会被跳过）
+npm install                                           # @napi-rs/image，用于缩略图（可选：没有它时相关测试会被跳过）
 npm test                                              # node --test：测试服务端部分、立绘包和召唤概率，不需要 DSH 或网络
 python3 tools/import-art.py ~/Projects/DiscordStudyBot  # 从 ChimeraArchiveHarness 检出重新生成 art/
 python3 tools/draw-art.py --dry-run                   # 其他角色的层级：预览将绘制的内容

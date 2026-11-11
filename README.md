@@ -416,10 +416,10 @@ want it:
 work too. A picture in a .zip is at most 16 MB, and one you upload at most 4 MB.
 
 **Thumbnails.** Where pictures show small (the roster's cards, the album, the summon's cards, the pickers), the roster
-sends a thumbnail 320 wide, made from the picture with [sharp](https://sharp.pixelplumbing.com) and kept in DSH's home
+sends a thumbnail 320 wide, made from the picture with [@napi-rs/image](https://image.napi.rs) and kept in DSH's home
 (`llm-roster/thumbs/`). A pack's are made in the background as it is added or chosen, any other as it is first shown;
 a picture that changes gets a new one. Her page, the summon's banner and the album's viewer show the picture itself.
-sharp is an optional dependency, installed with the roster where it has a build for the machine (Linux, macOS and
+@napi-rs/image is an optional dependency, installed with the roster where it has a build for the machine (Linux, macOS and
 Windows on x64 and Arm); without it, every picture is sent whole.
 
 To make a pack by hand, export one (or start a new empty one, choose pictures and export it), change what you like,
@@ -489,7 +489,7 @@ its own album (the Earned ✦ are DSH's, in `stars.json`, so every browser share
 | [`plugin/client.js`](plugin/client.js) | The web half (React from DSH). It puts the avatar in the `conversation.input.right` slot and renders the roster dialog and the Plugins page. It switches models through `modelDirectories.directoryFor(session).select()`. It writes model lists and `apiKeyEnv` with `remote.settings.mutate`, stores keys with `remote.credentials.set`, and reads catalogs with `remote.llm.discoverModels`. |
 | [`plugin/index.js`](plugin/index.js) | The DSH plugin (`llm-roster`). It mounts the routes on DSH's API, resolves keys through DSH's credential store, then the environment, and watches DSH's model calls (`llm/stream`, passed along untouched) for why they fail. |
 | [`plugin/stars.js`](plugin/stars.js) | The summon's Earned ✦: dropped by model calls that work, spent on summons, added by cheat codes. |
-| [`plugin/thumbs.js`](plugin/thumbs.js) | The pictures' thumbnails, made with sharp (when it is installed) and kept in DSH's home. |
+| [`plugin/thumbs.js`](plugin/thumbs.js) | The pictures' thumbnails, made with @napi-rs/image (when it is installed) and kept in DSH's home. |
 | [`plugin/failures.js`](plugin/failures.js) | Why calls failed lately: kept by provider and model, counted, let go when a call succeeds again. |
 | [`plugin/server.js`](plugin/server.js) | The routes, below. |
 | [`plugin/roster.js`](plugin/roster.js) | Which character and tier each model is, the lineup, the picture and avatar each one wears, the pack in use, set-aside providers, and the provider each character goes through. |
@@ -537,7 +537,7 @@ The routes are on DSH's API, behind its sign-in and for its owner only:
 ## Development
 
 ```sh
-npm install                                           # sharp, for the thumbnails (optional: their tests are skipped without it)
+npm install                                           # @napi-rs/image, for the thumbnails (optional: their tests are skipped without it)
 npm test                                              # node --test: the server half, art packs and the summon odds, no DSH or network needed
 python3 tools/import-art.py ~/Projects/DiscordStudyBot  # art/ again from a ChimeraArchiveHarness checkout
 python3 tools/draw-art.py --dry-run                   # the other characters' tiers: what it would draw
