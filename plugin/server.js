@@ -41,11 +41,14 @@
 //                                     month, or has left, read with the spend key (else the API key): `ok`, `missing`,
 //                                     `rejected`, `error`
 //     GET  /api/llm-roster.live       ?provider=<route>&ref=<credential reference>: the models the provider lists
+//     GET  /api/llm-roster.stars      the summon's earned ✦: { balance, earned, last }
+//     POST /api/llm-roster.stars      { spend: n } (a summon) | { code: '<cheat code>' }
 import fs from 'node:fs'
 import path from 'node:path'
 import { balance, check, keyFor, liveModels, offered, PROVIDERS, usage } from './providers.js'
 import { ALIASES, dateInId, fetchRankings, fetchReleased, formsOf, load, loadReleased, Seen, slugOf, undated } from './rankings.js'
 import { Failures } from './failures.js'
+import { Stars } from './stars.js'
 import { fetchPack, filesOf } from './packs.js'
 import { CHARACTERS, IGNORED, lineup, MODELS, RARITY, releasedInLineup, Roster, TIERS } from './roster.js'
 
@@ -53,7 +56,7 @@ export const ROUTES = {
   state: '/api/llm-roster.state', resolve: '/api/llm-roster.resolve', pick: '/api/llm-roster.pick',
   upload: '/api/llm-roster.upload', forget: '/api/llm-roster.forget', settings: '/api/llm-roster.settings',
   park: '/api/llm-roster.park', unpark: '/api/llm-roster.unpark', route: '/api/llm-roster.route', image: '/api/llm-roster.image',
-  rankings: '/api/llm-roster.rankings', check: '/api/llm-roster.check', balance: '/api/llm-roster.balance', usage: '/api/llm-roster.usage',
+  rankings: '/api/llm-roster.rankings', check: '/api/llm-roster.check', balance: '/api/llm-roster.balance', usage: '/api/llm-roster.usage', stars: '/api/llm-roster.stars',
   live: '/api/llm-roster.live', released: '/api/llm-roster.released', packs: '/api/llm-roster.packs', failures: '/api/llm-roster.failures',
   packImport: '/api/llm-roster.pack-import', packExport: '/api/llm-roster.pack-export'
 }
@@ -78,10 +81,12 @@ export function spelled (model) {
 
 /** The plugin's state and work, without DSH: what the routes call (and the tests). `resolve(name)` reads a credential
  * reference (DSH's store, then the environment). */
-export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async name => process.env[name], fetch, now = Date.now, dshVersion = null } = {}) {
+export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async name => process.env[name], fetch, now = Date.now, random = Math.random, dshVersion = null } = {}) {
   const roster = new Roster(folder)
   // why calls failed: model calls (watched by the plugin, `llm/stream`) and key checks, until they succeed again
   const failures = new Failures(folder, { now })
+  // the summon's ✦ in its Earned mode: dropped now and then by a model call that works, spent on summons
+  const stars = new Stars(folder, { now, random })
   // the packs that come with the roster are yours from the start, to switch to (once: one you remove stays removed);
   // a roster before 0.5.2 kept your picks in its own file: they become your changes to the pack in use
   try { roster.seedPacks(); roster.migrate() } catch { /* no place to keep them: the bundled pack alone */ }
@@ -180,6 +185,7 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
     route: (character, provider) => { roster.route(character, provider); return { routes: roster.data.routes } },
     image: query => roster.image(query),
     failures,
+    stars,
     /** Let go of the failures kept: a provider's, or (null) every one. */
     clearFailures: provider => { failures.clear(provider ? String(provider) : null); return { failures: failures.list() } },
     top: (count, sort, efforts) => ({ ...rankings.about, rows: rankings.top(count, sort, { efforts }) }),
@@ -360,6 +366,12 @@ export function serve (connection, work) {
     answer(await work.check(provider(query), query.get('ref') ?? undefined, query.get('fresh') === '1')))
   route(ROUTES.balance, ['GET'], async (request, query) =>
     answer(await work.balance(provider(query), query.get('ref') ?? undefined)))
+  route(ROUTES.stars, ['GET', 'POST'], async request => {
+    if (request.method === 'GET') return answer(work.stars.about())
+    const body = await json(request)
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new RangeError('the body is { spend } or { code }')
+    return answer('code' in body ? work.stars.code(body.code) : work.stars.spend(body.spend))
+  })
   route(ROUTES.usage, ['GET'], async (request, query) =>
     answer(await work.usage(provider(query), query.get('ref') ?? undefined, query.get('fresh') === '1')))
   route(ROUTES.live, ['GET'], async (request, query) =>

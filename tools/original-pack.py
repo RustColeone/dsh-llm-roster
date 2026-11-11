@@ -45,7 +45,7 @@ PACK = {
          "tools/original-pack.py.",
     "name": "Original",
     "zh-CN": "原版",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "author": "ZipZipPipe (designs), 上善无形 (DeepSeek-chan); the first five drawn for ChimeraArchiveHarness",
     "license": "CC BY-NC-SA 4.0",
     "url": "https://github.com/RustColeone/dsh-llm-roster",
@@ -65,7 +65,7 @@ PACK = {
 LABELS = {
         "cafe": {"name": "Café", "zh-CN": "咖啡厅"},
         "home": {"name": "At home", "zh-CN": "居家"},
-        "festival": {"name": "Summer festival", "zh-CN": "夏日祭"},
+        "festival": {"name": "Summer festival", "zh-CN": "夏日祭", "stars": 5},  # (★5 as an outfit in the summon; the others ★4)
         "face-happy": {"name": "Happy", "zh-CN": "开心"},
         "face-calm": {"name": "Calm", "zh-CN": "平静"},
         "face-worried": {"name": "Worried", "zh-CN": "担心"},

@@ -138,7 +138,7 @@ Artificial Analysis 不再发布 Coding 或 Agentic 指数（他们的 API 返�
 
 **重新拉取**会下载当前列表，需要你在 [artificialanalysis.ai](https://artificialanalysis.ai) 自己申请的免费密钥。在**排行**标签页粘贴密钥，它会像服务商密钥一样只写存储在 DSH 的凭据存储中。也可以指定保存它的环境变量。否则名册会读取 `ARTIFICIAL_ANALYSIS_API_KEY`，然后读取 `AA_API_TOKEN`。他们的条款要求在出现其数据的地方注明来源，名册已这样做。
 
-**召唤。** 抽卡游戏就得有抽卡。召唤会从名册自己的卡池抽卡，纯粹为了好玩。✦ 是免费的：不会购买任何东西，也不会调用任何模型。召唤到角色不会让你拥有她的模型：使用模型仍需要对应密钥。卡池是阵容模型所对应的角色（大学生为 ★5，高中生为 ★4，其余为 ★3），外加 19 件 LLM 主题装备（Infinite Context、No Rate Limit、Valid JSON、Em Dash……）。概率采用 Fate/Grand Order 公布的召唤概率：
+**召唤。** 抽卡游戏就得有抽卡。召唤会从名册自己的卡池抽卡，纯粹为了好玩。✦ 是免费的：不会购买任何东西，也不会调用任何模型。召唤到角色不会让你拥有她的模型：使用模型仍需要对应密钥。卡池是阵容模型所对应的角色（大学生为 ★5，高中生为 ★4，其余为 ★3），外加 19 件 LLM 主题装备（Infinite Context、No Rate Limit、Valid JSON、Em Dash……），以及当前立绘包中的服装：正在使用的立绘包里，没有被其他卡片使用的每一张图片（原版的咖啡厅、居家和夏日祭图片、没有模型穿戴的某个层级卡面、你上传的图片）也算装备，默认 ★4，除非该立绘包给它另外的星级。概率采用 Fate/Grand Order 公布的召唤概率：
 
 | | 角色 | 装备 |
 | --- | --- | --- |
@@ -150,12 +150,24 @@ Artificial Analysis 不再发布 Coding 或 Agentic 指数（他们的 API 返�
 - 每个卡池都有一个概率 UP 的 ★5，占 1% 中的 0.8%。它默认是最新的大学生，除非你另外选择。你还可以添加概率 UP 的 ★4，占 3% 中的 1.5%。
 - 如果概率 UP 的 ★5 在该卡池 329 次召唤后仍未出现，第 330 次必定是它，每个卡池仅一次。
 
+**免费或赚取的 ✦。** 在**免费**（初始模式）中，✦ 要多少有多少。在**赚取**中，你有一个余额，召唤会从余额中扣除。✦ 来自你在 DSH 中的工作：每次成功的模型调用会掷一次骰，每输出 2,000 个 token 再掷一次（思考 token 也计入，最多 25 次），所以一次长的高强度调用赚到的 ✦ 与其工作量相称。每次掷骰可能掉落 1 ✦（30%）、3 ✦（6%）或 10 ✦（1%），平均每次约 0.6 ✦。它们保存在 DSH 的主目录中，所以名册关闭时也会继续获得；获得时余额旁会显示增加。
+
+**作弊码**，在**作弊码**输入框中填写（大小写不限，空格不影响）：
+
+| 作弊码 | 作用 |
+| --- | --- |
+| `HESOYAM` | +25 ✦ |
+| `showmethemoney` | +10 ✦ |
+| `blacksheepwall` | 揭示整个图鉴 |
+
 一次召唤分两段进行：
 
 1. **蓄力。** 星星飞掠而过，token 汇入一个正在绘成的圆环。在圆心处，光环伴随冲击波变色：★5 角色为带光线的彩虹色；★4 角色或 ★5 装备为金色。随后爆发出闪光。
 2. **发牌。** 卡牌背面朝上从圆环中飞出，牌背已经透出它们是什么。它们逐张翻开，一道光扫过每张卡。★4 或 ★5 会弹起并迸出星星，★5 还会保留彩虹光晕。
 
 点击可跳过动画。你得到的每张卡都会进入图鉴，召唤到角色会打开她的页面。
+
+**图鉴**分为两个部分，**角色**和**装备**（服装在装备中），各自显示你拥有多少。每个立绘包的服装都是独立的，切换立绘包后显示该立绘包的服装。点击后，你拥有的一张图片（或揭示出的全部图片）会在最上层打开。滚轮以指针所指之处为中心缩放：指针下方的画面保持不动。拖动可移动（两指捏合缩放），双击可放大该处或再次适应屏幕，工具条中有 **+**、**−** 和 **适应窗口**，← → 查看图鉴中的其他图片，Esc 关闭。
 
 **手感。** 卡片的手感像货架上的盒装游戏。指针移到卡片上时，卡片会抬起并向指针倾斜，一道光泽条和高光会跟随指针扫过卡面；★4 和 ★5 卡还有会随倾斜变化的闪膜。角色的大图、图鉴和召唤横幅也是如此，立绘会随指针轻微移动。当系统要求减弱动态效果时，所有这些效果和所有动画都会关闭。
 
@@ -224,7 +236,7 @@ knights/
     "claude-opus-*": { "art": "claude/opus.png" }
   },
   "pictures": {
-    "claude/festival.png": { "name": "Summer festival", "zh-CN": "夏日祭" }
+    "claude/festival.png": { "name": "Summer festival", "zh-CN": "夏日祭", "stars": 5 }
   }
 }
 ```
@@ -237,7 +249,7 @@ knights/
 - **`characters`**：每个角色的名字，以及她在每个层级（`chibi`、`middle`、`high`、`university`）的卡面（`art`）和头像（`face`）。
 - **`models`**：某个模型自己的卡面和头像，可以只写其中一个，也可以都写，按 ID（`deepseek-v4-pro`）或模式指定（`claude-opus-*` 代表所有 Opus，包括未来发布的版本；`*-flash` 代表所有 Flash；`gpt-6.[01]-*`）。按书写顺序，第一个匹配该模型的条目就是它的；你自己选择的图片优先于所有这些。没有匹配项的模型使用它角色的对应层级图片。ID 可以按服务商书写的格式匹配，也可以按名册匹配模型的格式（`gpt-6.1-*` 和 `gpt-6-1-*` 相同）。
 - **角色文件夹里的图片**可以在她页面上选择：出现在她的图鉴中，也会排在她卡面和头像的**更换**列表最前面。文件名以 `face` 开头的是头像，其他都是卡面。文件夹以角色命名：`gpt`、`claude`、`gemini`、`deepseek`、`grok`、`kimi`、`glm`、`qwen`、`mistral`、`minimax`、`llama`、`doubao`、`perplexity` 和 `hunyuan`。
-- **`pictures`** 按文件名给图片命名；如果没有，就用文件名作为名称（`image2.webp` 就叫 Image2）。
+- **`pictures`** 按文件名给图片命名；如果没有，就用文件名作为名称（`image2.webp` 就叫 Image2）。它的 `stars`（3、4 或 5）是它作为服装在召唤中的稀有度（否则是 ★4）。角色的心情表情和头像不算服装。
 - **名称**可以是一个普通字符串，也可以是一个 `name` 加其他语言的语言代码：`zh-CN`、`zh-TW`、`ja` 等，大小写不限。中文页面会优先取 `zh-CN`，其次取普通的 `zh`，再次取其他中文，最后取 `name`。立绘包自身的名称和 `description` 也按同样方式提供。
 - **`version`** 是立绘包自己的版本号，显示在名称旁边；对于名册自带的立绘包，名册通过它判断更新是否带来了新版本。`roster` 是导出时的名册版本，导出时写入。
 - **不需要逐项列出。** 立绘包缺少的层级名称、角色名称或图片，都来自内置图片（学园）。新建的空白立绘包会一直使用这些内置内容，直到你另行选择。
@@ -296,8 +308,9 @@ knights/
 | `openrouter.json` | 来自 OpenRouter 的发布日期（重新拉取后） |
 | `seen.json` | 每个没有公开发布日期的模型首次出现的日期（公开日期发布后即不再保留） |
 | `failures.json` | 最近调用失败的原因，按服务商和模型保存，直到之后有调用成功 |
+| `stars.json` | 召唤的赚取 ✦：余额，以及累计赚到多少 |
 
-召唤记录保存在你的浏览器中（`localStorage` 的 `dsh-llm-roster.summon` 下），所以每个浏览器有自己的图鉴。
+召唤记录保存在你的浏览器中（`localStorage` 的 `dsh-llm-roster.summon` 下），所以每个浏览器有自己的图鉴（赚取的 ✦ 属于 DSH，保存在 `stars.json` 中，因此所有浏览器共享）。
 
 ## 工作原理
 
@@ -305,6 +318,7 @@ knights/
 | --- | --- |
 | [`plugin/client.js`](plugin/client.js) | 网页端部分（使用 DSH 的 React）。它把头像放进 `conversation.input.right` 插槽，并渲染名册对话框和“插件”页面。它通过 `modelDirectories.directoryFor(session).select()` 切换模型，通过 `remote.settings.mutate` 写入模型列表和 `apiKeyEnv`，通过 `remote.credentials.set` 保存密钥，并通过 `remote.llm.discoverModels` 读取目录。 |
 | [`plugin/index.js`](plugin/index.js) | DSH 插件（`llm-roster`）。它把路由挂载到 DSH 的 API 上，先通过 DSH 的凭据存储解析密钥，再尝试环境变量，并监视 DSH 的模型调用（`llm/stream`，原样转发）以了解失败原因。 |
+| [`plugin/stars.js`](plugin/stars.js) | 召唤的赚取 ✦：由成功的模型调用掉落，在召唤中扣除，通过作弊码增加。 |
 | [`plugin/failures.js`](plugin/failures.js) | 最近调用失败原因：按服务商和模型保存、计数，调用成功后放掉。 |
 | [`plugin/server.js`](plugin/server.js) | 下面的路由。 |
 | [`plugin/roster.js`](plugin/roster.js) | 每个模型对应哪个角色和层级、阵容、每个模型所用的立绘和头像、当前使用的立绘包、搁置的服务商，以及每个角色经哪个服务商使用。 |
@@ -340,6 +354,7 @@ knights/
 | `GET /api/llm-roster.released` | 所有已知的发布日期（按模型 slug，Artificial Analysis 的优先于 OpenRouter），以及模型首次出现的日期 |
 | `POST /api/llm-roster.released` | `{ids}` → `{dates: {id: {date, seen}}}`：一组模型的发布日期；没有公开日期的模型会以今天作为首次出现日期 |
 | `GET/POST /api/llm-roster.rankings` | 排行榜（`?top=`、`&sort=released` 按最新、`&efforts=1` 查看所有思考强度），或重新拉取发布日期和排行 |
+| `GET/POST /api/llm-roster.stars` | 召唤的赚取 ✦（`{balance, earned, last}`）；`{spend: n}` 用于召唤，`{code}` 用于作弊码 |
 | `GET/POST /api/llm-roster.failures` | 最近调用失败原因，最新的在前；`{clear: provider \| null}` 清除它们 |
 | `GET /api/llm-roster.check` | `?provider=<route>&ref=<credential reference>&fresh=1`：密钥是否可用（`ok`、`missing`、`rejected`、`error`、`untested`） |
 | `GET /api/llm-roster.balance` | `?provider=<route>&ref=<credential reference>` |

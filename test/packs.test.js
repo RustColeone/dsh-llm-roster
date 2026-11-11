@@ -5,7 +5,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, test } from 'node:test'
-import { DEFAULT, fetchPack, namesOf, packId, sourceOf } from '../plugin/packs.js'
+import { DEFAULT, fetchPack, labelOf, namesOf, packId, sourceOf } from '../plugin/packs.js'
 import { ART, CHARACTERS, packsIn, TIERS } from '../plugin/roster.js'
 import { createRoster, ROUTES, serve } from '../plugin/server.js'
 import { readZip, safePath, writeZip } from '../plugin/zip.js'
@@ -215,7 +215,7 @@ describe('the packs that come with the roster', () => {
   test('Academy and Original: yours from the start, Academy in use; one you remove stays removed', () => {
     const work = createRoster(folder)
     const listed = work.packs()
-    assert.deepEqual([DEFAULT, listed.active, listed.packs.map(pack => [pack.id, pack.version])], ['academy', 'academy', [['academy', '1.0.0'], ['original', '2.0.0']]])
+    assert.deepEqual([DEFAULT, listed.active, listed.packs.map(pack => [pack.id, pack.version])], ['academy', 'academy', [['academy', '1.0.0'], ['original', '2.1.0']]])
     assert.deepEqual(listed.included.map(pack => [pack.file, pack.added, pack.names['zh-cn']]), [['academy', true, '学园'], ['original', true, '原版']])
     // every character, chibi to university student
     const look = work.roster.look()
@@ -239,7 +239,15 @@ describe('the packs that come with the roster', () => {
       for (const tier of TIERS) assert.match(look.file(look.tierArt(character, tier)), /packs\/original\//, `${character} ${tier}`)
       assert.match(look.file(`${character}/face.webp`), /packs\/original\//, character)
     }
-    assert.deepEqual(look.labels()['claude/festival.webp'], { name: 'Summer festival', names: { 'zh-cn': '夏日祭' } })
+    assert.deepEqual(look.labels()['claude/festival.webp'], { name: 'Summer festival', names: { 'zh-cn': '夏日祭' }, stars: 5 }) // (★5 as an outfit)
+    assert.deepEqual(look.labels()['claude/cafe.webp'], { name: 'Café', names: { 'zh-cn': '咖啡厅' } })
+  })
+  test('a picture\'s entry: its names, and its stars as an outfit (3 to 5), even with no name', () => {
+    assert.deepEqual(labelOf({ name: 'Knight', 'zh-CN': '骑士', stars: 5 }), { name: 'Knight', names: { 'zh-cn': '骑士' }, stars: 5 })
+    assert.deepEqual(labelOf({ stars: 3 }), { stars: 3 })
+    assert.deepEqual(labelOf({ name: 'Knight', stars: 6 }), { name: 'Knight', names: {} })
+    assert.equal(labelOf({ stars: '5' }), null)
+    assert.deepEqual(labelOf('Knight'), { name: 'Knight', names: {} })
   })
 })
 

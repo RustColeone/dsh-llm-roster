@@ -86,8 +86,10 @@ const WORKED = new Set(['stop', 'tool-calls', 'max-tokens'])
 
 /** A model call's chunks, as DSH's model layer streams them (`llm/stream`), passed on untouched. A call that finishes in
  * an error (its last chunk: `{ type: 'finish', reason: { kind: 'error', failure } }`), or throws one, is kept as a
- * failure of its provider and model; one that finishes as it should lets theirs go; one stopped is neither. */
-export async function * watch (next, options, failures) {
+ * failure of its provider and model; one that finishes as it should lets theirs go, and is told to `worked` with how
+ * much it wrote (`outputTokens`: its `usage` chunk's, else its text, reasoning and tool calls at about 4 characters a
+ * token); one stopped is neither. */
+export async function * watch (next, options, failures, worked = null) {
   const keep = (failure, error = null) => {
     try {
       if (!stopped(error, options?.signal)) {
@@ -96,10 +98,13 @@ export async function * watch (next, options, failures) {
       }
     } catch { /* the call's own failure is what matters */ }
   }
-  let finish = null
+  let finish = null, output = null, written = 0
   try {
     for await (const chunk of next()) {
       if (chunk?.type === 'finish') finish = chunk.reason
+      else if (chunk?.type === 'usage') output = chunk.usage?.outputTokens
+      else if (chunk?.type === 'text-delta' || chunk?.type === 'reasoning-delta') written += String(chunk.text ?? '').length
+      else if (chunk?.type === 'tool-call-delta') written += String(chunk.argumentsDelta ?? '').length
       yield chunk
     }
   } catch (error) {
@@ -108,6 +113,9 @@ export async function * watch (next, options, failures) {
   }
   try {
     if (finish?.kind === 'error') keep(finish.failure)
-    else if (WORKED.has(finish?.kind)) failures.succeeded(options?.provider, options?.model ?? null)
+    else if (WORKED.has(finish?.kind)) {
+      failures.succeeded(options?.provider, options?.model ?? null)
+      worked?.({ provider: options?.provider, model: options?.model, outputTokens: Number.isFinite(output) ? output : Math.round(written / 4) })
+    }
   } catch { /* the call is what matters */ }
 }

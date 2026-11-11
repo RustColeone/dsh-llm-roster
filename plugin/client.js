@@ -41,7 +41,7 @@ window.__ModuleLoader__.load({
       state: 'api/llm-roster.state', resolve: 'api/llm-roster.resolve', pick: 'api/llm-roster.pick',
       upload: 'api/llm-roster.upload', forget: 'api/llm-roster.forget', settings: 'api/llm-roster.settings',
       park: 'api/llm-roster.park', unpark: 'api/llm-roster.unpark', route: 'api/llm-roster.route', image: 'api/llm-roster.image',
-      rankings: 'api/llm-roster.rankings', check: 'api/llm-roster.check', balance: 'api/llm-roster.balance', usage: 'api/llm-roster.usage',
+      rankings: 'api/llm-roster.rankings', check: 'api/llm-roster.check', balance: 'api/llm-roster.balance', usage: 'api/llm-roster.usage', stars: 'api/llm-roster.stars',
       live: 'api/llm-roster.live', released: 'api/llm-roster.released', packs: 'api/llm-roster.packs', failures: 'api/llm-roster.failures',
       packImport: 'api/llm-roster.pack-import', packExport: 'api/llm-roster.pack-export'
     }
@@ -375,6 +375,33 @@ window.__ModuleLoader__.load({
       'summon.owned': '×{count}',
       'summon.unknown': 'Not summoned yet',
       'summon.tally': '★5 ×{five} · ★4 ×{four}',
+      'summon.mode': '✦',
+      'summon.mode.free': 'Free',
+      'summon.mode.earned': 'Earned',
+      'summon.mode.freeHint': 'As many as you like.',
+      'summon.mode.earnedHint': 'They come now and then as DSH\'s model calls succeed; a summon spends them.',
+      'summon.balance': 'You have {count} ✦',
+      'summon.earnedTotal': '{count} ✦ earned while you worked',
+      'summon.gain': '+{count} ✦',
+      'summon.short': 'Not enough ✦ yet.',
+      'summon.code': 'Cheat code',
+      'summon.codeEnter': 'Enter',
+      'summon.code.added': '+{count} ✦',
+      'summon.code.reveal': 'The whole album is revealed.',
+      'summon.code.unknown': 'Nothing happens.',
+      'summon.rule.earn': 'Earned: each model call that succeeds rolls once, and once more for every 2,000 tokens it writes (up to 25); a roll may drop 1 ✦ (30%), 3 ✦ (6%) or 10 ✦ (1%).',
+      'summon.view': 'View {name}',
+      'summon.kind.outfit': 'Outfit',
+      'summon.outfit.text': 'A picture from the art pack {pack}.',
+      'summon.album.character': 'Characters {owned}/{total}',
+      'summon.album.equipment': 'Equipment {owned}/{total}',
+      'summon.rule.outfits': 'The equipment has an outfit for every picture in the art pack in use that no other card shows: ★4, unless the pack gives it other stars.',
+      'viewer.prev': 'Previous',
+      'viewer.next': 'Next',
+      'viewer.zoomIn': 'Zoom in',
+      'viewer.zoomOut': 'Zoom out',
+      'viewer.fit': 'Fit',
+      'viewer.hint': 'Scroll to zoom where you point, drag to move, double-click to zoom in or fit; ← → for the others, Esc to close.',
       'equip.context.name': 'Infinite Context',
       'equip.context.text': 'Remembers the whole conversation. Even that part.',
       'equip.nolimit.name': 'No Rate Limit',
@@ -614,6 +641,32 @@ window.__ModuleLoader__.load({
       'packs.countsOf': '{names} 的 {pictures} 张图片',
       'packs.countsNone': '它没有自己的图片：在你选择之前，会使用内置立绘包的图片。',
       'packs.folder': '保存在 {folder}。',
+      'summon.rule.outfits': '装备包含「服装」：当前使用的立绘包中，每张未被其他卡面展示的立绘都会成为服装；★4，除非该立绘包为其指定其他星级。',
+      'summon.album.equipment': '装备 {owned}/{total}',
+      'summon.album.character': '角色 {owned}/{total}',
+      'summon.outfit.text': '来自立绘包「{pack}」的立绘',
+      'summon.kind.outfit': '服装',
+      'viewer.hint': '滚轮在光标处缩放，拖动移动，双击放大或适应窗口；← → 切换，Esc 关闭。',
+      'viewer.fit': '适应窗口',
+      'viewer.zoomOut': '缩小',
+      'viewer.zoomIn': '放大',
+      'viewer.next': '下一张',
+      'viewer.prev': '上一张',
+      'summon.view': '查看 {name}',
+      'summon.rule.earn': '赚取：每次模型调用成功后掷一次骰，模型每输出 2,000 个 token 再掷一次（最多 25 次）；掷骰可能掉落 1 ✦（30%）、3 ✦（6%）或 10 ✦（1%）。',
+      'summon.code.unknown': '什么也没有发生。',
+      'summon.code.reveal': '图鉴已全部解锁。',
+      'summon.code.added': '+{count} ✦',
+      'summon.codeEnter': '确认',
+      'summon.short': '✦ 还不够。',
+      'summon.gain': '+{count} ✦',
+      'summon.earnedTotal': '工作期间共赚取 {count} ✦',
+      'summon.balance': '你有 {count} ✦',
+      'summon.mode.earnedHint': '当 DSH 的模型调用成功时偶尔会掉落 ✦；召唤会消耗。',
+      'summon.mode.freeHint': '不限数量。',
+      'summon.mode.earned': '赚取',
+      'summon.mode.free': '免费',
+      'summon.mode': '✦',
       'usage.managementHint': '可选。{name} 只把剩余余额告诉在其控制台创建的团队管理密钥；该密钥不能调用模型。名册只用它读取；没有它时，就用上面的 API 密钥查询。',
       'usage.adminHint': '可选。{name} 只把账户消费情况告诉有权读取的密钥，例如在其控制台创建的管理员密钥；该密钥不能调用模型。名册只用它读取；没有它时，就用上面的 API 密钥查询。',
       'usage.management': '管理密钥（余额）',
@@ -738,6 +791,7 @@ window.__ModuleLoader__.load({
       'summon.open': '打开 {name} 的页面',
       'summon.owned': '×{count}',
       'summon.unknown': '尚未召唤到',
+      'summon.code': '作弊码',
       'summon.tally': '★5 ×{five} · ★4 ×{four}',
       'equip.context.name': '无限上下文',
       'equip.context.text': '记得整段对话，连那一段也记得。',
@@ -829,7 +883,7 @@ window.__ModuleLoader__.load({
     const pictureLabel = (state, picture, t) => {
       const file = String(picture ?? '')
       const label = state?.pack?.labels?.[file]
-      if (label) return named(label, t)
+      if (label?.name) return named(label, t)
       const stem = file.split('/').pop().replace(/\.[^.]*$/, '')
       if (/^face$/i.test(stem)) return t('art.portrait')
       const about = state?.characters?.[file.split('/')[0]]
@@ -2519,12 +2573,25 @@ window.__ModuleLoader__.load({
       ['hello', 3, 'qwen/chibi'], ['delve', 3, 'gpt/chibi']]
       .map(([id, stars, slot]) => ({ kind: 'equipment', key: `e:${id}`, id, stars, character: slot.split('/')[0], tier: slot.split('/')[1] }))
 
-    /** What a summon can deal: the lineup's models as characters (★ by tier), and the equipment, each pictured as the
-     * art pack has it (`tierArt`: a character's card at a tier). */
-    const summonPool = (lineup = [], tierArt = (character, tier) => `${character}/${tier}.webp`) => [...lineup.map(item => ({ kind: 'character',
-      key: `c:${item.id}`, id: item.id, name: item.name ?? item.id, provider: item.provider, character: item.character, tier: item.tier,
-      stars: STARS[item.tier] ?? 3, art: item.art ?? tierArt(item.character, item.tier), face: item.face ?? null })),
-    ...EQUIPMENT.map(card => ({ ...card, art: tierArt(card.character, card.tier) }))]
+    /** What a summon can deal: the lineup's models as characters (★ by tier), the equipment, each pictured as the art pack
+     * has it (`tierArt`: a character's card at a tier), and the art pack's outfits (`outfits`, see summonOutfits). */
+    const summonPool = (lineup = [], tierArt = (character, tier) => `${character}/${tier}.webp`, outfits = []) => {
+      const cards = [...lineup.map(item => ({ kind: 'character',
+        key: `c:${item.id}`, id: item.id, name: item.name ?? item.id, provider: item.provider, character: item.character, tier: item.tier,
+        stars: STARS[item.tier] ?? 3, art: item.art ?? tierArt(item.character, item.tier), face: item.face ?? null })),
+      ...EQUIPMENT.map(card => ({ ...card, art: tierArt(card.character, card.tier) }))]
+      return [...cards, ...outfits]
+    }
+    /** The art pack's outfits: every card picture of a character's (`characters`: { name: { pictures } }) that no card in
+     * `pool` shows, as equipment, ★4 unless the pack's `pictures` say otherwise (`labels`); kept by pack (`pack`), so each
+     * pack has its own. A character's mood faces and avatars are no cards, and are not among them. */
+    function summonOutfits (characters = {}, pack = '', labels = {}, pool = []) {
+      const shown = new Set(pool.map(card => card.art).filter(Boolean))
+      return Object.entries(characters).flatMap(([character, about]) => (about?.pictures ?? [])
+        .filter(picture => !shown.has(picture))
+        .map(picture => ({ kind: 'equipment', outfit: true, key: `o:${pack}:${picture}`, id: picture, character, art: picture,
+          stars: [3, 4, 5].includes(labels[picture]?.stars) ? labels[picture].stars : 4 })))
+    }
 
     /** `count` summons from `pool` on `banner` ({ pickup5, pickup4: card keys; summons: how many so far; got: whether its
      * pickup ★5 came }), `random` in [0, 1): the cards dealt and the banner after. */
@@ -2590,7 +2657,10 @@ window.__ModuleLoader__.load({
     /** The light the ring gathers before the cards: rainbow for a ★5 character, gold for a ★4 character or ★5 equipment. */
     const glowOf = cards => cards.some(card => card.kind === 'character' && card.stars === 5) ? 'rainbow'
       : cards.some(card => card.kind === 'character' ? card.stars >= 4 : card.stars === 5) ? 'gold' : 'blue'
-    const summonName = (card, t) => card.kind === 'character' ? card.name : t(`equip.${card.id}.name`)
+    const summonName = (card, t) => card.kind === 'character' || card.outfit ? card.name : t(`equip.${card.id}.name`)
+    /** What a card is, above its name: a character at her tier, or equipment (an outfit) with its character. */
+    const summonWho = (card, state, t) => card.kind === 'character' ? `${characterName(state, card.character, t)} · ${tierName(state, card.tier, t)}`
+      : `${t(card.outfit ? 'summon.kind.outfit' : 'summon.kind.equipment')} · ${characterName(state, card.character, t)}`
 
     // The stage's particles, the same every time (a number's own noise, so a re-render does not move them): tokens that
     // stream into the ring, sparks that rise, the tokens written around the ring, the stars a ★4 or ★5 card throws off,
@@ -2646,8 +2716,7 @@ window.__ModuleLoader__.load({
      * ★5), flips in turn, and a ★4 or ★5 throws off stars as a light sweeps it. */
     function PullCard ({ card, index, state, onOpen, t }) {
       const name = summonName(card, t)
-      const character = characterName(state, card.character, t)
-      const who = card.kind === 'character' ? `${character} · ${tierName(state, card.tier, t)}` : `${t('summon.kind.equipment')} · ${character}`
+      const who = summonWho(card, state, t)
       const open = card.kind === 'character' && onOpen
       return h(open ? 'button' : 'div', { type: open ? 'button' : undefined, className: `lr-pull lr-pull-${card.kind}`,
         'data-rarity': STAR_RARITY[card.stars], style: { '--i': index }, title: open ? t('summon.open', { name }) : name,
@@ -2664,21 +2733,173 @@ window.__ModuleLoader__.load({
             h('span', { className: 'lr-pull-text' },
               h('span', { className: 'lr-card-who' }, who),
               h('span', { className: 'lr-card-name' }, name),
-              card.kind === 'equipment' ? h('span', { className: 'lr-pull-effect' }, t(`equip.${card.id}.text`)) : null),
+              card.kind === 'equipment' ? h('span', { className: 'lr-pull-effect' },
+                card.outfit ? t('summon.outfit.text', { pack: named(state?.pack, t) ?? '' }) : t(`equip.${card.id}.text`)) : null),
             h('span', { className: 'lr-sweep', 'aria-hidden': 'true' }))),
         h('span', { className: 'lr-gloss', 'aria-hidden': 'true' })),
       card.stars >= 4 ? h('span', { className: 'lr-pull-fx', 'aria-hidden': 'true' },
         BURST.slice(0, card.stars === 5 ? 12 : 6).map((spark, n) => h('span', { key: n, style: { '--a': spark.a, '--r': spark.r } }, '✦'))) : null)
     }
 
+    /** The view `{ x, y, s }` (the picture's top-left on the stage, and its scale) zoomed by `factor` about `point` (on
+     * the stage): the picture's point under it stays under it; the scale kept within `min`..`max`. */
+    function zoomAt (view, point, factor, min = 0.05, max = 40) {
+      const s = Math.min(max, Math.max(min, view.s * factor))
+      const k = s / view.s
+      return { x: point.x - (point.x - view.x) * k, y: point.y - (point.y - view.y) * k, s }
+    }
+    /** The whole picture (`image`: { w, h }), centred on a stage (`stage`: { w, h }) with a margin. */
+    const fitView = (stage, image, margin = 0.92) => {
+      const s = Math.min(stage.w * margin / image.w, stage.h * margin / image.h)
+      return { x: (stage.w - image.w * s) / 2, y: (stage.h - image.h * s) / 2, s }
+    }
+
+    /** An album picture, over everything: wheel to zoom where you point, drag to pan (two fingers to pinch), double-click
+     * to zoom in or fit again; the arrows go through the album, Esc closes it. */
+    function ArtViewer ({ cards, index, onIndex, onClose, state, t }) {
+      const card = cards[index]
+      const stage = useRef(null)
+      const fit = useRef(null)
+      const pointers = useRef(new Map())
+      const [size, setSize] = useState(null) // the picture's own size
+      const [view, setView] = useState(null)
+      const url = pictureUrl(card.art)
+      useEffect(() => { setSize(null); setView(null); fit.current = null }, [url])
+      const bounds = () => stage.current.getBoundingClientRect()
+      const refit = useCallback(() => {
+        if (!size || !stage.current) return
+        const box = bounds()
+        fit.current = fitView({ w: box.width, h: box.height }, size)
+        setView(fit.current)
+      }, [size])
+      useLayoutEffect(() => { refit() }, [refit])
+      useEffect(() => { window.addEventListener('resize', refit); return () => window.removeEventListener('resize', refit) }, [refit])
+      const limits = () => [(fit.current?.s ?? 1) / 2, (fit.current?.s ?? 1) * 16]
+      const zoom = (factor, point = null) => setView(now => {
+        if (!now) return now
+        const box = bounds()
+        return zoomAt(now, point ?? { x: box.width / 2, y: box.height / 2 }, factor, ...limits())
+      })
+      const step = by => onIndex((index + by + cards.length) % cards.length)
+      // the wheel, not passive: the page under it must not scroll
+      useEffect(() => {
+        const node = stage.current
+        if (!node) return
+        const wheel = event => {
+          event.preventDefault()
+          const box = node.getBoundingClientRect()
+          const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? box.height : 1
+          const factor = Math.exp(-event.deltaY * unit * 0.0015)
+          setView(now => now && zoomAt(now, { x: event.clientX - box.left, y: event.clientY - box.top }, factor, ...limits()))
+        }
+        node.addEventListener('wheel', wheel, { passive: false })
+        return () => node.removeEventListener('wheel', wheel)
+      }, [size])
+      useEffect(() => {
+        const key = event => {
+          if (event.key === 'Escape') onClose()
+          else if (event.key === 'ArrowLeft' && cards.length > 1) step(-1)
+          else if (event.key === 'ArrowRight' && cards.length > 1) step(1)
+          else if (event.key === '+' || event.key === '=') zoom(1.25)
+          else if (event.key === '-' || event.key === '_') zoom(0.8)
+          else if (event.key === '0') refit()
+          else return
+          event.preventDefault(); event.stopPropagation()
+        }
+        window.addEventListener('keydown', key, true)
+        return () => window.removeEventListener('keydown', key, true)
+      }, [index, cards.length, refit, onClose])
+      const down = event => {
+        if (event.pointerType === 'mouse' && event.button !== 0) return
+        stage.current.setPointerCapture?.(event.pointerId)
+        pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      }
+      const move = event => {
+        const known = pointers.current
+        const before = known.get(event.pointerId)
+        if (!before) return
+        const now = { x: event.clientX, y: event.clientY }
+        if (known.size === 1) setView(seen => seen && { ...seen, x: seen.x + now.x - before.x, y: seen.y + now.y - before.y })
+        else {
+          // two fingers: zoom about the point between them by how far apart they moved, and pan as it moves
+          const other = [...known].find(([id]) => id !== event.pointerId)[1]
+          const box = bounds()
+          const apart = Math.hypot(before.x - other.x, before.y - other.y)
+          const from = { x: (before.x + other.x) / 2 - box.left, y: (before.y + other.y) / 2 - box.top }
+          const to = { x: (now.x + other.x) / 2 - box.left, y: (now.y + other.y) / 2 - box.top }
+          if (apart) {
+            setView(seen => {
+              if (!seen) return seen
+              const zoomed = zoomAt(seen, from, Math.hypot(now.x - other.x, now.y - other.y) / apart, ...limits())
+              return { ...zoomed, x: zoomed.x + to.x - from.x, y: zoomed.y + to.y - from.y }
+            })
+          }
+        }
+        known.set(event.pointerId, now)
+      }
+      const up = event => { pointers.current.delete(event.pointerId) }
+      const twice = event => {
+        const box = bounds()
+        const point = { x: event.clientX - box.left, y: event.clientY - box.top }
+        setView(now => !now || !fit.current ? now : now.s > fit.current.s * 1.5 ? fit.current : zoomAt(now, point, fit.current.s * 2.5 / now.s, ...limits()))
+      }
+      const name = summonName(card, t)
+      const who = summonWho(card, state, t)
+      const button = (label, onClick, text, disabled = false) => h('button', { type: 'button', className: 'lr-viewer-button', title: label,
+        'aria-label': label, disabled, onClick }, text)
+      const body = h('div', { className: 'lr-viewer', role: 'dialog', 'aria-modal': 'true', 'aria-label': name },
+        h('div', { className: 'lr-viewer-bar' },
+          h('span', { className: 'lr-viewer-title' }, h('strong', null, name), h('span', { className: 'lr-stars' }, '★'.repeat(card.stars)),
+            h('span', { className: 'lr-viewer-who' }, who)),
+          h('span', { className: 'lr-spacer' }),
+          cards.length > 1 ? h('span', { className: 'lr-viewer-group' },
+            button(t('viewer.prev'), () => step(-1), '‹'), h('span', { className: 'lr-viewer-count' }, `${index + 1} / ${cards.length}`),
+            button(t('viewer.next'), () => step(1), '›')) : null,
+          h('span', { className: 'lr-viewer-group' },
+            button(t('viewer.zoomOut'), () => zoom(0.8), '−', !view),
+            h('span', { className: 'lr-viewer-count lr-viewer-zoom' }, view ? `${Math.round(view.s * 100)}%` : '…'),
+            button(t('viewer.zoomIn'), () => zoom(1.25), '+', !view),
+            button(t('viewer.fit'), refit, t('viewer.fit'), !view)),
+          button(t('close'), onClose, '×')),
+        h('div', { className: 'lr-viewer-stage', ref: stage,
+          onPointerDown: down, onPointerMove: move, onPointerUp: up, onPointerCancel: up, onDoubleClick: twice },
+        url ? h('img', { key: url, src: url, alt: name, draggable: false,
+          onLoad: event => setSize({ w: event.currentTarget.naturalWidth || 512, h: event.currentTarget.naturalHeight || 768 }),
+          style: view ? { transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})` } : { visibility: 'hidden' } }) : null),
+        h('div', { className: 'lr-viewer-hint' }, t('viewer.hint')))
+      return createPortal ? createPortal(body, document.body) : body
+    }
+
     function SummonTab ({ onOpen, t }) {
       const state = useRosterState()
       const lineup = state?.lineup ?? []
-      const pool = useMemo(() => summonPool(lineup, (character, tier) => tierArt(state, character, tier)), [lineup, state?.pack?.stamp])
+      const pool = useMemo(() => {
+        const base = summonPool(lineup, (character, tier) => tierArt(state, character, tier))
+        const outfits = summonOutfits(state?.characters, state?.pack?.id ?? '', state?.pack?.labels ?? {}, base)
+          .map(card => ({ ...card, name: pictureLabel(state, card.art, t) }))
+        return [...base, ...outfits]
+      }, [lineup, state?.pack?.stamp, state?.characters, t])
       const dateOf = useReleasedDates(lineup.map(item => item.id))
       const [saved, setSaved] = useState(readSummons)
       const [round, setRound] = useState(null) // on stage: { id, count, cards, phase: 'charge' | 'reveal', instant }
       const [confirming, setConfirming] = useState(false)
+      // the Earned mode's ✦: kept by the server (they come as DSH's model calls work), read now and then; a rise shown
+      const earned = saved.mode === 'earned'
+      const [wallet, setWallet] = useState(null)
+      const [gain, setGain] = useState(null)
+      const [short, setShort] = useState(false)
+      const lastEarned = useRef(null)
+      const took = found => {
+        if (lastEarned.current !== null && found.earned > lastEarned.current) setGain({ amount: found.earned - lastEarned.current, id: Date.now() })
+        lastEarned.current = found.earned
+        setWallet(found)
+      }
+      const loadWallet = useCallback(() => get(API.stars).then(took).catch(() => {}), [])
+      useEffect(() => { loadWallet(); const timer = setInterval(loadWallet, 8000); return () => clearInterval(timer) }, [loadWallet])
+      useEffect(() => { if (!gain) return; const timer = setTimeout(() => setGain(null), 2600); return () => clearTimeout(timer) }, [gain?.id])
+      const [code, setCode] = useState('')
+      const [codeNote, setCodeNote] = useState(null)
+      const [viewing, setViewing] = useState(null) // the album picture open, by its card's key
       const newest = (one, other) => String(dateOf(other.id) ?? '').localeCompare(String(dateOf(one.id) ?? '')) || one.id.localeCompare(other.id)
       const fives = pool.filter(card => card.kind === 'character' && card.stars === 5).sort(newest)
       const fours = pool.filter(card => card.kind === 'character' && card.stars === 4).sort(newest)
@@ -2711,8 +2932,15 @@ window.__ModuleLoader__.load({
       }, [round?.id, round?.phase])
 
       const save = next => { setSaved(next); writeSummons(next) }
-      function summon (count) {
+      const costOf = count => (count === 1 ? SUMMON.single : SUMMON.multi)
+      const cannot = count => earned && (wallet?.balance ?? 0) < costOf(count)
+      async function summon (count) {
         if (!pickup5) return
+        setShort(false)
+        if (earned) {
+          // the server spends them (they are its to keep): not enough, and nothing is summoned
+          try { took(await post(API.stars, { spend: costOf(count) })) } catch { setShort(true); loadWallet(); return }
+        }
         const result = summonCards(pool, { ...banner, pickup5: pickup5.key, pickup4: pickup4?.key }, count)
         const owned = { ...saved.owned }
         const cards = result.cards.map(card => {
@@ -2720,17 +2948,34 @@ window.__ModuleLoader__.load({
           owned[card.key] = (owned[card.key] ?? 0) + 1
           return { ...card, fresh }
         })
-        save({ ...saved, owned, spent: saved.spent + (count === 1 ? SUMMON.single : SUMMON.multi), summons: saved.summons + count,
+        save({ ...saved, owned, spent: saved.spent + costOf(count), summons: saved.summons + count,
           pickup5: pickup5.key, pickup4: pickup4?.key ?? 'none',
           banners: { ...saved.banners, [pickup5.key]: { summons: result.banner.summons, got: result.banner.got } } })
         setRound({ id: `${Date.now()}-${Math.random()}`, count, cards, phase: 'charge', instant: false })
       }
+      const wallet_ = h('span', { className: 'lr-wallet' }, t('summon.balance', { count: (wallet?.balance ?? 0).toLocaleString() }),
+        gain ? h('span', { key: gain.id, className: 'lr-gain' }, t('summon.gain', { count: gain.amount })) : null)
       const buttons = h('div', { className: 'lr-row lr-summon-buttons' },
-        h('button', { type: 'button', className: 'lr-button lr-summon-button', disabled: !pickup5, onClick: () => summon(1) },
+        earned ? wallet_ : null,
+        h('button', { type: 'button', className: 'lr-button lr-summon-button', disabled: !pickup5 || cannot(1),
+          title: cannot(1) ? t('summon.short') : undefined, onClick: () => summon(1) },
           h('strong', null, t('summon.one')), h('span', null, t('summon.cost', { cost: SUMMON.single }))),
-        h('button', { type: 'button', className: 'lr-button lr-primary lr-summon-button', disabled: !pickup5, onClick: () => summon(SUMMON.multiCount) },
-          h('strong', null, t('summon.ten')), h('span', null, t('summon.cost', { cost: SUMMON.multi }))))
+        h('button', { type: 'button', className: 'lr-button lr-primary lr-summon-button', disabled: !pickup5 || cannot(SUMMON.multiCount),
+          title: cannot(SUMMON.multiCount) ? t('summon.short') : undefined, onClick: () => summon(SUMMON.multiCount) },
+          h('strong', null, t('summon.ten')), h('span', null, t('summon.cost', { cost: SUMMON.multi }))),
+        short ? h('span', { className: 'lr-error lr-short', role: 'alert' }, t('summon.short')) : null)
       const spent = t('summon.spent', { spent: saved.spent.toLocaleString() })
+      async function enterCode () {
+        const text = code.trim()
+        if (!text) return
+        try {
+          const found = await post(API.stars, { code: text })
+          took(found)
+          if (found.reveal) save({ ...saved, revealed: true })
+          setCodeNote(found.unknown ? t('summon.code.unknown') : found.reveal ? t('summon.code.reveal') : t('summon.code.added', { count: found.added }))
+        } catch (error) { setCodeNote(t('failed', { error: errorText(error) })) }
+        setCode('')
+      }
 
       if (round) {
         const skip = () => setRound(now => ({ ...now, phase: 'reveal', instant: true }))
@@ -2754,8 +2999,10 @@ window.__ModuleLoader__.load({
       const owned = saved.owned
       const nameOf = card => characterName(state, card.character, t)
       const fivesOwned = fives.reduce((sum, card) => sum + (owned[card.key] ?? 0), 0)
-      const album = [...pool].sort((one, other) => (one.kind === other.kind ? 0 : one.kind === 'character' ? -1 : 1) || other.stars - one.stars)
+      const sections = ['character', 'equipment'].map(kind => [kind, pool.filter(card => card.kind === kind).sort((one, other) => other.stars - one.stars)])
+      const album = sections.flatMap(([, cards]) => cards)
       const collected = pool.filter(card => owned[card.key]).length
+      const viewable = album.filter(card => owned[card.key] || saved.revealed)
       const rate = (kind, stars) => `${SUMMON.rates.find(([k, s]) => k === kind && s === stars)[2]}%`
       return h('div', { className: 'lr-summon' },
         pickup5 ? h('div', { className: 'lr-banner lr-tilt', 'data-rarity': 'UR' },
@@ -2786,37 +3033,60 @@ window.__ModuleLoader__.load({
           h('select', { className: 'lr-input lr-select', value: pickup4?.key ?? 'none', onChange: event => save({ ...saved, pickup4: event.target.value }) },
             h('option', { value: 'none' }, t('summon.none')),
             fours.map(card => h('option', { key: card.key, value: card.key }, `${card.name} · ${nameOf(card)}`)))),
+        h('div', { className: 'lr-field' },
+          h('span', { className: 'lr-label' }, t('summon.mode')),
+          h('div', { className: 'lr-chips', role: 'group', 'aria-label': t('summon.mode') }, ['free', 'earned'].map(mode => h('button', {
+            key: mode, type: 'button', className: `lr-chip${(saved.mode ?? 'free') === mode ? ' lr-on' : ''}`,
+            onClick: () => { setShort(false); save({ ...saved, mode }) } }, t(`summon.mode.${mode}`)))),
+          h('span', { className: 'lr-dim' }, t(`summon.mode.${earned ? 'earned' : 'free'}Hint`))),
         buttons,
         h('div', { className: 'lr-summon-stats' },
-          h('span', null, spent),
+          earned ? h('span', null, t('summon.earnedTotal', { count: (wallet?.earned ?? 0).toLocaleString() })) : h('span', null, spent),
           h('span', null, t('summon.count', { count: saved.summons.toLocaleString() })),
           h('span', null, t('summon.fives', { count: fivesOwned }))),
+        h('form', { className: 'lr-cheat', onSubmit: event => { event.preventDefault(); enterCode() } },
+          h('label', { className: 'lr-label', htmlFor: 'lr-cheat-code' }, t('summon.code')),
+          h('input', { id: 'lr-cheat-code', className: 'lr-input lr-mono', value: code, autoComplete: 'off', spellCheck: false,
+            onChange: event => { setCode(event.target.value); setCodeNote(null) } }),
+          h('button', { type: 'submit', className: 'lr-button lr-small', disabled: !code.trim() }, t('summon.codeEnter')),
+          codeNote ? h('span', { className: 'lr-note lr-cheat-note', role: 'status' }, codeNote) : null),
         h('details', { className: 'lr-rates' },
           h('summary', null, t('summon.rates')),
           h('table', { className: 'lr-table' },
             h('thead', null, h('tr', null, h('th', null, ''), h('th', null, t('summon.kind.character')), h('th', null, t('summon.kind.equipment')))),
             h('tbody', null, [5, 4, 3].map(stars => h('tr', { key: stars },
               h('td', null, h('span', { className: 'lr-stars' }, '★'.repeat(stars))), h('td', null, rate('character', stars)), h('td', null, rate('equipment', stars)))))),
-          h('ul', null, ['pickup5', 'pickup4', 'ten', 'pity', 'pool'].map(rule => h('li', { key: rule },
+          h('ul', null, ['pickup5', 'pickup4', 'ten', 'pity', 'pool', 'outfits', 'earn'].map(rule => h('li', { key: rule },
             t(`summon.rule.${rule}`, { five: tierName(state, 'university', t), four: tierName(state, 'high', t) }))))),
         h('section', { className: 'lr-section' },
           h('div', { className: 'lr-row lr-between' },
             h('h3', null, t('summon.album', { owned: collected, total: pool.length })),
             confirming ? h('span', { className: 'lr-row' },
               h('button', { type: 'button', className: 'lr-button lr-small lr-danger', onClick: () => {
-                save({ ...NO_SUMMONS, pickup5: saved.pickup5, pickup4: saved.pickup4 }); setConfirming(false)
+                save({ ...NO_SUMMONS, pickup5: saved.pickup5, pickup4: saved.pickup4, mode: saved.mode }); setConfirming(false)
               } }, t('summon.resetSure')),
               h('button', { type: 'button', className: 'lr-button lr-small', onClick: () => setConfirming(false) }, t('cancel')))
               : h('button', { type: 'button', className: 'lr-button lr-small', disabled: !saved.summons, onClick: () => setConfirming(true) }, t('summon.reset'))),
-          h('div', { className: 'lr-album' }, album.map(card => {
+          h('div', { className: 'lr-album' }, sections.flatMap(([kind, cards]) => [
+            h('div', { key: `section:${kind}`, className: 'lr-group lr-album-group', role: 'separator', 'data-kind': kind },
+              h('span', { className: 'lr-group-arrow', 'aria-hidden': 'true' }, '▸'),
+              h('span', null, t(`summon.album.${kind}`, { owned: cards.filter(card => owned[card.key]).length, total: cards.length })),
+              h('span', { className: 'lr-group-line', 'aria-hidden': 'true' })),
+            ...cards.map(card => {
             const count = owned[card.key] ?? 0
-            return h('span', { key: card.key, className: `lr-album-tile${count ? ' lr-tilt' : ' lr-locked'}`, 'data-rarity': STAR_RARITY[card.stars],
-              title: count ? `${summonName(card, t)} · ★${card.stars}` : `${t('summon.unknown')} · ★${card.stars}` },
-            h(Art, { art: card.art, label: count ? summonName(card, t) : '?' }),
-            count && card.stars >= 4 ? h('span', { className: 'lr-holo', 'aria-hidden': 'true' }) : null,
+            const seen = count || saved.revealed
+            const name = summonName(card, t)
+            return h(seen ? 'button' : 'span', { key: card.key, type: seen ? 'button' : undefined,
+              className: `lr-album-tile${seen ? ' lr-tilt' : ' lr-locked'}`, 'data-rarity': STAR_RARITY[card.stars],
+              title: seen ? `${name} · ★${card.stars}` : `${t('summon.unknown')} · ★${card.stars}`,
+              'aria-label': seen ? t('summon.view', { name }) : undefined, onClick: seen ? () => setViewing(card.key) : undefined },
+            h(Art, { art: card.art, label: seen ? name : '?' }),
+            seen && card.stars >= 4 ? h('span', { className: 'lr-holo', 'aria-hidden': 'true' }) : null,
             count ? h('span', { className: 'lr-album-count' }, t('summon.owned', { count })) : null,
-            count ? h('span', { className: 'lr-gloss', 'aria-hidden': 'true' }) : null)
-          }))),
+            seen ? h('span', { className: 'lr-gloss', 'aria-hidden': 'true' }) : null)
+          })]))),
+        viewing && viewable.some(card => card.key === viewing) ? h(ArtViewer, { cards: viewable, index: viewable.findIndex(card => card.key === viewing),
+          onIndex: index => setViewing(viewable[index].key), onClose: () => setViewing(null), state, t }) : null,
         h('div', { className: 'lr-foot' }, h('span', null, t('summon.free'))))
     }
 
@@ -2824,7 +3094,7 @@ window.__ModuleLoader__.load({
     function Modal ({ title, onClose, small = false, children, t, tabs = null }) {
       const box = useRef(null)
       useEffect(() => {
-        const key = event => { if (event.key === 'Escape') { event.stopPropagation(); onClose() } }
+        const key = event => { if (event.key === 'Escape' && !document.querySelector('.lr-viewer')) { event.stopPropagation(); onClose() } }
         window.addEventListener('keydown', key, true)
         box.current?.focus()
         return () => window.removeEventListener('keydown', key, true)
@@ -3295,6 +3565,35 @@ a.lr-button { display: inline-flex; align-items: center; text-decoration: none; 
 .lr-rates .lr-table { max-width: 360px; margin-top: 8px }
 .lr-rates ul { margin: 8px 0 0; padding-left: 18px; font-size: 12px; color: var(--dsw-alias-label-secondary, #555) }
 .lr-album { display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 7px }
+button.lr-album-tile { display: block; width: 100%; padding: 0; border: none; font: inherit; color: inherit; cursor: zoom-in }
+.lr-wallet { position: relative; display: inline-flex; align-items: center; margin-right: 6px; font-weight: 700; font-size: 13px }
+.lr-gain { position: absolute; right: 0; bottom: 100%; margin-bottom: 1px; font-size: 12px; color: #f2b233; white-space: nowrap;
+  pointer-events: none; animation: lr-gain 2.6s ease-out both }
+@keyframes lr-gain { 0% { opacity: 0; transform: translateY(6px) } 15% { opacity: 1; transform: none } 80% { opacity: 1 }
+  100% { opacity: 0; transform: translateY(-10px) } }
+.lr-cheat { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 2px 0 10px }
+.lr-cheat .lr-input { flex: 0 1 14em; width: 14em; height: 28px; text-transform: uppercase }
+.lr-cheat-note { margin: 0; padding: 4px 9px }
+.lr-viewer { position: fixed; inset: 0; z-index: 2100; display: flex; flex-direction: column; color: #eef1fb;
+  background: rgba(8, 10, 18, .97); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px) }
+.lr-viewer-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 10px 14px;
+  background: rgba(255, 255, 255, .04); border-bottom: 1px solid rgba(255, 255, 255, .08) }
+.lr-viewer-title { display: inline-flex; align-items: baseline; gap: 8px; min-width: 0 }
+.lr-viewer-title strong { font-size: 14px }
+.lr-viewer-who { font-size: 12px; opacity: .7 }
+.lr-viewer-group { display: inline-flex; align-items: center; gap: 4px }
+.lr-viewer-count { min-width: 3.6em; text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; opacity: .85 }
+.lr-viewer-button { min-width: 30px; height: 30px; padding: 0 10px; border-radius: 15px; border: 1px solid rgba(255, 255, 255, .18);
+  background: rgba(255, 255, 255, .06); color: inherit; font: inherit; font-size: 13px; cursor: pointer }
+.lr-viewer-button:hover:not(:disabled) { background: rgba(255, 255, 255, .14) }
+.lr-viewer-button:disabled { opacity: .4; cursor: default }
+.lr-viewer-stage { position: relative; flex: 1; min-height: 0; overflow: hidden; cursor: grab; touch-action: none; user-select: none }
+.lr-viewer-stage:active { cursor: grabbing }
+.lr-viewer-stage img { position: absolute; left: 0; top: 0; max-width: none; transform-origin: 0 0; will-change: transform;
+  border-radius: 4px; box-shadow: 0 20px 60px rgba(0, 0, 0, .6); pointer-events: none }
+.lr-viewer-hint { padding: 6px 14px 10px; font-size: 11.5px; text-align: center; opacity: .6 }
+.lr-album-group { margin: 4px 0 0; font-size: 12.5px }
+.lr-album-group:first-child { margin-top: 0 }
 .lr-album-tile { position: relative; aspect-ratio: 3 / 4; border-radius: 6px; overflow: hidden; background: #10121d;
   --lr-c: #4a90e2; box-shadow: 0 0 0 1.5px var(--lr-c) }
 .lr-album-tile img, .lr-album-tile .lr-card-blank { width: 100%; height: 100%; object-fit: cover; object-position: 50% 12%; font-size: 16px }
@@ -3634,7 +3933,7 @@ button.lr-pull:hover .lr-pull-front::before { box-shadow: inset 0 0 0 2px var(--
       })
     }
 
-    module.exports = { inject, apply, EN, ZH, format, deriveKeyRef, catalogOf, english, SUMMON, EQUIPMENT, summonPool, summonCards, glowOf }
+    module.exports = { inject, apply, EN, ZH, format, deriveKeyRef, catalogOf, english, SUMMON, EQUIPMENT, summonPool, summonOutfits, summonCards, glowOf, zoomAt, fitView }
     return module.exports
   }
 })

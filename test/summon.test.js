@@ -10,7 +10,7 @@ const client = (() => {
   const react = { createElement () {} }
   return registration.factory(name => (name === 'react' ? react : {}))
 })()
-const { SUMMON, EQUIPMENT, summonPool, summonCards, glowOf, EN, ZH } = client
+const { SUMMON, EQUIPMENT, summonPool, summonOutfits, summonCards, glowOf, zoomAt, fitView, EN, ZH } = client
 
 /** A seeded random, so a failure can be run again. */
 function seeded (seed) {
@@ -120,4 +120,37 @@ test('the ring\'s light: rainbow for a ★5 character, gold for a ★4 character
   assert.equal(glowOf([card('equipment', 3), card('character', 4)]), 'gold')
   assert.equal(glowOf([card('equipment', 5)]), 'gold')
   assert.equal(glowOf([card('equipment', 4), card('character', 3)]), 'blue')
+})
+
+test('the album\'s viewer: a zoom keeps the picture\'s point under the pointer; a picture fits centred', () => {
+  const view = { x: 120, y: -40, s: 1.5 }
+  const pointer = { x: 333, y: 217 }
+  const under = view => ({ x: (pointer.x - view.x) / view.s, y: (pointer.y - view.y) / view.s }) // the picture's point there
+  for (const factor of [1.25, 0.8, 3, 0.1]) {
+    const zoomed = zoomAt(view, pointer, factor)
+    assert.ok(Math.abs(under(zoomed).x - under(view).x) < 1e-9 && Math.abs(under(zoomed).y - under(view).y) < 1e-9, String(factor))
+  }
+  assert.equal(zoomAt(view, pointer, 100, 0.5, 4).s, 4) // (held within its bounds, the point still kept)
+  assert.ok(Math.abs(under(zoomAt(view, pointer, 100, 0.5, 4)).x - under(view).x) < 1e-9)
+  assert.deepEqual(fitView({ w: 1000, h: 800 }, { w: 512, h: 768 }, 1), { x: (1000 - 512 * (800 / 768)) / 2, y: 0, s: 800 / 768 })
+})
+
+test('outfits: every card picture of the pack in use that no other card shows, as equipment, ★4 unless the pack says; by pack', () => {
+  const characters = {
+    claude: { pictures: ['claude/chibi.webp', 'claude/middle.webp', 'claude/high.webp', 'claude/university.webp', 'claude/cafe.webp', 'claude/festival.webp'] },
+    kimi: { pictures: ['kimi/chibi.webp', 'kimi/middle.webp', 'kimi/high.webp', 'kimi/university.webp'] }
+  }
+  const base = summonPool(lineup(), (character, tier) => `${character}/${tier}.webp`)
+  const outfits = summonOutfits(characters, 'original', { 'claude/festival.webp': { name: 'Summer festival', stars: 5 }, 'claude/cafe.webp': { stars: 9 } }, base)
+  // Claude's tiers are all shown (by her models, or the equipment); her café and festival are not; Kimi's middle-school card is no model's now
+  assert.deepEqual(outfits.map(card => [card.art, card.stars, card.key]), [
+    ['claude/cafe.webp', 4, 'o:original:claude/cafe.webp'], ['claude/festival.webp', 5, 'o:original:claude/festival.webp'],
+    ['kimi/middle.webp', 4, 'o:original:kimi/middle.webp']])
+  assert.ok(outfits.every(card => card.kind === 'equipment' && card.outfit))
+  // another pack's are its own
+  assert.equal(summonOutfits(characters, 'academy', {}, base)[0].key, 'o:academy:claude/cafe.webp')
+  // they are summoned as the equipment are: at the equipment's rates
+  const pool = [...base, ...outfits.map(card => ({ ...card, name: card.art }))]
+  const { cards } = summonCards(pool, { pickup5: fives[0].key, summons: 0 }, 5000, seeded(11))
+  assert.ok(cards.some(card => card.outfit && card.stars === 5) && cards.some(card => card.outfit && card.stars === 4))
 })

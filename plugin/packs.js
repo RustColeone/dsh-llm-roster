@@ -93,6 +93,13 @@ export function namesOf (given, most = 80) {
   return name ? { name, names } : null
 }
 
+/** A picture's entry in `pictures`: its names, and its `stars` (3, 4 or 5) as an outfit in the summon; null for none. */
+export function labelOf (given) {
+  const names = namesOf(given)
+  const stars = given && typeof given === 'object' && [3, 4, 5].includes(given.stars) ? given.stars : null
+  return names || stars ? { ...(names ?? {}), ...(stars ? { stars } : {}) } : null
+}
+
 /** A folder's pack.json as it is (an empty one when it has none). */
 function readJson (folder) {
   try {
@@ -149,8 +156,8 @@ export class Pack {
         : given && typeof given === 'object' ? { art: picture(given.art, `models.${model}.art`), face: picture(given.face, `models.${model}.face`) } : null
       if (entry && (entry.art || entry.face)) this.models.push({ pattern: model, ...entry })
     }
-    // what a picture is called, by its file
-    this.labels = Object.fromEntries(Object.entries(json.pictures ?? {}).map(([file, label]) => [pictureFile(file), namesOf(label)])
+    // what a picture is called, by its file, and its rarity as an outfit in the summon (`stars`: 3 to 5; else ★4)
+    this.labels = Object.fromEntries(Object.entries(json.pictures ?? {}).map(([file, label]) => [pictureFile(file), labelOf(label)])
       .filter(([file, label]) => file && label))
     // its pictures: every picture file one folder deep
     this.files = new Map() // `folder/file.ext` → where it is

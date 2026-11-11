@@ -232,7 +232,10 @@ appears, and the roster does.
 **Summon.** A gacha has to have a gacha. Summon draws cards from the roster's own pool, just for fun. The ✦ are free,
 nothing is bought and no model is called. A summoned character doesn't give you its model: using one still takes its
 key. The pool is the lineup's models as characters (university students ★5, high-schoolers ★4, the rest ★3), plus 19
-pieces of LLM-themed equipment (Infinite Context, No Rate Limit, Valid JSON, Em Dash, …). The numbers are Fate/Grand
+pieces of LLM-themed equipment (Infinite Context, No Rate Limit, Valid JSON, Em Dash, …), and the art pack's outfits:
+every picture in the pack in use that no other card shows (Original's café, at-home and festival pictures, a tier's
+card no model wears, the pictures you uploaded) is equipment too, ★4 unless the pack gives it other stars. The numbers
+are Fate/Grand
 Order's published summon rates:
 
 | | Character | Equipment |
@@ -247,6 +250,20 @@ Order's published summon rates:
   another. You can add a pickup ★4, which is 1.5% of its 3%.
 - If the pickup ★5 hasn't come in 329 summons on its banner, the 330th is it, once per banner.
 
+**Free or Earned ✦.** In **Free** (where it starts) the ✦ are as many as you like. In **Earned** you have a balance,
+and a summon spends from it. The ✦ come as you work in DSH: each model call that succeeds rolls once, and once more
+for every 2,000 tokens it writes (its reasoning too, up to 25 rolls), so a long, high-effort call earns as its work
+does. A roll may drop 1 ✦ (30%), 3 ✦ (6%) or 10 ✦ (1%), about 0.6 ✦ a roll. They're kept in DSH's home, so they come
+while the roster is closed, and a rise shows by the balance when it does.
+
+**Cheat codes**, in the **Cheat code** field (any case, spaces don't matter):
+
+| Code | Does |
+| --- | --- |
+| `HESOYAM` | +25 ✦ |
+| `showmethemoney` | +10 ✦ |
+| `blacksheepwall` | reveals the whole album |
+
 A summon plays out in two beats:
 
 1. **The charge.** The stars rush past and tokens stream into a ring that draws itself in. At the core, the ring's
@@ -256,6 +273,13 @@ A summon plays out in two beats:
    one by one, and a light sweeps each card. A ★4 or ★5 pops and throws off stars, and a ★5 keeps a rainbow glow.
 
 A click skips ahead. Each card you get goes into the album, and a summoned character opens its page.
+
+**The album** has two parts, **Characters** and **Equipment** (the outfits among the equipment), each with how many
+you have. Each art pack's outfits are its own, so switching packs shows that pack's. A picture you have (or every
+one, revealed) opens over everything at a click. The wheel zooms where
+it points: the part of the picture under the pointer stays under it. Drag to move it (two fingers pinch to zoom),
+double-click to zoom in there or fit it again, **+**, **−** and **Fit** in the bar, ← → for the album's others, and
+Esc to close.
 
 **The feel.** Cards behave like boxed games on a shelf. Under the pointer a card lifts and leans toward it, a
 glossy band and a highlight follow the pointer across it, and ★4 and ★5 cards have a foil that shifts as they lean.
@@ -343,7 +367,7 @@ knights/
     "claude-opus-*": { "art": "claude/opus.png" }
   },
   "pictures": {
-    "claude/festival.png": { "name": "Summer festival", "zh-CN": "夏日祭" }
+    "claude/festival.png": { "name": "Summer festival", "zh-CN": "夏日祭", "stars": 5 }
   }
 }
 ```
@@ -363,7 +387,9 @@ knights/
   for her card and her avatar. A picture whose file name starts with `face` is an avatar; any other is a card. The
   folders are named after the characters: `gpt`, `claude`, `gemini`, `deepseek`, `grok`, `kimi`, `glm`, `qwen`,
   `mistral`, `minimax`, `llama`, `doubao`, `perplexity` and `hunyuan`.
-- **`pictures`** names a picture, by its file; else it is called by its file's name (`image2.webp` is Image2).
+- **`pictures`** names a picture, by its file; else it is called by its file's name (`image2.webp` is Image2). Its
+  `stars` (3, 4 or 5) are its rarity as an outfit in the summon (else ★4). A character's mood faces and avatars are no
+  outfits.
 - **Names** are a plain string, or a `name` with other languages beside it by their language codes: `zh-CN`, `zh-TW`,
   `ja`, … in any case. A page in Chinese takes `zh-CN`, else a plain `zh`, else another Chinese one, else `name`. The
   pack's own name and its `description` are given the same way.
@@ -442,9 +468,10 @@ The roster keeps its own files in `$DSH_HOME/llm-roster/` (`~/.dsh/llm-roster/`)
 | `openrouter.json` | the release dates from OpenRouter, once fetched again |
 | `seen.json` | the day each model with no published release date was first seen (let go once one is published) |
 | `failures.json` | why calls failed lately, by provider and model, until a call succeeds again |
+| `stars.json` | the summon's Earned ✦: the balance, and how many were earned in all |
 
 What you summon is kept in your browser instead (`localStorage`, under `dsh-llm-roster.summon`), so each browser has
-its own album.
+its own album (the Earned ✦ are DSH's, in `stars.json`, so every browser shares them).
 
 ## How it works
 
@@ -452,6 +479,7 @@ its own album.
 | --- | --- |
 | [`plugin/client.js`](plugin/client.js) | The web half (React from DSH). It puts the avatar in the `conversation.input.right` slot and renders the roster dialog and the Plugins page. It switches models through `modelDirectories.directoryFor(session).select()`. It writes model lists and `apiKeyEnv` with `remote.settings.mutate`, stores keys with `remote.credentials.set`, and reads catalogs with `remote.llm.discoverModels`. |
 | [`plugin/index.js`](plugin/index.js) | The DSH plugin (`llm-roster`). It mounts the routes on DSH's API, resolves keys through DSH's credential store, then the environment, and watches DSH's model calls (`llm/stream`, passed along untouched) for why they fail. |
+| [`plugin/stars.js`](plugin/stars.js) | The summon's Earned ✦: dropped by model calls that work, spent on summons, added by cheat codes. |
 | [`plugin/failures.js`](plugin/failures.js) | Why calls failed lately: kept by provider and model, counted, let go when a call succeeds again. |
 | [`plugin/server.js`](plugin/server.js) | The routes, below. |
 | [`plugin/roster.js`](plugin/roster.js) | Which character and tier each model is, the lineup, the picture and avatar each one wears, the pack in use, set-aside providers, and the provider each character goes through. |
@@ -489,6 +517,7 @@ The routes are on DSH's API, behind its sign-in and for its owner only:
 | `GET /api/llm-roster.released` | every release date known, by model slug (Artificial Analysis's over OpenRouter's), and the days models were first seen |
 | `POST /api/llm-roster.released` | `{ids}` → `{dates: {id: {date, seen}}}`: the release dates of a list of models, a model of no published date stamped as first seen today |
 | `GET/POST /api/llm-roster.rankings` | the leaderboard (`?top=`, `&sort=released` for the newest, `&efforts=1` for every effort), or fetch the release dates and the rankings again |
+| `GET/POST /api/llm-roster.stars` | the summon's Earned ✦ (`{balance, earned, last}`); `{spend: n}` for a summon, `{code}` for a cheat code |
 | `GET/POST /api/llm-roster.failures` | why calls failed lately, the newest first; `{clear: provider \| null}` lets them go |
 | `GET /api/llm-roster.check` | `?provider=<route>&ref=<credential reference>&fresh=1`: does the key work (`ok`, `missing`, `rejected`, `error`, `untested`) |
 | `GET /api/llm-roster.balance` | `?provider=<route>&ref=<credential reference>` |

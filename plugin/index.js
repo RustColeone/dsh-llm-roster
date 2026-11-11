@@ -53,6 +53,6 @@ export function apply (ctx, config = {}) {
   })
   ctx.inject(['connection'], scope => serve(scope.connection, work))
   // every model call DSH makes passes by (`llm/stream`), untouched: one that fails is kept with its reason, one that
-  // succeeds lets its provider's and model's failures go
-  ctx.on('llm/stream', (options, next) => watch(next, options, work.failures))
+  // succeeds lets its provider's and model's failures go, and may drop the summon's ✦
+  ctx.on('llm/stream', (options, next) => watch(next, options, work.failures, call => work.stars.earn(call)))
 }
