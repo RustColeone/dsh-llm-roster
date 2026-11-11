@@ -276,10 +276,11 @@ A click skips ahead. Each card you get goes into the album, and a summoned chara
 
 **The album** has two parts, **Characters** and **Equipment** (the outfits among the equipment), each with how many
 you have. Each art pack's outfits are its own, so switching packs shows that pack's. A picture you have (or every
-one, revealed) opens over everything at a click. The wheel zooms where
-it points: the part of the picture under the pointer stays under it. Drag to move it (two fingers pinch to zoom),
-double-click to zoom in there or fit it again, **+**, **−** and **Fit** in the bar, ← → for the album's others, and
-Esc to close.
+one, revealed) opens over everything at a click. The wheel zooms where it points: the part of the picture under the
+pointer stays under it. Drag to move it (two fingers pinch to zoom), and let go while moving to fling it on;
+double-click to zoom in there or fit it again; **+**, **−** and **Fit** in the bar; ← → for the album's others. Every
+zoom and move eases there (at once if your system asks for reduced motion). **×** (right after the zoom), a click
+beside the picture, or Esc closes it.
 
 **The feel.** Cards behave like boxed games on a shelf. Under the pointer a card lifts and leans toward it, a
 glossy band and a highlight follow the pointer across it, and ★4 and ★5 cards have a foil that shifts as they lean.
@@ -407,12 +408,19 @@ want it:
 
 | Picture | Ratio | Suggested size | What shows |
 | --- | --- | --- | --- |
-| A card | 2:3, portrait | 768 × 1152 (sharp on high-DPI screens), or 512 × 768 as the bundled ones | The whole card on her page. On the roster's cards the rarity sits top left and her name over the bottom quarter, so keep her face in the upper third. Another ratio is cropped to 2:3, keeping the top. |
-| A chibi card | 2:3, transparent background | 512 × 768 | The figure standing in the lower half, as the bundled chibis do. |
-| An avatar | 1:1, square | 256 × 256 (192 × 192 at least) | A circle. Keep the face centred, with a little room around it; another ratio is cropped around a point 30% from the top. |
+| A card | 2:3, portrait | 768 × 1152 to 1024 × 1536, as the bundled ones (sharp on high-DPI screens and in the album's viewer) | The whole card on her page. On the roster's cards the rarity sits top left and her name over the bottom quarter, so keep her face in the upper third. Another ratio is cropped to 2:3, keeping the top. |
+| A chibi card | 2:3, transparent background | 512 × 768 to 1024 × 1536 | The figure standing in the lower half, as the bundled chibis do. |
+| An avatar | 1:1, square | 256 × 256, as the bundled ones (192 × 192 at least) | A circle. Keep the face centred, with a little room around it; another ratio is cropped around a point 30% from the top. |
 
-`.webp` keeps packs smallest (the bundled cards are about 40–80 KB each); `.png`, `.jpg` and `.gif` work too. A
-picture in a .zip is at most 16 MB, and one you upload at most 4 MB.
+`.webp` keeps packs smallest (the bundled cards are about 100–450 KB each, at quality 86); `.png`, `.jpg` and `.gif`
+work too. A picture in a .zip is at most 16 MB, and one you upload at most 4 MB.
+
+**Thumbnails.** Where pictures show small (the roster's cards, the album, the summon's cards, the pickers), the roster
+sends a thumbnail 320 wide, made from the picture with [sharp](https://sharp.pixelplumbing.com) and kept in DSH's home
+(`llm-roster/thumbs/`). A pack's are made in the background as it is added or chosen, any other as it is first shown;
+a picture that changes gets a new one. Her page, the summon's banner and the album's viewer show the picture itself.
+sharp is an optional dependency, installed with the roster where it has a build for the machine (Linux, macOS and
+Windows on x64 and Arm); without it, every picture is sent whole.
 
 To make a pack by hand, export one (or start a new empty one, choose pictures and export it), change what you like,
 zip it again and import it. To share a pack, put its folder on GitHub; anyone can fetch it by its link. Your packs are
@@ -469,6 +477,7 @@ The roster keeps its own files in `$DSH_HOME/llm-roster/` (`~/.dsh/llm-roster/`)
 | `seen.json` | the day each model with no published release date was first seen (let go once one is published) |
 | `failures.json` | why calls failed lately, by provider and model, until a call succeeds again |
 | `stars.json` | the summon's Earned ✦: the balance, and how many were earned in all |
+| `thumbs/` | the pictures' thumbnails (the newest 2,000), each named by its picture's file, size and time |
 
 What you summon is kept in your browser instead (`localStorage`, under `dsh-llm-roster.summon`), so each browser has
 its own album (the Earned ✦ are DSH's, in `stars.json`, so every browser shares them).
@@ -480,6 +489,7 @@ its own album (the Earned ✦ are DSH's, in `stars.json`, so every browser share
 | [`plugin/client.js`](plugin/client.js) | The web half (React from DSH). It puts the avatar in the `conversation.input.right` slot and renders the roster dialog and the Plugins page. It switches models through `modelDirectories.directoryFor(session).select()`. It writes model lists and `apiKeyEnv` with `remote.settings.mutate`, stores keys with `remote.credentials.set`, and reads catalogs with `remote.llm.discoverModels`. |
 | [`plugin/index.js`](plugin/index.js) | The DSH plugin (`llm-roster`). It mounts the routes on DSH's API, resolves keys through DSH's credential store, then the environment, and watches DSH's model calls (`llm/stream`, passed along untouched) for why they fail. |
 | [`plugin/stars.js`](plugin/stars.js) | The summon's Earned ✦: dropped by model calls that work, spent on summons, added by cheat codes. |
+| [`plugin/thumbs.js`](plugin/thumbs.js) | The pictures' thumbnails, made with sharp (when it is installed) and kept in DSH's home. |
 | [`plugin/failures.js`](plugin/failures.js) | Why calls failed lately: kept by provider and model, counted, let go when a call succeeds again. |
 | [`plugin/server.js`](plugin/server.js) | The routes, below. |
 | [`plugin/roster.js`](plugin/roster.js) | Which character and tier each model is, the lineup, the picture and avatar each one wears, the pack in use, set-aside providers, and the provider each character goes through. |
@@ -509,7 +519,7 @@ The routes are on DSH's API, behind its sign-in and for its owner only:
 | `POST /api/llm-roster.settings` | `{aaKeyEnv: '<variable>' \| null}`: where your Artificial Analysis key is |
 | `POST /api/llm-roster.park` / `unpark` | `{provider, ns, path, profile}` / `{provider}`: a provider set aside by Ignore all, and put back |
 | `POST /api/llm-roster.route` | `{character, provider \| null}`: the provider a character's lineup goes through |
-| `GET /api/llm-roster.image` | `?art=<folder>/<file>` (a picture of the pack in use, `deepseek/high.webp`; `&pack=<id>` for another pack's) |
+| `GET /api/llm-roster.image` | `?art=<folder>/<file>` (a picture of the pack in use, `deepseek/high.webp`; `&pack=<id>` for another pack's); `&size=thumb` for its thumbnail |
 | `GET /api/llm-roster.packs` | the art packs you have, the one in use, and the ones that come with the roster |
 | `POST /api/llm-roster.packs` | `{use: id}`, `{create: name}`, `{remove: id}`, `{discard: id}` (your changes to it), `{fetch: '<GitHub or .zip link>'}`, or `{add: 'academy' \| '<file>'}` for one that comes with the roster |
 | `POST /api/llm-roster.pack-import?name=` | a pack's .zip, or a lone `pack.json`, as the body |
@@ -527,6 +537,7 @@ The routes are on DSH's API, behind its sign-in and for its owner only:
 ## Development
 
 ```sh
+npm install                                           # sharp, for the thumbnails (optional: their tests are skipped without it)
 npm test                                              # node --test: the server half, art packs and the summon odds, no DSH or network needed
 python3 tools/import-art.py ~/Projects/DiscordStudyBot  # art/ again from a ChimeraArchiveHarness checkout
 python3 tools/draw-art.py --dry-run                   # the other characters' tiers: what it would draw

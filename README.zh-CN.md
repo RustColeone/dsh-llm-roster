@@ -167,7 +167,7 @@ Artificial Analysis 不再发布 Coding 或 Agentic 指数（他们的 API 返�
 
 点击可跳过动画。你得到的每张卡都会进入图鉴，召唤到角色会打开她的页面。
 
-**图鉴**分为两个部分，**角色**和**装备**（服装在装备中），各自显示你拥有多少。每个立绘包的服装都是独立的，切换立绘包后显示该立绘包的服装。点击后，你拥有的一张图片（或揭示出的全部图片）会在最上层打开。滚轮以指针所指之处为中心缩放：指针下方的画面保持不动。拖动可移动（两指捏合缩放），双击可放大该处或再次适应屏幕，工具条中有 **+**、**−** 和 **适应窗口**，← → 查看图鉴中的其他图片，Esc 关闭。
+**图鉴**分为两个部分，**角色**和**装备**（服装在装备中），各自显示你拥有多少。每个立绘包的服装都是独立的，切换立绘包后显示该立绘包的服装。点击后，你拥有的一张图片（或揭示出的全部图片）会在最上层打开。滚轮以指针所指之处为中心缩放：指针下方的画面保持不动。拖动可移动（两指捏合缩放），移动中松开即可把它甩出去继续滑行；双击可放大该处或再次适应窗口；工具条中有 **+**、**−** 和 **适应窗口**，← → 查看图鉴中的其他图片。每次缩放和移动都会缓动到位（如果系统要求减弱动态效果则立即到位）。**×**（紧接在缩放按钮之后）、点击图片外侧或 Esc 关闭。
 
 **手感。** 卡片的手感像货架上的盒装游戏。指针移到卡片上时，卡片会抬起并向指针倾斜，一道光泽条和高光会跟随指针扫过卡面；★4 和 ★5 卡还有会随倾斜变化的闪膜。角色的大图、图鉴和召唤横幅也是如此，立绘会随指针轻微移动。当系统要求减弱动态效果时，所有这些效果和所有动画都会关闭。
 
@@ -259,11 +259,13 @@ knights/
 
 | 图片 | 比例 | 建议尺寸 | 显示效果 |
 | --- | --- | --- | --- |
-| 卡面 | 2:3，竖版 | 768 × 1152（在高 DPI 屏幕上清晰），或像内置卡面那样 512 × 768 | 在她页面上显示整张卡。在名册卡片上，稀有度位于左上角，她的名字横跨下方四分之一，所以请把她的脸放在上方三分之一处。其他比例会被裁剪为 2:3，保留顶部。 |
-| Q版卡面 | 2:3，透明背景 | 512 × 768 | 角色站在下半部分，就像内置 Q版那样。 |
-| 头像 | 1:1，正方形 | 256 × 256（至少 192 × 192） | 一个圆形。请让脸居中，周围留一点空间；其他比例会围绕距顶部 30% 的点进行裁剪。 |
+| 卡面 | 2:3，竖版 | 768 × 1152 到 1024 × 1536，和内置卡面一样（在高 DPI 屏幕和图鉴查看器中清晰） | 在她页面上显示整张卡。在名册卡片上，稀有度位于左上角，她的名字横跨下方四分之一，所以请把她的脸放在上方三分之一处。其他比例会被裁剪为 2:3，保留顶部。 |
+| Q版卡面 | 2:3，透明背景 | 512 × 768 到 1024 × 1536 | 角色站在下半部分，就像内置 Q版那样。 |
+| 头像 | 1:1，正方形 | 256 × 256，和内置头像一样（至少 192 × 192） | 一个圆形。请让脸居中，周围留一点空间；其他比例会围绕距顶部 30% 的点进行裁剪。 |
 
-`.webp` 能让立绘包最小（内置卡面每张约 40–80 KB）；`.png`、`.jpg` 和 `.gif` 也可以。.zip 中的一张图片最大 16 MB，你上传的图片最大 4 MB。
+`.webp` 能让立绘包最小（内置卡面每张约 100–450 KB，质量 86）；`.png`、`.jpg` 和 `.gif` 也可以。.zip 中的一张图片最大 16 MB，你上传的图片最大 4 MB。
+
+**缩略图。** 在图片显示得很小的地方（名册卡片、图鉴、召唤卡片、选择器），名册会发送宽 320 的缩略图，用 [sharp](https://sharp.pixelplumbing.com) 从原图生成并保存在 DSH 主目录（`llm-roster/thumbs/`）。立绘包的缩略图会在添加或选择该立绘包时于后台生成，其他图片在首次显示时生成；图片变化后会生成新的缩略图。她的页面、召唤横幅和图鉴查看器会显示原图本身。sharp 是可选依赖，在名册有对应机器构建的地方随名册一起安装（Linux、macOS 和 Windows 的 x64 与 Arm）；没有它时，每张图片都会原样发送。
 
 要手工制作立绘包，可以先导出一个（或新建一个空白立绘包，选择图片后导出），改成你喜欢的样子，重新压缩并导入。要分享立绘包，把它的文件夹放到 GitHub 上；任何人都可以通过链接拉取。你拥有的立绘包保存在 `~/.dsh/llm-roster/packs/<name>/`，你的改动保存在 `~/.dsh/llm-roster/changes/<name>/`；立绘包的文件也可以在那里直接编辑，名册下次打开时会显示这些改动。
 
@@ -309,6 +311,7 @@ knights/
 | `seen.json` | 每个没有公开发布日期的模型首次出现的日期（公开日期发布后即不再保留） |
 | `failures.json` | 最近调用失败的原因，按服务商和模型保存，直到之后有调用成功 |
 | `stars.json` | 召唤的赚取 ✦：余额，以及累计赚到多少 |
+| `thumbs/` | 图片的缩略图（最新 2,000 张），每张以对应图片的文件名、尺寸和时间命名 |
 
 召唤记录保存在你的浏览器中（`localStorage` 的 `dsh-llm-roster.summon` 下），所以每个浏览器有自己的图鉴（赚取的 ✦ 属于 DSH，保存在 `stars.json` 中，因此所有浏览器共享）。
 
@@ -319,6 +322,7 @@ knights/
 | [`plugin/client.js`](plugin/client.js) | 网页端部分（使用 DSH 的 React）。它把头像放进 `conversation.input.right` 插槽，并渲染名册对话框和“插件”页面。它通过 `modelDirectories.directoryFor(session).select()` 切换模型，通过 `remote.settings.mutate` 写入模型列表和 `apiKeyEnv`，通过 `remote.credentials.set` 保存密钥，并通过 `remote.llm.discoverModels` 读取目录。 |
 | [`plugin/index.js`](plugin/index.js) | DSH 插件（`llm-roster`）。它把路由挂载到 DSH 的 API 上，先通过 DSH 的凭据存储解析密钥，再尝试环境变量，并监视 DSH 的模型调用（`llm/stream`，原样转发）以了解失败原因。 |
 | [`plugin/stars.js`](plugin/stars.js) | 召唤的赚取 ✦：由成功的模型调用掉落，在召唤中扣除，通过作弊码增加。 |
+| [`plugin/thumbs.js`](plugin/thumbs.js) | 图片的缩略图：用 sharp（安装时）生成，保存在 DSH 主目录中。 |
 | [`plugin/failures.js`](plugin/failures.js) | 最近调用失败原因：按服务商和模型保存、计数，调用成功后放掉。 |
 | [`plugin/server.js`](plugin/server.js) | 下面的路由。 |
 | [`plugin/roster.js`](plugin/roster.js) | 每个模型对应哪个角色和层级、阵容、每个模型所用的立绘和头像、当前使用的立绘包、搁置的服务商，以及每个角色经哪个服务商使用。 |
@@ -346,7 +350,7 @@ knights/
 | `POST /api/llm-roster.settings` | `{aaKeyEnv: '<variable>' \| null}`：你的 Artificial Analysis 密钥在哪里 |
 | `POST /api/llm-roster.park` / `unpark` | `{provider, ns, path, profile}` / `{provider}`：通过“全部忽略”搁置的服务商，以及放回 |
 | `POST /api/llm-roster.route` | `{character, provider \| null}`：角色阵容使用的服务商 |
-| `GET /api/llm-roster.image` | `?art=<folder>/<file>`（当前使用的立绘包中的图片，如 `deepseek/high.webp`；`&pack=<id>` 用于另一个立绘包） |
+| `GET /api/llm-roster.image` | `?art=<folder>/<file>`（当前使用的立绘包中的图片，如 `deepseek/high.webp`；`&pack=<id>` 用于另一个立绘包）；`&size=thumb` 取它的缩略图 |
 | `GET /api/llm-roster.packs` | 你拥有的立绘包、正在使用的立绘包，以及名册自带的立绘包 |
 | `POST /api/llm-roster.packs` | `{use: id}`、`{create: name}`、`{remove: id}`、`{discard: id}`（放弃你对它的改动）、`{fetch: '<GitHub or .zip link>'}`, 或 `{add: 'academy' \| '<file>'}`，用于名册自带的立绘包 |
 | `POST /api/llm-roster.pack-import?name=` | 请求体为立绘包 .zip，或单独的 `pack.json` |
@@ -364,6 +368,7 @@ knights/
 ## 开发
 
 ```sh
+npm install                                           # sharp，用于缩略图（可选：没有它时相关测试会被跳过）
 npm test                                              # node --test：测试服务端部分、立绘包和召唤概率，不需要 DSH 或网络
 python3 tools/import-art.py ~/Projects/DiscordStudyBot  # 从 ChimeraArchiveHarness 检出重新生成 art/
 python3 tools/draw-art.py --dry-run                   # 其他角色的层级：预览将绘制的内容

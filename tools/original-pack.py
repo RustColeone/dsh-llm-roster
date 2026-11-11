@@ -8,8 +8,8 @@ the chibi; her bond pictures (a cafe, at home, a summer festival) are more cards
 avatars. The first five (GPT, Claude, Gemini, DeepSeek, Grok) are as ChimeraArchiveHarness drew them, from the checkout
 named, with her round avatar.png her portrait. The other nine are drawn by this project with the same prompts
 (`python tools/draw-art.py --original`, kept in tools/.drawn/), their chibi is the bundled pack's (art/), and their
-portrait is the face of their stage-2 drawing. Cards are 512 x 768 and faces 192 px (the portrait 256), as in art/; the
-first five's chibi and its face are made as tools/import-art.py makes them.
+portrait is the face of their stage-2 drawing. Cards are their sources' own size (2:3, at most 1024 wide, WebP quality
+86) and faces 256 px, as in art/; the first five's chibi and its face are made as tools/import-art.py makes them.
 """
 import importlib.util
 import io
@@ -45,7 +45,7 @@ PACK = {
          "tools/original-pack.py.",
     "name": "Original",
     "zh-CN": "原版",
-    "version": "2.1.0",
+    "version": "2.2.0",
     "author": "ZipZipPipe (designs), 上善无形 (DeepSeek-chan); the first five drawn for ChimeraArchiveHarness",
     "license": "CC BY-NC-SA 4.0",
     "url": "https://github.com/RustColeone/dsh-llm-roster",
@@ -97,7 +97,7 @@ For this pack they were resized to the roster's cards (512 x 768) and faces by d
 
 def webp(image: Image.Image, quality: int) -> bytes:
     out = io.BytesIO()
-    image.save(out, "WEBP", quality=quality)
+    image.save(out, "WEBP", quality=quality, method=6)
     return out.getvalue()
 
 
@@ -121,32 +121,32 @@ def main() -> int:
     files = {"pack.json": (json.dumps(pack, ensure_ascii=False, indent=2) + "\n").encode(), "CREDITS.md": CREDITS.encode()}
     for name in art.CHARACTERS:
         source = students / name
-        files[f"{name}/face.webp"] = webp(Image.open(source / "avatar.png").convert("RGBA").resize((256, 256), Image.LANCZOS), 85)
+        files[f"{name}/face.webp"] = webp(Image.open(source / "avatar.png").convert("RGBA").resize((256, 256), Image.LANCZOS), 88)
         chibi = art.chibi(Image.open(source / "art" / "chibi.webp"))
-        files[f"{name}/chibi.webp"] = webp(chibi, 82)
-        x, y, side = art.FACES[name]["chibi"]
+        files[f"{name}/chibi.webp"] = webp(chibi, art.QUALITY)
+        x, y, side = art.scaled(art.FACES[name]["chibi"], chibi.size[0])
         backdrop = Image.new("RGBA", chibi.size, (235, 240, 250, 255))
         backdrop.alpha_composite(chibi)
         face = backdrop.crop((x - side // 2, y - side // 2, x + side // 2, y + side // 2)).resize((art.FACE, art.FACE), Image.LANCZOS)
-        files[f"{name}/face-chibi.webp"] = webp(face.convert("RGB"), 85)
+        files[f"{name}/face-chibi.webp"] = webp(face.convert("RGB"), 88)
         for card, kind in CARDS.items():
-            files[f"{name}/{card}.webp"] = webp(art.card(Image.open(source / "art" / f"{kind}.webp")).convert("RGB"), 80)
+            files[f"{name}/{card}.webp"] = webp(art.card(Image.open(source / "art" / f"{kind}.webp")).convert("RGB"), art.QUALITY)
         for mood in MOODS:
             image = Image.open(source / "art" / f"mood-{mood}.webp").convert("RGB").resize((art.FACE, art.FACE), Image.LANCZOS)
-            files[f"{name}/face-{mood}.webp"] = webp(image, 85)
+            files[f"{name}/face-{mood}.webp"] = webp(image, 88)
     bundled = HERE.parent / "art"
     for name in NINE:
         for file in ["chibi.webp", "face-chibi.webp"]:
             files[f"{name}/{file}"] = (bundled / name / file).read_bytes()
         for card, kind in CARDS.items():
-            files[f"{name}/{card}.webp"] = webp(art.card(Image.open(DRAWN / name / f"{kind}.png")).convert("RGB"), 80)
+            files[f"{name}/{card}.webp"] = webp(art.card(Image.open(DRAWN / name / f"{kind}.png")).convert("RGB"), art.QUALITY)
         for mood in MOODS:
             image = Image.open(DRAWN / name / f"mood-{mood}.png").convert("RGB").resize((art.FACE, art.FACE), Image.LANCZOS)
-            files[f"{name}/face-{mood}.webp"] = webp(image, 85)
+            files[f"{name}/face-{mood}.webp"] = webp(image, 88)
         x, y, side = PORTRAITS.get(name, PORTRAIT)
         drawing = Image.open(DRAWN / name / "stage-2.png").convert("RGB")
         portrait = drawing.crop((x - side // 2, y - side // 2, x + side // 2, y + side // 2)).resize((256, 256), Image.LANCZOS)
-        files[f"{name}/face.webp"] = webp(portrait, 85)
+        files[f"{name}/face.webp"] = webp(portrait, 88)
     out = HERE.parent / "packs" / f"{ID}.zip"
     out.parent.mkdir(exist_ok=True)
     with zipfile.ZipFile(out, "w") as archive:

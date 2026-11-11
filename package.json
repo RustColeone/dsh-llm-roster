@@ -1,6 +1,6 @@
 {
   "name": "dsh-llm-roster",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "description": "A gacha-style character roster for DeepSeek Harness: an avatar beside the model picker, and a roster of your models as characters, with their art, Artificial Analysis rankings, keys, balance and which models are in use.",
   "type": "module",
   "license": "MIT AND CC-BY-NC-SA-4.0",
@@ -35,6 +35,9 @@
   ],
   "scripts": {
     "test": "node --test"
+  },
+  "optionalDependencies": {
+    "sharp": "^0.34.5"
   },
   "dsh": {
     "bundle": {

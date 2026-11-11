@@ -9,8 +9,8 @@
 
 Each tier of each character is drawn from her standing art (and, for the chibi, the chibi style reference first), in
 the style and with the prompts of characters.yml, the same as ChimeraArchiveHarness draws the other five. The drawing
-is kept in tools/.drawn/<name>/<tier>.png (not shipped), and from it the card (art/<name>/<tier>.webp, 512 x 768; a
-chibi on a transparent card) and the avatar (art/<name>/face-<tier>.webp, 192 px). With --original it draws the Original
+is kept in tools/.drawn/<name>/<tier>.png (not shipped), and from it the card (art/<name>/<tier>.webp, 1024 x 1536,
+WebP quality 86; a chibi on a transparent card) and the avatar (art/<name>/face-<tier>.webp, 256 px). With --original it draws the Original
 pack's pictures instead (characters.yml `original`: her stages, bond pictures and mood faces), kept in
 tools/.drawn/<name>/<kind>.png alone: tools/original-pack.py makes that pack's cards and faces of them. References are downloaded once into tools/.references/. Needs `openai`, `pillow` and `pyyaml`; the key is OPENAI_API_KEY, from the environment or the file
 named by --env-file. Every call is printed with the tokens it used, so the cost is known.
@@ -36,8 +36,10 @@ PLAN = ROOT / "tools" / "characters.yml"
 REFERENCES = ROOT / "tools" / ".references"
 DRAWN = ROOT / "tools" / ".drawn"
 ART = ROOT / "art"
-CARD = (512, 768)
-FACE = 192
+CARD = (1024, 1536)  # as drawn (the `faces` boxes in characters.yml are as on a 512 x 768 card: scaled up)
+BOX = 512
+FACE = 256
+QUALITY = 86
 
 
 def ascii_url(url: str) -> str:
@@ -67,13 +69,13 @@ def prompt_for(plan: dict, name: str, tier: str, kinds: str = "tiers") -> str:
 
 
 def card(drawn: Path, tier: str) -> Image.Image:
-    """The drawing as a 512 x 768 card: a portrait cover-cropped from the top, a chibi centred low on a clear card."""
+    """The drawing as a 1024 x 1536 card: a portrait cover-cropped from the top, a chibi centred low on a clear card."""
     image = Image.open(drawn).convert("RGBA")
     if tier == "chibi":
         side = CARD[0]
         image = image.resize((side, side), Image.LANCZOS)
         canvas = Image.new("RGBA", CARD, (0, 0, 0, 0))
-        canvas.paste(image, (0, CARD[1] - side - 40), image)
+        canvas.paste(image, (0, CARD[1] - side - round(40 * side / BOX)), image)
         return canvas
     w, h = image.size
     target = CARD[0] / CARD[1]
@@ -88,7 +90,8 @@ def card(drawn: Path, tier: str) -> Image.Image:
 def crop_face(card_path: Path, box) -> Image.Image:
     """The square around her face on a card, on a soft light background where the card is clear (the chibi)."""
     image = Image.open(card_path).convert("RGBA")
-    x, y, side = box
+    k = image.size[0] / BOX  # (the box is as on a 512 x 768 card)
+    x, y, side = (round(value * k) for value in box)
     background = Image.new("RGBA", image.size, (235, 240, 250, 255))
     background.alpha_composite(image)
     return background.crop((x - side // 2, y - side // 2, x + side // 2, y + side // 2)).resize((FACE, FACE), Image.LANCZOS)
@@ -98,9 +101,9 @@ def ship(plan: dict, name: str, tier: str) -> None:
     """The card and the avatar of one drawn tier."""
     target = ART / name
     target.mkdir(parents=True, exist_ok=True)
-    card(DRAWN / name / f"{tier}.png", tier).save(target / f"{tier}.webp", "WEBP", quality=80)
+    card(DRAWN / name / f"{tier}.png", tier).save(target / f"{tier}.webp", "WEBP", quality=QUALITY, method=6)
     box = (plan["characters"][name].get("faces") or {}).get(tier) or plan["face_defaults"][tier]
-    crop_face(target / f"{tier}.webp", box).convert("RGB").save(target / f"face-{tier}.webp", "WEBP", quality=85)
+    crop_face(target / f"{tier}.webp", box).convert("RGB").save(target / f"face-{tier}.webp", "WEBP", quality=88, method=6)
 
 
 def load_key(env_file: Path | None) -> str:

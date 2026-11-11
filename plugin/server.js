@@ -19,7 +19,7 @@
 //     POST /api/llm-roster.unpark     { provider } → what was kept of it
 //     POST /api/llm-roster.route      { character, provider | null }: the provider her lineup goes through
 //     GET  /api/llm-roster.image      ?art=<folder>/<file> (a picture of the pack in use: `deepseek/high.webp`; or of the
-//                                     pack `&pack=<id>`)
+//                                     pack `&pack=<id>`); `&size=thumb`: its thumbnail (320 wide, when sharp is there)
 //     GET  /api/llm-roster.packs      your art packs, the one in use, and the ones that come with the roster
 //     POST /api/llm-roster.packs      { use: '<id>' } | { create: '<name>' } | { remove: '<id>' } | { discard: '<id>' } |
 //                                     { fetch: '<GitHub or .zip link>' } | { add: '<file>' }: one that comes with the
@@ -49,6 +49,7 @@ import { balance, check, keyFor, liveModels, offered, PROVIDERS, usage } from '.
 import { ALIASES, dateInId, fetchRankings, fetchReleased, formsOf, load, loadReleased, Seen, slugOf, undated } from './rankings.js'
 import { Failures } from './failures.js'
 import { Stars } from './stars.js'
+import { Thumbs } from './thumbs.js'
 import { fetchPack, filesOf } from './packs.js'
 import { CHARACTERS, IGNORED, lineup, MODELS, RARITY, releasedInLineup, Roster, TIERS } from './roster.js'
 
@@ -81,12 +82,22 @@ export function spelled (model) {
 
 /** The plugin's state and work, without DSH: what the routes call (and the tests). `resolve(name)` reads a credential
  * reference (DSH's store, then the environment). */
-export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async name => process.env[name], fetch, now = Date.now, random = Math.random, dshVersion = null } = {}) {
+export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async name => process.env[name], fetch, now = Date.now, random = Math.random, dshVersion = null, loadSharp } = {}) {
   const roster = new Roster(folder)
   // why calls failed: model calls (watched by the plugin, `llm/stream`) and key checks, until they succeed again
   const failures = new Failures(folder, { now })
   // the summon's ✦ in its Earned mode: dropped now and then by a model call that works, spent on summons
   const stars = new Stars(folder, { now, random })
+  // the pictures' thumbnails, for what shows them small: the pack in use's made in the background as it comes in use
+  const thumbs = new Thumbs(folder, loadSharp ? { load: loadSharp } : {})
+  const warm = () => {
+    try {
+      const look = roster.look()
+      thumbs.warm(CHARACTERS.flatMap(character => look.choices(character, 'art')).map(picture => look.file(picture)).filter(Boolean))
+    } catch { /* no pack to warm */ }
+  }
+  const later = setTimeout(warm, 3000)
+  later.unref?.()
   // the packs that come with the roster are yours from the start, to switch to (once: one you remove stays removed);
   // a roster before 0.5.2 kept your picks in its own file: they become your changes to the pack in use
   try { roster.seedPacks(); roster.migrate() } catch { /* no place to keep them: the bundled pack alone */ }
@@ -186,16 +197,17 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
     image: query => roster.image(query),
     failures,
     stars,
+    thumbs,
     /** Let go of the failures kept: a provider's, or (null) every one. */
     clearFailures: provider => { failures.clear(provider ? String(provider) : null); return { failures: failures.list() } },
     top: (count, sort, efforts) => ({ ...rankings.about, rows: rankings.top(count, sort, { efforts }) }),
     // ---- art packs ----
     packs: () => ({ active: roster.active, packs: roster.packs.list(roster.active), included: roster.packs.includedList() }),
     /** Add a pack that comes with the roster (academy, or packs/<file>.zip). */
-    addPack: file => { const kept = roster.packs.addIncluded(String(file)); roster.look(true); return kept },
-    usePack: id => { roster.usePack(id); return { ...dressed(), active: roster.active } },
+    addPack: file => { const kept = roster.packs.addIncluded(String(file)); roster.look(true); warm(); return kept },
+    usePack: id => { roster.usePack(id); warm(); return { ...dressed(), active: roster.active } },
     /** A new, empty pack, put in use. */
-    createPack: name => { const id = roster.packs.create(name); roster.usePack(id); return { id, active: id } },
+    createPack: name => { const id = roster.packs.create(name); roster.usePack(id); warm(); return { id, active: id } },
     removePack: id => { roster.packs.remove(id); roster.look(true); return { active: roster.active } },
     /** Let go of your changes to a pack. */
     discardChanges: id => { roster.packs.discard(id); roster.look(true); return { active: roster.active } },
@@ -205,6 +217,7 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
       if (bytes.length > MAX_PACK) throw new RangeError(`a pack is at most ${MAX_PACK / 1024 / 1024} MB`)
       const kept = roster.packs.install(filesOf(bytes), { hint: String(fileName).replace(/\.(zip|json)$/i, '') })
       roster.look(true)
+      warm()
       return kept
     },
     /** Fetch a pack from GitHub (a repository, or a folder in one) or a link to a .zip, and keep it. */
@@ -212,6 +225,7 @@ export function createRoster (folder, { aliases = {}, aaKeyEnv, resolve = async 
       const fetched = await fetchPack(link, options)
       const kept = roster.packs.install(fetched.files, { hint: fetched.hint, within: fetched.within })
       roster.look(true)
+      warm()
       return kept
     },
     exportPack: id => roster.packs.zip(String(id ?? roster.active)),
@@ -328,9 +342,15 @@ export function serve (connection, work) {
     work.forget(String((await json(request)).file ?? ''))
     return answer({ ok: true })
   })
-  route(ROUTES.image, ['GET'], (request, query) => {
+  route(ROUTES.image, ['GET'], async (request, query) => {
     const found = work.image({ art: query.get('art'), pack: query.get('pack') ?? undefined })
     if (!found || !fs.existsSync(found.file)) return answer({ error: 'no such picture' }, 404)
+    // its thumbnail, when one can be made (else the picture itself)
+    const small = query.get('size') === 'thumb' ? await work.thumbs.of(found.file) : null
+    if (small) {
+      return new Response(fs.readFileSync(small), { headers: { 'content-type': 'image/webp',
+        'cache-control': 'private, max-age=86400', 'x-content-type-options': 'nosniff' } })
+    }
     return new Response(fs.readFileSync(found.file), { headers: { 'content-type': found.type,
       'cache-control': 'private, max-age=86400', 'x-content-type-options': 'nosniff' } })
   })

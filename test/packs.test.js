@@ -215,7 +215,7 @@ describe('the packs that come with the roster', () => {
   test('Academy and Original: yours from the start, Academy in use; one you remove stays removed', () => {
     const work = createRoster(folder)
     const listed = work.packs()
-    assert.deepEqual([DEFAULT, listed.active, listed.packs.map(pack => [pack.id, pack.version])], ['academy', 'academy', [['academy', '1.0.0'], ['original', '2.1.0']]])
+    assert.deepEqual([DEFAULT, listed.active, listed.packs.map(pack => [pack.id, pack.version])], ['academy', 'academy', [['academy', '1.0.0'], ['original', '2.2.0']]])
     assert.deepEqual(listed.included.map(pack => [pack.file, pack.added, pack.names['zh-cn']]), [['academy', true, '学园'], ['original', true, '原版']])
     // every character, chibi to university student
     const look = work.roster.look()

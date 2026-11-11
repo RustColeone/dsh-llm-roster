@@ -401,7 +401,7 @@ window.__ModuleLoader__.load({
       'viewer.zoomIn': 'Zoom in',
       'viewer.zoomOut': 'Zoom out',
       'viewer.fit': 'Fit',
-      'viewer.hint': 'Scroll to zoom where you point, drag to move, double-click to zoom in or fit; ← → for the others, Esc to close.',
+      'viewer.hint': 'Scroll to zoom where you point, drag to move (let go moving to fling it), double-click to zoom in or fit; ← → for the others; Esc, × or a click beside the picture to close.',
       'equip.context.name': 'Infinite Context',
       'equip.context.text': 'Remembers the whole conversation. Even that part.',
       'equip.nolimit.name': 'No Rate Limit',
@@ -646,7 +646,7 @@ window.__ModuleLoader__.load({
       'summon.album.character': '角色 {owned}/{total}',
       'summon.outfit.text': '来自立绘包「{pack}」的立绘',
       'summon.kind.outfit': '服装',
-      'viewer.hint': '滚轮在光标处缩放，拖动移动，双击放大或适应窗口；← → 切换，Esc 关闭。',
+      'viewer.hint': '滚轮在光标处缩放，拖动移动（移动中松开可甩出），双击放大或适应窗口；← → 切换，Esc、× 或点击图片外侧关闭。',
       'viewer.fit': '适应窗口',
       'viewer.zoomOut': '缩小',
       'viewer.zoomIn': '放大',
@@ -865,10 +865,11 @@ window.__ModuleLoader__.load({
     // Artificial Analysis's capability indexes, as the server names them
     const CAPABILITIES = ['engineering', 'finance', 'economics', 'legal', 'health', 'strategy']
     /** A picture's address: an upload's, or the art pack in use's (`pack`: another pack's, for its preview); the pack's
-     * stamp in it (what its files are now), so a changed pack is not shown from the browser's cache. */
-    const pictureUrl = (picture, pack = null) => !picture ? null
+     * stamp in it (what its files are now), so a changed pack is not shown from the browser's cache. `thumb`: its
+     * thumbnail, for where it shows small (the server sends the picture itself when it cannot make one). */
+    const pictureUrl = (picture, pack = null, thumb = false) => !picture ? null
       : `${API.image}?art=${encodeURIComponent(picture)}${pack ? `&pack=${encodeURIComponent(pack.id)}&v=${pack.stamp}`
-        : shared.state?.pack?.stamp ? `&v=${shared.state.pack.stamp}` : ''}`
+        : shared.state?.pack?.stamp ? `&v=${shared.state.pack.stamp}` : ''}${thumb ? '&size=thumb' : ''}`
     /** A name as the art pack gives it ({ name, names: { 'zh-cn': … } }), in the page's language: its own code
      * (zh-CN), else the language's (zh), else another of the language's (zh-TW), else `name`. */
     const named = (about, t) => {
@@ -1264,9 +1265,10 @@ window.__ModuleLoader__.load({
       if (!url || broken) return h('span', { className: `lr-face lr-face-none ${className}`, style }, initials(label))
       return h('img', { className: `lr-face ${className}`, style, src: url, alt: '', draggable: false, onError: () => setBroken(true) })
     }
-    function Art ({ art, label, className = '' }) {
+    /** A card's picture (`thumb`: its thumbnail, where it shows small). */
+    function Art ({ art, label, className = '', thumb = false }) {
       const [broken, setBroken] = useState(false)
-      const url = pictureUrl(art)
+      const url = pictureUrl(art, null, thumb)
       useEffect(() => setBroken(false), [url])
       return url && !broken
         ? h('img', { className, src: url, alt: '', loading: 'lazy', draggable: false, onError: () => setBroken(true) })
@@ -1289,7 +1291,7 @@ window.__ModuleLoader__.load({
         'data-status': card.status, style: { '--n': index } },
       h('button', { type: 'button', className: 'lr-card-main', disabled: busy, title: `${card.providerName} · ${card.id}`,
         onClick: () => (blocked ? onMore(card) : onPick(card)) },
-      h('span', { className: 'lr-card-art' }, h(Art, { art: found?.art, label: name })),
+      h('span', { className: 'lr-card-art' }, h(Art, { art: found?.art, label: name, thumb: true })),
       h('span', { className: 'lr-rarity' }, rarity),
       current ? h('span', { className: 'lr-ribbon' }, t('roster.inUse')) : null,
       blocked ? h('span', { className: 'lr-veil' },
@@ -1449,7 +1451,7 @@ window.__ModuleLoader__.load({
       const pictures = name => (kind === 'art' ? state.characters[name].pictures : state.characters[name].faces) ?? []
       const tile = (picture, label) => h('div', { key: picture, className: 'lr-tile-holder' },
         h('button', { type: 'button', className: `lr-tile lr-tile-${kind}${value === picture ? ' lr-on' : ''}`, title: label,
-          'aria-label': label, onClick: () => onChoose(picture) }, h('img', { src: pictureUrl(picture), alt: '', loading: 'lazy' })),
+          'aria-label': label, onClick: () => onChoose(picture) }, h('img', { src: pictureUrl(picture, null, true), alt: '', loading: 'lazy' })),
         added.has(picture) ? h('button', { type: 'button', className: 'lr-tile-forget', title: t('art.forget'), 'aria-label': t('art.forget'),
           onClick: () => forget(picture) }, '×') : null)
       const group = (key, label, files) => files.length ? h('div', { key, className: 'lr-art-group' }, h('div', { className: 'lr-label' }, label),
@@ -1776,7 +1778,7 @@ window.__ModuleLoader__.load({
               h('div', { className: 'lr-gallery-row' }, gallery.map(picture =>
                 h('button', { key: picture, type: 'button', className: `lr-thumb${shownArt === picture ? ' lr-on' : ''}`,
                   title: pictureLabel(state, picture, t),
-                  onClick: () => setPreview(picture === found?.art ? null : picture) }, h('img', { src: pictureUrl(picture), alt: '' })))),
+                  onClick: () => setPreview(picture === found?.art ? null : picture) }, h('img', { src: pictureUrl(picture, null, true), alt: '' })))),
               preview && preview !== found?.art ? h('button', { type: 'button', className: 'lr-button lr-primary', disabled: busy,
                 onClick: () => equip(preview) }, t('page.equip')) : null) : null),
           h('div', { className: 'lr-character-info' },
@@ -1826,7 +1828,7 @@ window.__ModuleLoader__.load({
               h('div', { className: 'lr-equip' },
                 h('div', { className: 'lr-equip-slot' },
                   h('span', { className: 'lr-label' }, t('page.art')),
-                  h('span', { className: 'lr-equip-art' }, h(Art, { art: found?.art, label: name })),
+                  h('span', { className: 'lr-equip-art' }, h(Art, { art: found?.art, label: name, thumb: true })),
                   h('button', { type: 'button', className: 'lr-button lr-small', onClick: () => setPicker('art') }, t('page.change'))),
                 h('div', { className: 'lr-equip-slot' },
                   h('span', { className: 'lr-label' }, t('page.avatar')),
@@ -2725,7 +2727,7 @@ window.__ModuleLoader__.load({
         h('span', { className: 'lr-pull-inner' },
           h('span', { className: 'lr-pull-back', 'aria-hidden': 'true' }, h('span', null, '✦')),
           h('span', { className: 'lr-pull-front' },
-            h('span', { className: 'lr-pull-art' }, h(Art, { art: card.art, label: name })),
+            h('span', { className: 'lr-pull-art' }, h(Art, { art: card.art, label: name, thumb: true })),
             card.stars >= 4 ? h('span', { className: 'lr-holo', 'aria-hidden': 'true' }) : null,
             h('span', { className: 'lr-stars', 'aria-label': `★${card.stars}` }, '★'.repeat(card.stars)),
             card.pity ? h('span', { className: 'lr-new lr-pity' }, t('summon.pityTag'))
@@ -2754,32 +2756,86 @@ window.__ModuleLoader__.load({
       return { x: (stage.w - image.w * s) / 2, y: (stage.h - image.h * s) / 2, s }
     }
 
-    /** An album picture, over everything: wheel to zoom where you point, drag to pan (two fingers to pinch), double-click
-     * to zoom in or fit again; the arrows go through the album, Esc closes it. */
+    /** How quickly the viewer eases to where it is going (ms): after a zoom, and after a drag (close behind the pointer);
+     * and how long a fling's speed takes to fade (ms). */
+    const EASE = { zoom: 90, drag: 28 }
+    const FLING = 260
+
+    /** An album picture, over everything: the wheel zooms where it points, a drag moves it (two fingers pinch), a quick
+     * drag flings it on, a double-click zooms in or fits it again, each move eased there (at once when motion is
+     * reduced). The arrows go through the album; Esc, ×, or a click beside the picture closes it. */
     function ArtViewer ({ cards, index, onIndex, onClose, state, t }) {
       const card = cards[index]
       const stage = useRef(null)
       const fit = useRef(null)
       const pointers = useRef(new Map())
       const [size, setSize] = useState(null) // the picture's own size
-      const [view, setView] = useState(null)
+      const [view, setView] = useState(null) // as shown: { x, y, s }
+      const shown = useRef(null) // the same, for the frames
+      const goal = useRef(null) // where it is going
+      const motion = useRef({ frame: 0, last: 0, ease: EASE.zoom, fling: null })
+      const press = useRef(null) // a press: where it began, how far it went, and how fast it was going
       const url = pictureUrl(card.art)
-      useEffect(() => { setSize(null); setView(null); fit.current = null }, [url])
+      const show = next => { shown.current = next; setView(next) }
+      const stop = () => {
+        if (motion.current.frame && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(motion.current.frame)
+        motion.current.frame = 0
+        motion.current.fling = null
+      }
+      useEffect(() => { stop(); setSize(null); show(null); goal.current = null; fit.current = null }, [url])
+      useEffect(() => stop, [])
+      // a frame: a fling carries the goal on, slowing; the view eases toward the goal (a blend of two views that keep the
+      // same point under the pointer keeps it there too, so a zoom stays where it points all the way)
+      const tick = now => {
+        const m = motion.current
+        const dt = Math.min(64, Math.max(1, now - m.last))
+        m.last = now
+        if (m.fling && goal.current) {
+          goal.current = { ...goal.current, x: goal.current.x + m.fling.x * dt, y: goal.current.y + m.fling.y * dt }
+          const fade = Math.exp(-dt / FLING)
+          m.fling = Math.hypot(m.fling.x * fade, m.fling.y * fade) < 0.01 ? null : { x: m.fling.x * fade, y: m.fling.y * fade }
+        }
+        const from = shown.current
+        const to = goal.current
+        if (!from || !to) { m.frame = 0; return }
+        const k = 1 - Math.exp(-dt / m.ease)
+        const next = { x: from.x + (to.x - from.x) * k, y: from.y + (to.y - from.y) * k, s: from.s + (to.s - from.s) * k }
+        const settled = !m.fling && Math.abs(to.s - next.s) <= to.s * 1e-4 && Math.abs(to.x - next.x) < 0.25 && Math.abs(to.y - next.y) < 0.25
+        show(settled ? to : next)
+        m.frame = settled ? 0 : requestAnimationFrame(tick)
+      }
+      /** Where the view goes: eased there (`ease`, ms), or at once (`now`, reduced motion, nothing shown yet). */
+      const go = (next, { ease = EASE.zoom, now = false } = {}) => {
+        if (!next) return
+        goal.current = next
+        motion.current.ease = ease
+        if (now || reducedMotion() || !shown.current || typeof requestAnimationFrame !== 'function') { stop(); show(next); return }
+        if (!motion.current.frame) {
+          motion.current.last = typeof performance !== 'undefined' ? performance.now() : Date.now()
+          motion.current.frame = requestAnimationFrame(tick)
+        }
+      }
       const bounds = () => stage.current.getBoundingClientRect()
-      const refit = useCallback(() => {
+      const refit = useCallback((now = false) => {
         if (!size || !stage.current) return
         const box = bounds()
         fit.current = fitView({ w: box.width, h: box.height }, size)
-        setView(fit.current)
+        motion.current.fling = null
+        go(fit.current, { now })
       }, [size])
-      useLayoutEffect(() => { refit() }, [refit])
-      useEffect(() => { window.addEventListener('resize', refit); return () => window.removeEventListener('resize', refit) }, [refit])
+      useLayoutEffect(() => { refit(true) }, [refit])
+      useEffect(() => {
+        const resize = () => refit(true)
+        window.addEventListener('resize', resize)
+        return () => window.removeEventListener('resize', resize)
+      }, [refit])
       const limits = () => [(fit.current?.s ?? 1) / 2, (fit.current?.s ?? 1) * 16]
-      const zoom = (factor, point = null) => setView(now => {
-        if (!now) return now
+      const zoom = (factor, point = null) => {
+        if (!goal.current) return
         const box = bounds()
-        return zoomAt(now, point ?? { x: box.width / 2, y: box.height / 2 }, factor, ...limits())
-      })
+        motion.current.fling = null
+        go(zoomAt(goal.current, point ?? { x: box.width / 2, y: box.height / 2 }, factor, ...limits()))
+      }
       const step = by => onIndex((index + by + cards.length) % cards.length)
       // the wheel, not passive: the page under it must not scroll
       useEffect(() => {
@@ -2787,10 +2843,11 @@ window.__ModuleLoader__.load({
         if (!node) return
         const wheel = event => {
           event.preventDefault()
+          if (!goal.current) return
           const box = node.getBoundingClientRect()
           const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? box.height : 1
-          const factor = Math.exp(-event.deltaY * unit * 0.0015)
-          setView(now => now && zoomAt(now, { x: event.clientX - box.left, y: event.clientY - box.top }, factor, ...limits()))
+          motion.current.fling = null
+          go(zoomAt(goal.current, { x: event.clientX - box.left, y: event.clientY - box.top }, Math.exp(-event.deltaY * unit * 0.0015), ...limits()))
         }
         node.addEventListener('wheel', wheel, { passive: false })
         return () => node.removeEventListener('wheel', wheel)
@@ -2809,18 +2866,33 @@ window.__ModuleLoader__.load({
         window.addEventListener('keydown', key, true)
         return () => window.removeEventListener('keydown', key, true)
       }, [index, cards.length, refit, onClose])
+      const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
       const down = event => {
         if (event.pointerType === 'mouse' && event.button !== 0) return
         stage.current.setPointerCapture?.(event.pointerId)
         pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+        motion.current.fling = null
+        // (one finger or the mouse: maybe a click, maybe a fling; a second finger makes it a pinch)
+        press.current = pointers.current.size === 1 ? { far: 0, speed: { x: 0, y: 0 }, at: clock() } : null
       }
       const move = event => {
         const known = pointers.current
         const before = known.get(event.pointerId)
-        if (!before) return
+        if (!before || !goal.current) return
         const now = { x: event.clientX, y: event.clientY }
-        if (known.size === 1) setView(seen => seen && { ...seen, x: seen.x + now.x - before.x, y: seen.y + now.y - before.y })
-        else {
+        if (known.size === 1) {
+          const dx = now.x - before.x
+          const dy = now.y - before.y
+          go({ ...goal.current, x: goal.current.x + dx, y: goal.current.y + dy }, { ease: EASE.drag })
+          const found = press.current
+          if (found) {
+            const at = clock()
+            const dt = Math.max(1, at - found.at)
+            found.far += Math.hypot(dx, dy)
+            found.speed = { x: 0.6 * dx / dt + 0.4 * found.speed.x, y: 0.6 * dy / dt + 0.4 * found.speed.y }
+            found.at = at
+          }
+        } else {
           // two fingers: zoom about the point between them by how far apart they moved, and pan as it moves
           const other = [...known].find(([id]) => id !== event.pointerId)[1]
           const box = bounds()
@@ -2828,20 +2900,41 @@ window.__ModuleLoader__.load({
           const from = { x: (before.x + other.x) / 2 - box.left, y: (before.y + other.y) / 2 - box.top }
           const to = { x: (now.x + other.x) / 2 - box.left, y: (now.y + other.y) / 2 - box.top }
           if (apart) {
-            setView(seen => {
-              if (!seen) return seen
-              const zoomed = zoomAt(seen, from, Math.hypot(now.x - other.x, now.y - other.y) / apart, ...limits())
-              return { ...zoomed, x: zoomed.x + to.x - from.x, y: zoomed.y + to.y - from.y }
-            })
+            const zoomed = zoomAt(goal.current, from, Math.hypot(now.x - other.x, now.y - other.y) / apart, ...limits())
+            go({ ...zoomed, x: zoomed.x + to.x - from.x, y: zoomed.y + to.y - from.y }, { ease: EASE.drag })
           }
         }
         known.set(event.pointerId, now)
       }
-      const up = event => { pointers.current.delete(event.pointerId) }
+      const up = event => {
+        if (!pointers.current.delete(event.pointerId)) return
+        const found = press.current
+        if (!found || pointers.current.size) return
+        press.current = null
+        if (found.far < 4) {
+          // a click beside the picture closes it
+          const at = shown.current
+          const box = bounds()
+          const x = event.clientX - box.left
+          const y = event.clientY - box.top
+          if (at && size && (x < at.x || y < at.y || x > at.x + size.w * at.s || y > at.y + size.h * at.s)) onClose()
+          return
+        }
+        // let go while still moving: it flings on, slowing
+        const speed = Math.hypot(found.speed.x, found.speed.y)
+        if (clock() - found.at < 90 && speed > 0.25 && !reducedMotion()) {
+          const most = Math.min(1, 3 / speed) // (at most 3 px a millisecond: a jerk of the mouse is no throw)
+          motion.current.fling = { x: found.speed.x * most, y: found.speed.y * most }
+          go(goal.current, { ease: EASE.drag })
+        }
+      }
+      const cancel = event => { pointers.current.delete(event.pointerId); press.current = null }
       const twice = event => {
+        if (!goal.current || !fit.current) return
         const box = bounds()
         const point = { x: event.clientX - box.left, y: event.clientY - box.top }
-        setView(now => !now || !fit.current ? now : now.s > fit.current.s * 1.5 ? fit.current : zoomAt(now, point, fit.current.s * 2.5 / now.s, ...limits()))
+        motion.current.fling = null
+        go(goal.current.s > fit.current.s * 1.5 ? fit.current : zoomAt(goal.current, point, fit.current.s * 2.5 / goal.current.s, ...limits()))
       }
       const name = summonName(card, t)
       const who = summonWho(card, state, t)
@@ -2859,10 +2952,10 @@ window.__ModuleLoader__.load({
             button(t('viewer.zoomOut'), () => zoom(0.8), '−', !view),
             h('span', { className: 'lr-viewer-count lr-viewer-zoom' }, view ? `${Math.round(view.s * 100)}%` : '…'),
             button(t('viewer.zoomIn'), () => zoom(1.25), '+', !view),
-            button(t('viewer.fit'), refit, t('viewer.fit'), !view)),
-          button(t('close'), onClose, '×')),
+            button(t('viewer.fit'), () => refit(), t('viewer.fit'), !view)),
+          h('button', { type: 'button', className: 'lr-viewer-close', title: t('close'), 'aria-label': t('close'), onClick: onClose }, '×')),
         h('div', { className: 'lr-viewer-stage', ref: stage,
-          onPointerDown: down, onPointerMove: move, onPointerUp: up, onPointerCancel: up, onDoubleClick: twice },
+          onPointerDown: down, onPointerMove: move, onPointerUp: up, onPointerCancel: cancel, onDoubleClick: twice },
         url ? h('img', { key: url, src: url, alt: name, draggable: false,
           onLoad: event => setSize({ w: event.currentTarget.naturalWidth || 512, h: event.currentTarget.naturalHeight || 768 }),
           style: view ? { transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})` } : { visibility: 'hidden' } }) : null),
@@ -3080,7 +3173,7 @@ window.__ModuleLoader__.load({
               className: `lr-album-tile${seen ? ' lr-tilt' : ' lr-locked'}`, 'data-rarity': STAR_RARITY[card.stars],
               title: seen ? `${name} · ★${card.stars}` : `${t('summon.unknown')} · ★${card.stars}`,
               'aria-label': seen ? t('summon.view', { name }) : undefined, onClick: seen ? () => setViewing(card.key) : undefined },
-            h(Art, { art: card.art, label: seen ? name : '?' }),
+            h(Art, { art: card.art, label: seen ? name : '?', thumb: true }),
             seen && card.stars >= 4 ? h('span', { className: 'lr-holo', 'aria-hidden': 'true' }) : null,
             count ? h('span', { className: 'lr-album-count' }, t('summon.owned', { count })) : null,
             seen ? h('span', { className: 'lr-gloss', 'aria-hidden': 'true' }) : null)
@@ -3587,6 +3680,9 @@ button.lr-album-tile { display: block; width: 100%; padding: 0; border: none; fo
   background: rgba(255, 255, 255, .06); color: inherit; font: inherit; font-size: 13px; cursor: pointer }
 .lr-viewer-button:hover:not(:disabled) { background: rgba(255, 255, 255, .14) }
 .lr-viewer-button:disabled { opacity: .4; cursor: default }
+.lr-viewer-close { width: 36px; height: 36px; margin-left: 2px; padding: 0; border-radius: 18px; border: 1px solid rgba(255, 255, 255, .32);
+  background: rgba(255, 255, 255, .14); color: #fff; font: inherit; font-size: 22px; line-height: 1; cursor: pointer }
+.lr-viewer-close:hover { background: #e5484d; border-color: #e5484d }
 .lr-viewer-stage { position: relative; flex: 1; min-height: 0; overflow: hidden; cursor: grab; touch-action: none; user-select: none }
 .lr-viewer-stage:active { cursor: grabbing }
 .lr-viewer-stage img { position: absolute; left: 0; top: 0; max-width: none; transform-origin: 0 0; will-change: transform;
