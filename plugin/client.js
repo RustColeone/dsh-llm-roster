@@ -1337,6 +1337,27 @@ window.__ModuleLoader__.load({
     /** A grip's six dots: drawn, so the pill's text is its name alone. */
     const GRIP = h => h('svg', { width: 6, height: 10, viewBox: '0 0 6 10', 'aria-hidden': 'true', focusable: 'false' },
       [[1, 1], [5, 1], [1, 5], [5, 5], [1, 9], [5, 9]].map(([cx, cy]) => h('circle', { key: `${cx}${cy}`, cx, cy, r: 1, fill: 'currentColor' })))
+    /** How far above or below the pills a dragged one may be let go and still go somewhere (px). */
+    const AWAY = 40
+    /** Where a dragged pill would go, from the pills' boxes (in their order, its own among them at `from`) and the
+     * pointer: the gap nearest it, on its own line first. Gives the place it would take (`at`) and where to draw the
+     * marker (`x`, `top`, `bottom`; no `x` when that is where it is already); null when the pointer is well away from the
+     * pills (let go there, it stays where it was). */
+    const insertion = (boxes, from, x, y, gap = 6) => {
+      if (!boxes.length) return null
+      if (y < Math.min(...boxes.map(box => box.top)) - AWAY || y > Math.max(...boxes.map(box => box.bottom)) + AWAY) return null
+      let near = null
+      boxes.forEach((box, index) => {
+        // (a line away counts for more than any distance along one)
+        const far = Math.max(box.top - y, 0, y - box.bottom) * 10000 + Math.max(box.left - x, 0, x - box.right)
+        if (!near || far < near.far) near = { index, box, far }
+      })
+      const after = x > (near.box.left + near.box.right) / 2
+      const before = near.index + (after ? 1 : 0) // the gap: before this pill
+      const at = before > from ? before - 1 : before
+      if (at === from) return { at }
+      return { at, x: after ? near.box.right + gap / 2 : near.box.left - gap / 2, top: near.box.top, bottom: near.box.bottom }
+    }
     function RosterTab ({ remote, directory, available, onPicked, onPage, onTab, t }) {
       const { snapshot, state, cards, hidden, providers: configured } = useCards(directory, remote)
       const lookup = useResolved(cards)
@@ -1368,43 +1389,86 @@ window.__ModuleLoader__.load({
       const nameOf = new Map(providers)
       const latest = useRef(providers)
       latest.current = providers
-      /** Put provider `id` where `to` is (or `by` places along), the rest closing up; kept with the places of providers
-       * not shown now. */
-      const place = (id, { to = null, by = 0 } = {}) => {
+      /** Put provider `id` at place `at` among those shown, the rest closing up; kept with the places of providers not
+       * shown now. */
+      const place = (id, at) => {
         const ids = latest.current.map(([found]) => found)
         const from = ids.indexOf(id)
-        const at = to !== null ? ids.indexOf(to) : Math.min(ids.length - 1, Math.max(0, from + by))
-        if (from < 0 || at < 0 || at === from) return
+        const to = Math.min(ids.length - 1, Math.max(0, at))
+        if (from < 0 || to === from) return
         ids.splice(from, 1)
-        ids.splice(at, 0, id)
+        ids.splice(to, 0, id)
         setOrder([...ids, ...chosen.order.filter(found => !ids.includes(found))])
       }
-      /** Drag a provider's pill by its grip: as it passes over another pill, it takes that one's place. */
+      /** Drag a provider's pill by its grip: a copy of it floats under the pointer while the pill keeps its place, dimmed;
+       * a marker shows the gap it would go to, and it goes there when let go. Let go well away from the pills, or Esc:
+       * it stays. */
       const drag = (event, id) => {
         if (event.pointerType === 'mouse' && event.button !== 0) return
         event.preventDefault()
-        const row = event.currentTarget.closest('.lr-chips')
+        const pill = event.currentTarget.closest('[data-provider]')
+        const row = pill.closest('.lr-chips')
         const start = { x: event.clientX, y: event.clientY }
-        let moved = false
+        let lifted = null // the floating copy and the marker, once the pointer has moved
+        let target = null // where it would go
+        const lift = () => {
+          const box = pill.getBoundingClientRect()
+          const ghost = pill.cloneNode(true)
+          ghost.removeAttribute('data-provider')
+          ghost.removeAttribute('title')
+          ghost.classList.remove('lr-dragging')
+          ghost.classList.add('lr-ghost')
+          ghost.setAttribute('aria-hidden', 'true')
+          ghost.style.width = `${box.width}px`
+          ghost.style.height = `${box.height}px`
+          const marker = document.createElement('span')
+          marker.className = 'lr-insert'
+          marker.hidden = true
+          row.append(ghost, marker)
+          // where left 0, top 0 puts it: the window's corner, or the box an element fixed in place is put in here
+          const origin = ghost.getBoundingClientRect()
+          document.documentElement.classList.add('lr-sorting')
+          setDragging(id)
+          return { ghost, marker, origin, grab: { x: start.x - box.left, y: start.y - box.top } }
+        }
         const move = found => {
-          if (!moved && Math.hypot(found.clientX - start.x, found.clientY - start.y) < 4) return
-          if (!moved) { moved = true; setDragging(id) }
-          const over = [...row.querySelectorAll('[data-provider]')].find(pill => {
-            const box = pill.getBoundingClientRect()
-            return found.clientX >= box.left && found.clientX <= box.right && found.clientY >= box.top && found.clientY <= box.bottom
-          })
-          if (over && over.dataset.provider !== id) place(id, { to: over.dataset.provider })
+          if (!lifted && Math.hypot(found.clientX - start.x, found.clientY - start.y) < 4) return
+          lifted ??= lift()
+          const { ghost, marker, origin, grab } = lifted
+          ghost.style.transform = `translate(${found.clientX - grab.x - origin.left}px, ${found.clientY - grab.y - origin.top}px)`
+          const pills = [...row.querySelectorAll('[data-provider]')]
+          const gap = parseFloat(window.getComputedStyle(row).columnGap) || 6
+          target = insertion(pills.map(other => other.getBoundingClientRect()), pills.indexOf(pill), found.clientX, found.clientY, gap)
+          ghost.classList.toggle('lr-astray', !target)
+          if (target?.x === undefined) { marker.hidden = true; return }
+          const frame = row.getBoundingClientRect()
+          marker.style.left = `${target.x - frame.left}px`
+          marker.style.top = `${target.top - frame.top - 3}px`
+          marker.style.height = `${target.bottom - target.top + 6}px`
+          marker.hidden = false
         }
-        const end = () => {
+        const end = drop => {
           window.removeEventListener('pointermove', move)
-          window.removeEventListener('pointerup', end)
-          window.removeEventListener('pointercancel', end)
+          window.removeEventListener('pointerup', up)
+          window.removeEventListener('pointercancel', cancel)
+          window.removeEventListener('keydown', key, true)
+          if (!lifted) return
+          lifted.ghost.remove()
+          lifted.marker.remove()
+          document.documentElement.classList.remove('lr-sorting')
           setDragging(null)
-          if (moved) { dragged.current = true; setTimeout(() => { dragged.current = false }, 0) }
+          dragged.current = true
+          setTimeout(() => { dragged.current = false }, 0)
+          if (drop && target) place(id, target.at)
         }
+        const up = () => end(true)
+        const cancel = () => end(false)
+        // Esc puts it back, and only that (not the roster closing)
+        const key = found => { if (found.key === 'Escape') { found.preventDefault(); found.stopPropagation(); cancel() } }
         window.addEventListener('pointermove', move)
-        window.addEventListener('pointerup', end)
-        window.addEventListener('pointercancel', end)
+        window.addEventListener('pointerup', up)
+        window.addEventListener('pointercancel', cancel)
+        window.addEventListener('keydown', key, true)
       }
       // (a provider chosen before that has no cards now: Available)
       const filter = ['all', 'available'].includes(chosen.filter) || providers.some(([id]) => id === chosen.filter) ? chosen.filter : 'available'
@@ -1455,7 +1519,7 @@ window.__ModuleLoader__.load({
                   onKeyDown: movable ? event => {
                     if (event.altKey && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
                       event.preventDefault()
-                      place(id, { by: event.key === 'ArrowLeft' ? -1 : 1 })
+                      place(id, latest.current.findIndex(([found]) => found === id) + (event.key === 'ArrowLeft' ? -1 : 1))
                     }
                   } : undefined
                 },
@@ -3264,7 +3328,8 @@ window.__ModuleLoader__.load({
     function Modal ({ title, onClose, small = false, children, t, tabs = null }) {
       const box = useRef(null)
       useEffect(() => {
-        const key = event => { if (event.key === 'Escape' && !document.querySelector('.lr-viewer')) { event.stopPropagation(); onClose() } }
+        // (Esc while a picture is open, or a pill dragged, is theirs)
+        const key = event => { if (event.key === 'Escape' && !document.querySelector('.lr-viewer, .lr-ghost')) { event.stopPropagation(); onClose() } }
         window.addEventListener('keydown', key, true)
         box.current?.focus()
         return () => window.removeEventListener('keydown', key, true)
@@ -3579,8 +3644,20 @@ window.__ModuleLoader__.load({
 .lr-grip { display: inline-flex; align-items: center; align-self: stretch; padding: 0 2px; cursor: grab; touch-action: none;
   color: var(--dsw-alias-label-tertiary, #9aa0aa) }
 .lr-chip:hover .lr-grip { color: inherit }
-.lr-chip.lr-dragging { cursor: grabbing; box-shadow: 0 3px 10px rgba(0, 0, 0, .18); transform: translateY(-1px) }
+.lr-chip.lr-dragging { opacity: .35; border-style: dashed }
 .lr-chip.lr-dragging .lr-grip { cursor: grabbing }
+.lr-roster-tools .lr-chips { position: relative }
+.lr-chip.lr-ghost { position: fixed; left: 0; top: 0; z-index: 50; margin: 0; box-sizing: border-box; pointer-events: none;
+  background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff)); border: 1px solid var(--dsw-alias-state-business-primary, #4d6bfe);
+  box-shadow: 0 10px 24px -8px rgba(0, 0, 0, .45); transition: opacity .15s; will-change: transform }
+.lr-chip.lr-ghost.lr-astray { opacity: .55 }
+.lr-insert { position: absolute; z-index: 4; width: 2px; margin-left: -1px; border-radius: 1px; pointer-events: none;
+  background: var(--dsw-alias-state-business-primary, #4d6bfe); transition: left .1s ease-out, top .1s ease-out }
+.lr-insert::before, .lr-insert::after { content: ''; position: absolute; left: -2px; width: 6px; height: 6px; border-radius: 50%;
+  background: inherit }
+.lr-insert::before { top: -3px }
+.lr-insert::after { bottom: -3px }
+.lr-sorting, .lr-sorting * { cursor: grabbing !important; user-select: none !important; -webkit-user-select: none !important }
 .lr-roster-options { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; min-height: 30px }
 .lr-field { display: flex; flex-direction: column; gap: 6px }
 .lr-label { font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary, #555) }
@@ -4112,7 +4189,7 @@ button.lr-pull:hover .lr-pull-front::before { box-shadow: inset 0 0 0 2px var(--
       })
     }
 
-    module.exports = { inject, apply, EN, ZH, format, deriveKeyRef, catalogOf, english, SUMMON, EQUIPMENT, summonPool, summonOutfits, summonCards, glowOf, zoomAt, fitView }
+    module.exports = { inject, apply, EN, ZH, format, deriveKeyRef, catalogOf, english, SUMMON, EQUIPMENT, summonPool, summonOutfits, summonCards, glowOf, zoomAt, fitView, insertion }
     return module.exports
   }
 })
