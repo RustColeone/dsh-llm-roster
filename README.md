@@ -50,7 +50,8 @@ needs, and a provider's chip shows its models alone.
 You can sort by provider, by rank, or by release date. By provider, a line with each provider's name (▸ DeepSeek ───)
 heads its cards. **Divide by provider** turns the lines off and on again, and the roster keeps your choice in this
 browser. DeepSeek's account and her API key are one provider there: each DeepSeek model is one card, through the one or
-the other, and its card says which. In the release-date sort, newest comes first and each card
+the other, and its card says which. A provider's pill has a grip: drag it elsewhere among the pills (or press Alt+← →
+on it) and its cards and line go there too, the order kept in this browser. In the release-date sort, newest comes first and each card
 shows its date. A model's release date is, in this order:
 
 1. Artificial Analysis's, where they measure it.

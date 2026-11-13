@@ -76,6 +76,7 @@ window.__ModuleLoader__.load({
       'roster.sort.rank': 'By rank',
       'roster.sort.released': 'By release date',
       'roster.lines': 'Divide by provider',
+      'roster.move': 'Drag the grip to move it (Alt+← → with the keyboard): the cards follow, by provider.',
       'roster.releasedNote': 'Release dates: Artificial Analysis\'s, else the day OpenRouter listed the model (as of {date}); ~ marks the day a newer model was first seen here.',
       'page.released': 'Released {date}',
       'released.seen': 'First seen here on {date}: no published release date yet',
@@ -641,6 +642,7 @@ window.__ModuleLoader__.load({
       'packs.countsOf': '{names} 的 {pictures} 张图片',
       'packs.countsNone': '它没有自己的图片：在你选择之前，会使用内置立绘包的图片。',
       'packs.folder': '保存在 {folder}。',
+      'roster.move': '拖动小把手可移动它（键盘用 Alt+← →）：按服务商排序时，卡片会跟随此顺序。',
       'summon.rule.outfits': '装备包含「服装」：当前使用的立绘包中，每张未被其他卡面展示的立绘都会成为服装；★4，除非该立绘包为其指定其他星级。',
       'summon.album.equipment': '装备 {owned}/{total}',
       'summon.album.character': '角色 {owned}/{total}',
@@ -1319,10 +1321,22 @@ window.__ModuleLoader__.load({
         h('a', { href: 'https://artificialanalysis.ai', target: '_blank', rel: 'noreferrer' }, 'artificialanalysis.ai'))
     }
 
-    // the roster's filter and sort, as you left them (while DSH's page is open): Available first, by provider; and
-    // whether a line heads each provider's cards in that sort (yours to turn off, kept in this browser)
+    // the roster's filter and sort, as you left them (while DSH's page is open): Available first, by provider; whether a
+    // line heads each provider's cards in that sort (yours to turn off), and the providers' order (yours to drag), both
+    // kept in this browser
     const LINES_KEY = 'dsh-llm-roster.lines'
-    const shownAs = { filter: 'available', sort: 'provider', lines: (() => { try { return localStorage.getItem(LINES_KEY) !== 'off' } catch { return true } })() }
+    const ORDER_KEY = 'dsh-llm-roster.order'
+    const shownAs = { filter: 'available', sort: 'provider',
+      lines: (() => { try { return localStorage.getItem(LINES_KEY) !== 'off' } catch { return true } })(),
+      order: (() => {
+        try {
+          const kept = JSON.parse(localStorage.getItem(ORDER_KEY))
+          return Array.isArray(kept) ? kept.filter(id => typeof id === 'string').slice(0, 200) : []
+        } catch { return [] }
+      })() }
+    /** A grip's six dots: drawn, so the pill's text is its name alone. */
+    const GRIP = h => h('svg', { width: 6, height: 10, viewBox: '0 0 6 10', 'aria-hidden': 'true', focusable: 'false' },
+      [[1, 1], [5, 1], [1, 5], [5, 5], [1, 9], [5, 9]].map(([cx, cy]) => h('circle', { key: `${cx}${cy}`, cx, cy, r: 1, fill: 'currentColor' })))
     function RosterTab ({ remote, directory, available, onPicked, onPage, onTab, t }) {
       const { snapshot, state, cards, hidden, providers: configured } = useCards(directory, remote)
       const lookup = useResolved(cards)
@@ -1333,16 +1347,65 @@ window.__ModuleLoader__.load({
         shownAs.lines = lines; setChosen({ ...shownAs })
         try { localStorage.setItem(LINES_KEY, lines ? 'on' : 'off') } catch { /* for this visit only */ }
       }
+      const setOrder = order => {
+        shownAs.order = order; setChosen({ ...shownAs })
+        try { localStorage.setItem(ORDER_KEY, JSON.stringify(order)) } catch { /* for this visit only */ }
+      }
       const { sort, lines } = chosen
       const [busy, setBusy] = useState(null)
+      const [dragging, setDragging] = useState(null) // the provider whose pill is being dragged
+      const dragged = useRef(false) // a drag just ended: its pill's click is no filter
       const [failure, setFailure] = useState(null)
       const current = snapshot.pending ?? snapshot.current
       // a provider's cards, to filter and line up by; DeepSeek's account and its API key are one (a model of hers is one
       // card, through the one or the other: its card says which)
       const deepseekName = (found => found === 'deepseek-official' ? 'DeepSeek' : found)(providerName('deepseek-official', snapshot, configured))
       const groupOf = card => card.provider === ACCOUNT ? 'deepseek-official' : card.provider
+      // the providers as their cards come, in the order you dragged them to (one you have not placed: after, as it comes)
+      const placed = new Map(chosen.order.map((id, index) => [id, index]))
       const providers = [...new Map(cards.map(card => [groupOf(card), groupOf(card) === 'deepseek-official' ? deepseekName : card.providerName])).entries()]
+        .map((entry, index) => [entry, placed.get(entry[0]) ?? chosen.order.length + index]).sort((one, other) => one[1] - other[1]).map(([entry]) => entry)
       const nameOf = new Map(providers)
+      const latest = useRef(providers)
+      latest.current = providers
+      /** Put provider `id` where `to` is (or `by` places along), the rest closing up; kept with the places of providers
+       * not shown now. */
+      const place = (id, { to = null, by = 0 } = {}) => {
+        const ids = latest.current.map(([found]) => found)
+        const from = ids.indexOf(id)
+        const at = to !== null ? ids.indexOf(to) : Math.min(ids.length - 1, Math.max(0, from + by))
+        if (from < 0 || at < 0 || at === from) return
+        ids.splice(from, 1)
+        ids.splice(at, 0, id)
+        setOrder([...ids, ...chosen.order.filter(found => !ids.includes(found))])
+      }
+      /** Drag a provider's pill by its grip: as it passes over another pill, it takes that one's place. */
+      const drag = (event, id) => {
+        if (event.pointerType === 'mouse' && event.button !== 0) return
+        event.preventDefault()
+        const row = event.currentTarget.closest('.lr-chips')
+        const start = { x: event.clientX, y: event.clientY }
+        let moved = false
+        const move = found => {
+          if (!moved && Math.hypot(found.clientX - start.x, found.clientY - start.y) < 4) return
+          if (!moved) { moved = true; setDragging(id) }
+          const over = [...row.querySelectorAll('[data-provider]')].find(pill => {
+            const box = pill.getBoundingClientRect()
+            return found.clientX >= box.left && found.clientX <= box.right && found.clientY >= box.top && found.clientY <= box.bottom
+          })
+          if (over && over.dataset.provider !== id) place(id, { to: over.dataset.provider })
+        }
+        const end = () => {
+          window.removeEventListener('pointermove', move)
+          window.removeEventListener('pointerup', end)
+          window.removeEventListener('pointercancel', end)
+          setDragging(null)
+          if (moved) { dragged.current = true; setTimeout(() => { dragged.current = false }, 0) }
+        }
+        window.addEventListener('pointermove', move)
+        window.addEventListener('pointerup', end)
+        window.addEventListener('pointercancel', end)
+      }
       // (a provider chosen before that has no cards now: Available)
       const filter = ['all', 'available'].includes(chosen.filter) || providers.some(([id]) => id === chosen.filter) ? chosen.filter : 'available'
 
@@ -1382,9 +1445,23 @@ window.__ModuleLoader__.load({
           h('div', { className: 'lr-tools-row' },
             h('span', { className: 'lr-label lr-tools-label', id: 'lr-filter-by' }, t('roster.filterBy')),
             h('div', { className: 'lr-chips', role: 'group', 'aria-labelledby': 'lr-filter-by' },
-              [['all', t('roster.all')], ['available', t('roster.available')], ...providers].map(([id, label]) => h('button', {
-                key: id, type: 'button', className: `lr-chip${filter === id ? ' lr-on' : ''}`, onClick: () => setFilter(id)
-              }, label)))),
+              [['all', t('roster.all')], ['available', t('roster.available')], ...providers].map(([id, label]) => {
+                // a provider's pill has a grip, to drag it elsewhere (Alt+← → with the keyboard); the cards follow
+                const movable = id !== 'all' && id !== 'available'
+                return h('button', {
+                  key: id, type: 'button', className: `lr-chip${filter === id ? ' lr-on' : ''}${movable ? ' lr-movable' : ''}${dragging === id ? ' lr-dragging' : ''}`,
+                  'data-provider': movable ? id : undefined, title: movable ? t('roster.move') : undefined,
+                  onClick: () => { if (!dragged.current) setFilter(id) },
+                  onKeyDown: movable ? event => {
+                    if (event.altKey && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+                      event.preventDefault()
+                      place(id, { by: event.key === 'ArrowLeft' ? -1 : 1 })
+                    }
+                  } : undefined
+                },
+                movable ? h('span', { className: 'lr-grip', onPointerDown: event => drag(event, id) }, GRIP(h)) : null,
+                label)
+              }))),
           h('div', { className: 'lr-tools-row' },
             h('span', { className: 'lr-label lr-tools-label', id: 'lr-sort-by' }, t('roster.sortBy')),
             h('div', { className: 'lr-chips', role: 'group', 'aria-labelledby': 'lr-sort-by' },
@@ -3498,6 +3575,12 @@ window.__ModuleLoader__.load({
 .lr-tools-row { display: flex; align-items: flex-start; gap: 10px }
 .lr-tools-label { flex: 0 0 auto; min-width: 4.5em; line-height: 26px; white-space: nowrap }
 .lr-tools-row > .lr-chips { flex: 1 1 auto; min-width: 0 }
+.lr-chip.lr-movable { display: inline-flex; align-items: center; gap: 5px; padding-left: 5px }
+.lr-grip { display: inline-flex; align-items: center; align-self: stretch; padding: 0 2px; cursor: grab; touch-action: none;
+  color: var(--dsw-alias-label-tertiary, #9aa0aa) }
+.lr-chip:hover .lr-grip { color: inherit }
+.lr-chip.lr-dragging { cursor: grabbing; box-shadow: 0 3px 10px rgba(0, 0, 0, .18); transform: translateY(-1px) }
+.lr-chip.lr-dragging .lr-grip { cursor: grabbing }
 .lr-roster-options { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; min-height: 30px }
 .lr-field { display: flex; flex-direction: column; gap: 6px }
 .lr-label { font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary, #555) }
