@@ -1374,7 +1374,6 @@ window.__ModuleLoader__.load({
       }
       const { sort, lines } = chosen
       const [busy, setBusy] = useState(null)
-      const [dragging, setDragging] = useState(null) // the provider whose pill is being dragged
       const dragged = useRef(false) // a drag just ended: its pill's click is no filter
       const [failure, setFailure] = useState(null)
       const current = snapshot.pending ?? snapshot.current
@@ -1389,6 +1388,12 @@ window.__ModuleLoader__.load({
       const nameOf = new Map(providers)
       const latest = useRef(providers)
       latest.current = providers
+      // the cards rise in as the roster opens, and only then: a card a drop moves, or a filter shows, is there at once
+      const entering = useCallback(node => {
+        if (!node) return
+        node.setAttribute('data-entering', '')
+        setTimeout(() => node.removeAttribute('data-entering'), 800)
+      }, [])
       /** Put provider `id` at place `at` among those shown, the rest closing up; kept with the places of providers not
        * shown now. */
       const place = (id, at) => {
@@ -1402,21 +1407,31 @@ window.__ModuleLoader__.load({
       }
       /** Drag a provider's pill by its grip: a copy of it floats under the pointer while the pill keeps its place, dimmed;
        * a marker shows the gap it would go to, and it goes there when let go. Let go well away from the pills, or Esc:
-       * it stays. */
+       * it stays. Drawn once a frame, and nothing of the roster renders until it is let go. */
       const drag = (event, id) => {
         if (event.pointerType === 'mouse' && event.button !== 0) return
         event.preventDefault()
         const pill = event.currentTarget.closest('[data-provider]')
         const row = pill.closest('.lr-chips')
         const start = { x: event.clientX, y: event.clientY }
-        let lifted = null // the floating copy and the marker, once the pointer has moved
+        let lifted = null // the floating copy, the marker and the sheet over the page, once the pointer has moved
         let target = null // where it would go
+        let last = null // the pointer's latest place
+        let frame = 0
         const lift = () => {
           const box = pill.getBoundingClientRect()
+          const corner = row.getBoundingClientRect()
+          const pills = [...row.querySelectorAll('[data-provider]')]
+          // the pills' boxes from the row's corner: they stay put while dragging (the roster may scroll under them: the
+          // corner is read again each frame)
+          const boxes = pills.map(other => {
+            const found = other.getBoundingClientRect()
+            return { left: found.left - corner.left, right: found.right - corner.left, top: found.top - corner.top, bottom: found.bottom - corner.top }
+          })
+          const gap = parseFloat(window.getComputedStyle(row).columnGap) || 6
           const ghost = pill.cloneNode(true)
           ghost.removeAttribute('data-provider')
           ghost.removeAttribute('title')
-          ghost.classList.remove('lr-dragging')
           ghost.classList.add('lr-ghost')
           ghost.setAttribute('aria-hidden', 'true')
           ghost.style.width = `${box.width}px`
@@ -1424,28 +1439,37 @@ window.__ModuleLoader__.load({
           const marker = document.createElement('span')
           marker.className = 'lr-insert'
           marker.hidden = true
+          const sheet = document.createElement('div')
+          sheet.className = 'lr-drag-sheet'
           row.append(ghost, marker)
+          document.body.append(sheet)
           // where left 0, top 0 puts it: the window's corner, or the box an element fixed in place is put in here
           const origin = ghost.getBoundingClientRect()
-          document.documentElement.classList.add('lr-sorting')
-          setDragging(id)
-          return { ghost, marker, origin, grab: { x: start.x - box.left, y: start.y - box.top } }
+          pill.classList.add('lr-dragging')
+          return { ghost, marker, sheet, origin, boxes, gap, from: pills.indexOf(pill), grab: { x: start.x - box.left, y: start.y - box.top } }
+        }
+        /** Where it would go, for the pointer's latest place (in the row's own terms). */
+        const aim = () => {
+          const corner = row.getBoundingClientRect()
+          target = insertion(lifted.boxes, lifted.from, last.clientX - corner.left, last.clientY - corner.top, lifted.gap)
+        }
+        const draw = () => {
+          frame = 0
+          aim() // (the reading first, then the writing: no layout forced between)
+          const { ghost, marker, origin, grab } = lifted
+          ghost.style.transform = `translate(${last.clientX - grab.x - origin.left}px, ${last.clientY - grab.y - origin.top}px)`
+          ghost.classList.toggle('lr-astray', !target)
+          if (target?.x === undefined) { marker.hidden = true; return }
+          marker.style.left = `${target.x}px`
+          marker.style.top = `${target.top - 3}px`
+          marker.style.height = `${target.bottom - target.top + 6}px`
+          marker.hidden = false
         }
         const move = found => {
           if (!lifted && Math.hypot(found.clientX - start.x, found.clientY - start.y) < 4) return
           lifted ??= lift()
-          const { ghost, marker, origin, grab } = lifted
-          ghost.style.transform = `translate(${found.clientX - grab.x - origin.left}px, ${found.clientY - grab.y - origin.top}px)`
-          const pills = [...row.querySelectorAll('[data-provider]')]
-          const gap = parseFloat(window.getComputedStyle(row).columnGap) || 6
-          target = insertion(pills.map(other => other.getBoundingClientRect()), pills.indexOf(pill), found.clientX, found.clientY, gap)
-          ghost.classList.toggle('lr-astray', !target)
-          if (target?.x === undefined) { marker.hidden = true; return }
-          const frame = row.getBoundingClientRect()
-          marker.style.left = `${target.x - frame.left}px`
-          marker.style.top = `${target.top - frame.top - 3}px`
-          marker.style.height = `${target.bottom - target.top + 6}px`
-          marker.hidden = false
+          last = found
+          if (!frame) frame = requestAnimationFrame(draw)
         }
         const end = drop => {
           window.removeEventListener('pointermove', move)
@@ -1453,10 +1477,12 @@ window.__ModuleLoader__.load({
           window.removeEventListener('pointercancel', cancel)
           window.removeEventListener('keydown', key, true)
           if (!lifted) return
+          if (frame) { cancelAnimationFrame(frame); frame = 0 }
+          if (drop) aim() // (where the pointer is now, drawn or not)
           lifted.ghost.remove()
           lifted.marker.remove()
-          document.documentElement.classList.remove('lr-sorting')
-          setDragging(null)
+          lifted.sheet.remove()
+          pill.classList.remove('lr-dragging')
           dragged.current = true
           setTimeout(() => { dragged.current = false }, 0)
           if (drop && target) place(id, target.at)
@@ -1513,7 +1539,7 @@ window.__ModuleLoader__.load({
                 // a provider's pill has a grip, to drag it elsewhere (Alt+← → with the keyboard); the cards follow
                 const movable = id !== 'all' && id !== 'available'
                 return h('button', {
-                  key: id, type: 'button', className: `lr-chip${filter === id ? ' lr-on' : ''}${movable ? ' lr-movable' : ''}${dragging === id ? ' lr-dragging' : ''}`,
+                  key: id, type: 'button', className: `lr-chip${filter === id ? ' lr-on' : ''}${movable ? ' lr-movable' : ''}`,
                   'data-provider': movable ? id : undefined, title: movable ? t('roster.move') : undefined,
                   onClick: () => { if (!dragged.current) setFilter(id) },
                   onKeyDown: movable ? event => {
@@ -1543,7 +1569,7 @@ window.__ModuleLoader__.load({
           h('span', { className: 'lr-row' },
             h('button', { type: 'button', className: 'lr-button lr-small', onClick: () => setFilter('all') }, t('roster.all')),
             onTab ? h('button', { type: 'button', className: 'lr-button lr-small', onClick: () => onTab('models') }, t('tab.models')) : null)) : null,
-        h('div', { className: 'lr-grid' },
+        h('div', { className: 'lr-grid', ref: entering },
           shown.flatMap((card, index) => [
             // by provider: a line before each provider's cards, with its name, to find them by
             sort === 'provider' && lines && (index === 0 || groupOf(card) !== groupOf(shown[index - 1]))
@@ -3652,12 +3678,13 @@ window.__ModuleLoader__.load({
   box-shadow: 0 10px 24px -8px rgba(0, 0, 0, .45); transition: opacity .15s; will-change: transform }
 .lr-chip.lr-ghost.lr-astray { opacity: .55 }
 .lr-insert { position: absolute; z-index: 4; width: 2px; margin-left: -1px; border-radius: 1px; pointer-events: none;
-  background: var(--dsw-alias-state-business-primary, #4d6bfe); transition: left .1s ease-out, top .1s ease-out }
+  background: var(--dsw-alias-state-business-primary, #4d6bfe); transition: left 60ms ease-out, top 60ms ease-out }
 .lr-insert::before, .lr-insert::after { content: ''; position: absolute; left: -2px; width: 6px; height: 6px; border-radius: 50%;
   background: inherit }
 .lr-insert::before { top: -3px }
 .lr-insert::after { bottom: -3px }
-.lr-sorting, .lr-sorting * { cursor: grabbing !important; user-select: none !important; -webkit-user-select: none !important }
+.lr-chip.lr-movable { user-select: none; -webkit-user-select: none }
+.lr-drag-sheet { position: fixed; inset: 0; z-index: 2147483647; cursor: grabbing; touch-action: none; user-select: none; -webkit-user-select: none }
 .lr-roster-options { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; min-height: 30px }
 .lr-field { display: flex; flex-direction: column; gap: 6px }
 .lr-label { font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary, #555) }
@@ -3877,14 +3904,18 @@ button.lr-album-tile { display: block; width: 100%; padding: 0; border: none; fo
 .lr-gloss::after { content: ''; position: absolute; top: -40%; bottom: -40%; left: 0; width: 34%;
   background: linear-gradient(90deg, transparent, rgba(255,255,255,.06) 28%, rgba(255,255,255,.34) 50%, rgba(255,255,255,.06) 72%, transparent);
   transform: translateX(calc(var(--lr-px, -.6) * 294% - 100%)) skewX(-18deg); transition: transform .6s cubic-bezier(.2,.9,.25,1) }
-.lr-holo { position: absolute; inset: 0; z-index: 1; pointer-events: none; border-radius: inherit; mix-blend-mode: color-dodge; opacity: .16;
+.lr-holo { position: absolute; inset: 0; z-index: 1; pointer-events: none; border-radius: inherit; overflow: hidden; mix-blend-mode: color-dodge;
+  opacity: .16; transition: opacity .45s ease }
+.lr-holo::before { content: ''; position: absolute; left: 0; top: 0; width: 260%; height: 260%;
   background-image: linear-gradient(115deg, transparent 18%, rgba(255,95,158,.6) 30%, rgba(255,211,110,.6) 38%, rgba(124,242,193,.6) 46%,
     rgba(143,227,255,.6) 54%, rgba(180,140,255,.6) 62%, transparent 74%);
-  background-size: 260% 260%; background-position: calc(var(--lr-px, .5) * 100%) calc(var(--lr-py, .5) * 100%);
-  transition: opacity .45s ease; animation: lr-holo-drift 7s ease-in-out infinite alternate }
-[data-rarity=SSR] .lr-holo { opacity: .12; background-image: linear-gradient(115deg, transparent 26%, rgba(255,226,140,.75) 42%,
+  animation: lr-holo-drift 7s ease-in-out infinite alternate }
+[data-rarity=SSR] .lr-holo { opacity: .12 }
+[data-rarity=SSR] .lr-holo::before { background-image: linear-gradient(115deg, transparent 26%, rgba(255,226,140,.75) 42%,
   rgba(255,255,255,.55) 50%, rgba(255,190,80,.75) 58%, transparent 74%) }
-.lr-tilt[data-lr-tilting] .lr-holo { opacity: .46; animation: none }
+.lr-tilt[data-lr-tilting] .lr-holo { opacity: .46 }
+.lr-tilt[data-lr-tilting] .lr-holo::before { animation: none;
+  transform: translate(calc(var(--lr-px, .5) * -61.54%), calc(var(--lr-py, .5) * -61.54%)) }
 .lr-more { z-index: 6 }
 .lr-showcase.lr-tilt { --lr-tilt: 7 }
 .lr-showcase.lr-tilt[data-lr-tilting] { --lr-lift: -4px; --lr-zoom: 1.015;
@@ -3904,19 +3935,19 @@ button.lr-album-tile { display: block; width: 100%; padding: 0; border: none; fo
   opacity: 0; text-shadow: 0 0 8px #8fe3ff, 0 0 14px #ff8fd0; animation: lr-twinkle 3.4s var(--t) ease-in-out infinite }
 
 /* the dialog's entrances */
-.lr-overlay { animation: lr-fade .28s ease both }
-.lr-dialog { animation: lr-dialog-in .45s cubic-bezier(.2,.9,.25,1) both }
-.lr-dialog-body > * { animation: lr-fade-up .4s cubic-bezier(.2,.9,.25,1) both }
-.lr-grid > .lr-card { animation: lr-rise .55s calc(min(var(--n, 0), 24) * 24ms) cubic-bezier(.2,.9,.25,1) both }
-.lr-page-character .lr-character-art { animation: lr-from-side .5s cubic-bezier(.2,.9,.25,1) both }
-.lr-page-character .lr-character-info { animation: lr-fade-up .5s .08s cubic-bezier(.2,.9,.25,1) both }
+.lr-overlay { animation: lr-fade .2s ease both }
+.lr-dialog { animation: lr-dialog-in .3s cubic-bezier(.2,.9,.25,1) both }
+.lr-dialog-body > * { animation: lr-fade-up .25s cubic-bezier(.2,.9,.25,1) both }
+.lr-grid[data-entering] > .lr-card { animation: lr-rise .4s calc(min(var(--n, 0), 18) * 16ms) cubic-bezier(.2,.9,.25,1) both }
+.lr-page-character .lr-character-art { animation: lr-from-side .34s cubic-bezier(.2,.9,.25,1) both }
+.lr-page-character .lr-character-info { animation: lr-fade-up .34s .05s cubic-bezier(.2,.9,.25,1) both }
 .lr-avatar { transition: transform .3s cubic-bezier(.3,1.5,.5,1) }
 .lr-avatar:hover { transform: scale(1.12) }
 .lr-avatar:active { transform: scale(.95) }
 .lr-avatar .lr-face { animation: lr-pop-in .5s cubic-bezier(.3,1.6,.5,1) both }
 .lr-thumb, .lr-tile { transition: transform .3s cubic-bezier(.2,.9,.25,1), border-color .2s, box-shadow .3s }
 .lr-thumb:hover, .lr-tile:hover { transform: translateY(-3px); box-shadow: 0 8px 16px -6px rgba(0,0,0,.45) }
-.lr-chip, .lr-tab, .lr-button { transition: background-color .2s, border-color .2s, color .2s, transform .15s, box-shadow .2s, filter .2s }
+.lr-chip, .lr-tab, .lr-button { transition: background-color .12s, border-color .12s, color .12s, transform .1s, box-shadow .12s, filter .12s }
 .lr-button:active:not(:disabled), .lr-chip:active { transform: scale(.97) }
 .lr-summon-button { position: relative; overflow: hidden }
 .lr-summon-button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 18px -6px rgba(77,107,254,.55) }
@@ -4077,7 +4108,7 @@ button.lr-pull:hover .lr-pull-front::before { box-shadow: inset 0 0 0 2px var(--
 @keyframes lr-rise { from { opacity: 0; translate: 0 18px; scale: .96 } }
 @keyframes lr-from-side { from { opacity: 0; translate: -18px 0 } }
 @keyframes lr-pop-in { from { opacity: 0; scale: .6 } }
-@keyframes lr-holo-drift { from { background-position: 0% 20% } to { background-position: 100% 80% } }
+@keyframes lr-holo-drift { from { transform: translate(0, -12.31%) } to { transform: translate(-61.54%, -49.23%) } }
 @keyframes lr-shine { 0%, 60% { transform: translateX(-120%) skewX(-18deg) } 85%, 100% { transform: translateX(620%) skewX(-18deg) } }
 @keyframes lr-shine-button { 0%, 70% { transform: translateX(-150%) skewX(-20deg) } 100% { transform: translateX(420%) skewX(-20deg) } }
 @keyframes lr-twinkle { 0%, 100% { opacity: 0; scale: .4 } 50% { opacity: .95; scale: 1 } }
